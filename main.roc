@@ -11,30 +11,27 @@ import rvn.Rvn
 import "packages.rvn" as packages : List U8
 import "platforms.rvn" as platforms : List U8
 
-Configuration : { platform : Str, packages : List Str }
-
 main =
-    packageRepo = loadPackageRepo
-    platformRepo = loadPlatformRepo
-
     configBytes = File.readBytes! (Path.fromStr "config.rvn")
     configuration =
-        when loadConfiguration configBytes is
+        when Decode.fromBytes configBytes Rvn.pretty is
             Ok config -> config
-            Err _ -> { platform: "", packages: [] }
+            Err _ -> { platform: "", packages: [], appName: "" }
     pfStr =
         when Dict.get platformRepo configuration.platform is
             Ok pf -> "    $(pf.shortName): platform \"$(pf.url)\",\n"
             Err KeyNotFound -> crash "Invalid platform: $(configuration.platform)"
-    pkgsStr =
+    pkgsStr = 
         List.walk configuration.packages "" \str, package ->
             when Dict.get packageRepo package is
                 Ok pkg -> Str.concat str "    $(pkg.shortName): \"$(pkg.url)\",\n"
                 Err KeyNotFound -> ""
-    Stdout.line! "app [main] {\n$(pfStr)$(pkgsStr)}\n"
+    bytes = "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
+    File.writeBytes! (Path.fromStr "$(configuration.appName).roc") bytes 
+    Stdout.line! "Created $(configuration.appName).roc"
 
-loadPackageRepo : Dict Str { shortName : Str, version : Str, url : Str }
-loadPackageRepo =
+packageRepo : Dict Str { shortName : Str, version : Str, url : Str }
+packageRepo =
     res =
         Decode.fromBytes packages Rvn.pretty
         |> Result.map \packageList ->
@@ -45,8 +42,8 @@ loadPackageRepo =
         Ok dict -> dict
         Err _ -> Dict.empty {}
 
-loadPlatformRepo : Dict Str { shortName : Str, version : Str, url : Str }
-loadPlatformRepo =
+platformRepo : Dict Str { shortName : Str, version : Str, url : Str }
+platformRepo =
     res =
         Decode.fromBytes platforms Rvn.pretty
         |> Result.map \packageList ->
@@ -56,6 +53,3 @@ loadPlatformRepo =
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
-
-loadConfiguration : List U8 -> Result Configuration _
-loadConfiguration = \bytes -> Decode.fromBytes bytes Rvn.pretty
