@@ -8,8 +8,8 @@ import cli.File
 import cli.Path
 import cli.Task
 import rvn.Rvn
-import "packages.rvn" as packages : List U8
-import "platforms.rvn" as platforms : List U8
+import "pkg-data.rvn" as packages : List U8
+import "pf-data.rvn" as platforms : List U8
 
 main =
     configBytes = File.readBytes! (Path.fromStr "config.rvn")
@@ -21,13 +21,13 @@ main =
         when Dict.get platformRepo configuration.platform is
             Ok pf -> "    $(pf.shortName): platform \"$(pf.url)\",\n"
             Err KeyNotFound -> crash "Invalid platform: $(configuration.platform)"
-    pkgsStr = 
+    pkgsStr =
         List.walk configuration.packages "" \str, package ->
             when Dict.get packageRepo package is
                 Ok pkg -> Str.concat str "    $(pkg.shortName): \"$(pkg.url)\",\n"
                 Err KeyNotFound -> ""
     bytes = "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
-    File.writeBytes! (Path.fromStr "$(configuration.appName).roc") bytes 
+    File.writeBytes! (Path.fromStr "$(configuration.appName).roc") bytes
     Stdout.line! "Created $(configuration.appName).roc"
 
 packageRepo : Dict Str { shortName : Str, version : Str, url : Str }
