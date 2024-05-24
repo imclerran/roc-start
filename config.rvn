@@ -1,6 +1,5 @@
 {
     appName: "new-app",
     platform: "basic-cli",
-    # packages list may be empty
-    packages: ["rvn", "roc-openrouter"],
+    packages: [], # packages list may be empty
 }
