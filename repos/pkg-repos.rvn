@@ -1,0 +1,11 @@
+[
+    ("pg", "agu-z", "roc-pg"),
+    ("ascii", "hasnep", "roc-ascii"),
+    ("math", "hasnep", "roc-math"),
+    ("html", "hasnep", "roc-html"),
+    ("svg", "hasnep", "roc-svg"),
+    ("dt", "hasnep", "roc-datetimes"),
+    ("iso", "imclerran", "roc-isodate"),
+    ("ai", "imclerran", "roc-openrouter"),
+    ("rvn", "jwoudenberg", "rvn"),
+]

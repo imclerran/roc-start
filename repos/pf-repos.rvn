@@ -1,0 +1,6 @@
+[
+    ("pf", "roc-lang", "basic-cli"),
+    ("pf", "roc-lang", "basic-webserver"),
+    ("pf", "lukewilliamboswell", "basic-ssg"),
+    ("pf", "ostcar", "kingfisher"),
+]
