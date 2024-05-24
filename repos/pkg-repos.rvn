@@ -8,4 +8,5 @@
     ("iso", "imclerran", "roc-isodate"),
     ("ai", "imclerran", "roc-openrouter"),
     ("rvn", "jwoudenberg", "rvn"),
+    ("weaver", "smores56", "weaver"),
 ]
