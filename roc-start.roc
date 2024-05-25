@@ -7,11 +7,13 @@ import cli.Stdout
 import cli.File
 import cli.Path
 import cli.Task
+import cli.Cmd
 import rvn.Rvn
 import "pkg-data.rvn" as packages : List U8
 import "pf-data.rvn" as platforms : List U8
 
 main =
+    createConfigIfNone!
     configBytes = File.readBytes! (Path.fromStr "config.rvn")
     configuration =
         when Decode.fromBytes configBytes Rvn.pretty is
@@ -53,3 +55,24 @@ platformRepo =
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
+
+createConfigIfNone =
+    isFile = Path.isFile (Path.fromStr "config.rvn")
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+    if !isFile then
+        File.writeUtf8! (Path.fromStr "config.rvn") configTemplate
+        Cmd.exec "nano" ["config.rvn"]
+    else
+        Task.ok {}
+
+configTemplate =
+    """
+    {
+        appName: "new-app",
+        platform: "basic-cli",
+        packages: [], # packages list may be empty
+    }
+    """

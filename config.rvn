@@ -1,5 +1,0 @@
-{
-    appName: "new-app",
-    platform: "basic-cli",
-    packages: [], # packages list may be empty
-}
