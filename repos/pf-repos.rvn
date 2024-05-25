@@ -1,6 +1,9 @@
 [
     ("pf", "roc-lang", "basic-cli"),
     ("pf", "roc-lang", "basic-webserver"),
+    ("pf", "bhansconnect", "roc-fuzz"),
+    ("pf", "isaacvando", "roc-aws-lambda"),
+    ("pf", "lukewilliamboswell", "roc-wasm4"),
     ("pf", "lukewilliamboswell", "basic-ssg"),
     ("pf", "ostcar", "kingfisher"),
 ]
