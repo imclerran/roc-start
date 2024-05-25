@@ -27,14 +27,14 @@ loopRepositories : {repositoryList : List (Str, Str, Str), rvnDataStr: Str } -> 
 loopRepositories = \{ repositoryList, rvnDataStr } ->
     when List.get repositoryList 0 is
         Ok (shortName, user, repo) ->
-            response = latestReleaseCmd "$(user)/$(repo)" |> Cmd.output!
+            updatedList = List.dropFirst repositoryList 1
+            response = latestReleaseCmd "$(user)/$(repo)" |> Cmd.output |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: []}
             releaseData = responseToReleaseData response
             when releaseData is
                 Ok { tagName, browserDownloadUrl } ->
                     updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry repo shortName tagName browserDownloadUrl)
-                    updatedList = List.dropFirst repositoryList 1
                     Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
-                Err _ -> Task.ok (Step { repositoryList, rvnDataStr })
+                Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
         Err OutOfBounds -> Task.ok (Done (Str.concat rvnDataStr "]"))
 
 latestReleaseCmd = \ownerSlashRepo ->
