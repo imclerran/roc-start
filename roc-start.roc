@@ -57,16 +57,18 @@ platformRepo =
         Err _ -> Dict.empty {}
 
 createConfigIfNone =
-    isFile = Path.isFile (Path.fromStr "config.rvn")
-        |> Task.attempt! \res ->
-            when res is
-                Ok bool -> Task.ok bool
-                _ -> Task.ok Bool.false
-    if !isFile then
+    if !(checkForFile! "config.rvn") then
         File.writeUtf8! (Path.fromStr "config.rvn") configTemplate
         Cmd.exec "nano" ["config.rvn"]
     else
         Task.ok {}
+
+checkForFile = \filename ->
+    Path.isFile (Path.fromStr filename)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
 
 configTemplate =
     """
