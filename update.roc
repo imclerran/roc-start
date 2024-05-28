@@ -22,13 +22,15 @@ main =
     File.writeBytes! (Path.fromStr "pf-data.rvn") (pfRvnStr |> Str.toUtf8)
     Stdout.line! "Platform data updated."
 
+RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr: Str }
+RepositoryData : (Str, Str, Str)
 
-loopRepositories : {repositoryList : List (Str, Str, Str), rvnDataStr: Str } -> Task [Step {repositoryList : List (Str, Str, Str), rvnDataStr: Str }, Done Str] _
+loopRepositories : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
 loopRepositories = \{ repositoryList, rvnDataStr } ->
     when List.get repositoryList 0 is
         Ok (shortName, user, repo) ->
             updatedList = List.dropFirst repositoryList 1
-            response = latestReleaseCmd "$(user)/$(repo)" |> Cmd.output |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: []}
+            response = getLatestRelease! "$(user)/$(repo)"
             releaseData = responseToReleaseData response
             when releaseData is
                 Ok { tagName, browserDownloadUrl } ->
@@ -37,7 +39,7 @@ loopRepositories = \{ repositoryList, rvnDataStr } ->
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
         Err OutOfBounds -> Task.ok (Done (Str.concat rvnDataStr "]"))
 
-latestReleaseCmd = \ownerSlashRepo ->
+getLatestRelease = \ownerSlashRepo ->
     Cmd.new "gh"
     |> Cmd.arg "api"
     |> Cmd.arg "-H"
@@ -45,6 +47,8 @@ latestReleaseCmd = \ownerSlashRepo ->
     |> Cmd.arg "-H"
     |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
     |> Cmd.arg "/repos/$(ownerSlashRepo)/releases/latest"
+    |> Cmd.output
+    |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: []}
 
 responseToReleaseData = \response ->
     jsonResponse = Decode.fromBytes response.stdout (Json.utf8With { fieldNameMapping: SnakeCase })
