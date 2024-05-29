@@ -16,7 +16,6 @@ cliParser =
         appName: <- Param.maybeStr { name: "app-name", help: "Name your new roc app." },
         platform: <- Param.maybeStr { name: "platform", help: "The platform to use." },
         packages: <- Param.strList { name: "files", help: "Any packages to use." },
-        
     }
     |> Cli.finish {
         name: "roc-start",
@@ -36,7 +35,7 @@ updateSubcommand =
 
 configFileSubcommand =
     Cli.weave {
-        delete: <- Opt.flag { short: "d", help: "Delete config file when finished." },
+        delete: <- Opt.flag { short: "d", long: "delete", help: "Delete config file when finished." },
         file: <- Param.maybeStr { name: "file", help: "The .rvn file to use." },
     }
     |> Subcommand.finish {
