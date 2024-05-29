@@ -21,8 +21,8 @@ import "repos/pf-repos.rvn" as pfRepos : List U8
 
 main =
     when ArgParser.parseOrDisplayMessage Arg.list! is
-        Ok data ->
-            run data
+        Ok args ->
+            run args
 
         Err message ->
             Stdout.line! message
@@ -61,7 +61,7 @@ getAndCreateDataDir =
         Task.ok dataDir
 
 runUpdateIfNecessary = \dataDir ->
-    #dataDir = getAndCreateDataDir! # compiler bug prevents this from working
+    # dataDir = getAndCreateDataDir! # compiler bug prevents this from working
     pkgsExists <- checkForFile "$(dataDir)/pkg-data.rvn" |> Task.await
     pfsExists <- checkForFile "$(dataDir)/pf-data.rvn" |> Task.await
     if !pkgsExists || !pfsExists then
@@ -81,24 +81,24 @@ runUpdateIfNecessary = \dataDir ->
 
 updatePackageData =
     dataDir = getAndCreateDataDir!
-    pkgRvnStr = Task.loop! { repositoryList: getPackageList, rvnDataStr: "[\n" } reposToRvnStrLoop
+    pkgRvnStr = Task.loop! { repositoryList: getPackageRepoList, rvnDataStr: "[\n" } reposToRvnStrLoop
     File.writeBytes! "$(dataDir)/pkg-data.rvn" (pkgRvnStr |> Str.toUtf8)
     Stdout.line "Package data updated."
 
 updatePlatformData =
     dataDir = getAndCreateDataDir!
-    pfRvnStr = Task.loop! { repositoryList: getPlatformList, rvnDataStr: "[\n" } reposToRvnStrLoop
+    pfRvnStr = Task.loop! { repositoryList: getPlatformRepoList, rvnDataStr: "[\n" } reposToRvnStrLoop
     File.writeBytes! "$(dataDir)/pf-data.rvn" (pfRvnStr |> Str.toUtf8)
     Stdout.line "Platform data updated."
 
-getPackageList : List (Str, Str, Str)
-getPackageList =
+getPackageRepoList : List (Str, Str, Str)
+getPackageRepoList =
     when Decode.fromBytes pkgRepos Rvn.pretty is
         Ok repos -> repos
         Err _ -> []
 
-getPlatformList : List (Str, Str, Str)
-getPlatformList =
+getPlatformRepoList : List (Str, Str, Str)
+getPlatformRepoList =
     when Decode.fromBytes pfRepos Rvn.pretty is
         Ok repos -> repos
         Err _ -> []
@@ -179,7 +179,8 @@ getPlatformRepo = \platformBytes ->
 run = \argData ->
     when argData.subcommand is
         Ok (Update {}) ->
-            Stdout.write! "" # avoid compiler bug -- indefinite hang without this line
+            Stdout.write! ""
+            # avoid compiler bug -- indefinite hang without this line
             updatePackageData!
             updatePlatformData
 
@@ -187,6 +188,7 @@ run = \argData ->
             when file is
                 Ok filename ->
                     createFromConfig filename delete
+
                 Err NoValue ->
                     createFromConfig "config.rvn" delete
 
@@ -196,11 +198,7 @@ run = \argData ->
                     {} <- createRocFile appName platform argData.packages |> Task.await
                     Stdout.line "Created $(appName).roc"
 
-                (Ok _appName, Err NoValue) ->
-                    Stdout.line "Invalid arguments: no platform specified."
-
-                _ ->
-                    Stdout.line "Invalid arguments: No app name specified."
+                _ -> Stdout.line ArgParser.showBaseUsage
 
 createFromConfig = \filename, doDelete ->
     createConfigIfNone! filename
