@@ -14,35 +14,17 @@ import pf.Stdout
 import pf.Task exposing [Task]
 import json.Json
 import rvn.Rvn
-import weaver.Cli
-import weaver.Opt
-import weaver.Param
 import "repos/pkg-repos.rvn" as pkgRepos : List U8
 import "repos/pf-repos.rvn" as pfRepos : List U8
 
 main =
-    when Cli.parseOrDisplayMessage cliParser Arg.list! is
+    when ArgParser.parseOrDisplayMessage Arg.list! is
         Ok data ->
-            startOrUpdate data
+            run data
 
         Err message ->
             Stdout.line! message
             Task.err (Exit 1 "")
-
-cliParser =
-    Cli.weave {
-        update: <- Opt.flag { short: "u", help: "Update the platform and package repositories." },
-        appName: <- Param.maybeStr { name: "app-name", help: "Name your new roc app." },
-        platform: <- Param.maybeStr { name: "platform", help: "The platform to use." },
-        packages: <- Param.strList { name: "files", help: "Any packages to use." },
-    }
-    |> Cli.finish {
-        name: "roc-start",
-        version: "v0.0.0",
-        authors: ["Ian McLerran <imclerran@protonmail.com>"],
-        description: "A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.",
-    }
-    |> Cli.assertValid
 
 loadRepositories =
     runUpdateIfNecessary!
@@ -65,14 +47,14 @@ runUpdateIfNecessary =
     if !pkgsExists || !pfsExists then
         updatePackageData!
         updatePlatformData
-    # compiler bug prevents this from working:
-    # if !pfsExists && !pkgsExists then
-    #     updatePackageData!
-    #     updatePlatformData
-    # else if !pfsExists then
-    #     updatePlatformData
-    # else if !pkgsExists then
-    #     updatePackageData
+        # compiler bug prevents this from working:
+        # if !pfsExists && !pkgsExists then
+        #     updatePackageData!
+        #     updatePlatformData
+        # else if !pfsExists then
+        #     updatePlatformData
+        # else if !pkgsExists then
+        #     updatePackageData
     else
         Task.ok {}
 
@@ -91,14 +73,14 @@ getPackageList =
     when Decode.fromBytes pkgRepos Rvn.pretty is
         Ok repos -> repos
         Err _ -> []
-    
+
 getPlatformList : List (Str, Str, Str)
 getPlatformList =
     when Decode.fromBytes pfRepos Rvn.pretty is
         Ok repos -> repos
         Err _ -> []
 
-RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr: Str }
+RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr : Str }
 RepositoryData : (Str, Str, Str)
 
 reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
@@ -112,25 +94,27 @@ reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
                 Ok { tagName, browserDownloadUrl } ->
                     updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry repo shortName tagName browserDownloadUrl)
                     Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
+
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
+
         Err OutOfBounds -> Task.ok (Done (Str.concat rvnDataStr "]"))
 
 getLatestRelease = \ownerSlashRepo ->
     Cmd.new "gh"
-    |> Cmd.arg "api"
-    |> Cmd.arg "-H"
-    |> Cmd.arg "Accept: application/vnd.github+json"
-    |> Cmd.arg "-H"
-    |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
-    |> Cmd.arg "/repos/$(ownerSlashRepo)/releases/latest"
-    |> Cmd.output
-    |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: []}
+        |> Cmd.arg "api"
+        |> Cmd.arg "-H"
+        |> Cmd.arg "Accept: application/vnd.github+json"
+        |> Cmd.arg "-H"
+        |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
+        |> Cmd.arg "/repos/$(ownerSlashRepo)/releases/latest"
+        |> Cmd.output
+        |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: [] }
 
 responseToReleaseData = \response ->
     jsonResponse = Decode.fromBytes response.stdout (Json.utf8With { fieldNameMapping: SnakeCase })
     when jsonResponse is
         Ok { tagName, assets } ->
-            when assets |> List.keepIf isTarBr |>List.first  is
+            when assets |> List.keepIf isTarBr |> List.first is
                 Ok { browserDownloadUrl } -> Ok { tagName, browserDownloadUrl }
                 Err ListWasEmpty -> Err NoAssetsFound
 
@@ -169,19 +153,67 @@ getPlatformRepo = \platformBytes ->
         Ok dict -> dict
         Err _ -> Dict.empty {}
 
-startOrUpdate = \argData ->
-    if argData.update then
-        updatePackageData!
-        updatePlatformData!
-    else
-        when (argData.appName, argData.platform) is
-            (Ok appName, Ok platform) ->
-                repos = loadRepositories!
-                File.writeBytes! (Path.fromStr "$(appName).roc") (buildRocFile platform argData.packages repos)
-                Stdout.line! "Created $(appName).roc"
+run = \argData ->
+    when argData.subcommand is
+        Ok (Update {}) ->
+            Stdout.write! "" # avoid compiler bug -- indefinite hang without this line
+            updatePackageData!
+            updatePlatformData
 
-            (Ok _appName, Err NoValue) -> Stdout.line! "Invalid arguments: no platform specified."
-            _ -> Stdout.line! "Invalid arguments: No app name specified."
+        Ok (Config { file, delete }) ->
+            when file is
+                Ok filename ->
+                    createFromConfig filename delete
+                Err NoValue ->
+                    createFromConfig "config.rvn" delete
+
+        Err NoSubcommand ->
+            when (argData.appName, argData.platform) is
+                (Ok appName, Ok platform) ->
+                    {} <- createRocFile appName platform argData.packages |> Task.await
+                    Stdout.line "Created $(appName).roc"
+
+                (Ok _appName, Err NoValue) ->
+                    Stdout.line "Invalid arguments: no platform specified."
+
+                _ ->
+                    Stdout.line "Invalid arguments: No app name specified."
+
+createFromConfig = \filename, doDelete ->
+    createConfigIfNone! filename
+    configuration = readConfig! filename
+    createRocFile! configuration.appName configuration.platform configuration.packages
+    Stdout.line! "Created $(configuration.appName).roc"
+    if doDelete then
+        File.delete (Path.fromStr filename)
+    else
+        Task.ok {}
+
+createConfigIfNone = \filename ->
+    if !(checkForFile! filename) then
+        File.writeUtf8! (Path.fromStr filename) configTemplate
+        Cmd.exec "nano" [filename]
+    else
+        Task.ok {}
+
+configTemplate =
+    """
+    {
+        appName: "new-app",
+        platform: "basic-cli",
+        packages: [], # packages list may be empty
+    }
+    """
+
+readConfig = \filename ->
+    configBytes = File.readBytes! (Path.fromStr filename)
+    when Decode.fromBytes configBytes Rvn.pretty is
+        Ok config -> Task.ok config
+        Err _ -> Task.ok { platform: "", packages: [], appName: "" }
+
+createRocFile = \appName, platform, packageList ->
+    repos <- loadRepositories |> Task.await
+    File.writeBytes (Path.fromStr "$(appName).roc") (buildRocFile platform packageList repos)
 
 buildRocFile = \platform, packageList, repos ->
     pfStr =
