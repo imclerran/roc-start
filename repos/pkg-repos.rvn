@@ -13,7 +13,7 @@
     ("random", "lukewilliamboswell", "roc-random"),
     ("json", "lukewilliamboswell", "roc-json"),
     ("parser", "lukewilliamboswell", "roc-parser"),
-    ("ansii", "lukewilliamboswell", "roc-ansi"),
+    ("ansi", "lukewilliamboswell", "roc-ansi"),
     ("glue", "lukewilliamboswell", "roc-glue-code-gen"),
     ("weaver", "smores56", "weaver"),
     ("a2d", "mulias", "roc-array2d"),
