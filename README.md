@@ -32,7 +32,7 @@ Usage:
   roc-start <COMMAND>
 
 Commands:
-  config  Specify a .rvn file which describes the application and dependencies.
+  config  Use a configuration file to describes the application and dependencies.
   update  Update the platform and package repositories.
 
 Arguments:
@@ -48,7 +48,7 @@ Options:
 
 ## roc-start config --help
 ```
-Specify a .rvn file which describes the application and dependencies.
+Use a configuration file to describes the application and dependencies.
 
 Usage:
   roc-start config [options] <file>

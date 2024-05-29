@@ -38,6 +38,6 @@ configFileSubcommand =
     }
     |> Subcommand.finish {
         name: "config",
-        description: "Specify a .rvn file which describes the application and dependencies.",
+        description: "Use a configuration file to describes the application and dependencies.",
         mapper: Config,
     }
