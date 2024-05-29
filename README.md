@@ -1,5 +1,7 @@
 # `roc-start` CLI tool 🚀
 
+[![Roc-Lang][roc_badge]][roc_link]
+
 Roc-start is a CLI tool for generating application headers for a new roc application. 
 
 Starting a new roc app which requires multiple packages can be a bit cumbersome, due to the requirement for long urls which cannot be easily memorized. This typically requires opening previous projects which have some of the same dependencies, and copy/pasting from there, or visiting multiple github pages, finding the release page, and copying the url of the required asset.
@@ -57,3 +59,6 @@ Arguments:
 Options:
   -d             Delete config file when finished.
 ```
+
+[roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb
+[roc_link]: https://github.com/roc-lang/roc
