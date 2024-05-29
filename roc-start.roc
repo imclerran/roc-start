@@ -1,5 +1,5 @@
 app [main] {
-    pf: platform "https://github.com/roc-lang/basic-cli/releases/download/0.10.0/vNe6s9hWzoTZtFmNkvEICPErI9ptji_ySjicO6CkucY.tar.br",
+    pf: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
     weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
     rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.1.0/2d2PF4kq9UUum9YpQH7k9iFIJ4hffWXQVCi0GJJweiU.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.0/KbIfTNbxShRX1A1FgXei1SpO5Jn8sgP6HP6PXbi-xyA.tar.br",
@@ -8,6 +8,8 @@ app [main] {
 import ArgParser
 import pf.Arg
 import pf.Cmd
+import pf.Dir
+import pf.Env
 import pf.File
 import pf.Path
 import pf.Stdout
@@ -27,9 +29,10 @@ main =
             Task.err (Exit 1 "")
 
 loadRepositories =
-    runUpdateIfNecessary!
-    packageBytes = File.readBytes! (Path.fromStr "pkg-data.rvn")
-    platformBytes = File.readBytes! (Path.fromStr "pf-data.rvn")
+    dataDir = getAndCreateDataDir!
+    runUpdateIfNecessary! dataDir
+    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn"
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn"
     packages = getPackageRepo packageBytes
     platforms = getPlatformRepo platformBytes
     Task.ok { packages, platforms }
@@ -41,9 +44,26 @@ checkForFile = \filename ->
                 Ok bool -> Task.ok bool
                 _ -> Task.ok Bool.false
 
-runUpdateIfNecessary =
-    pkgsExists <- checkForFile "pkg-data.rvn" |> Task.await
-    pfsExists <- checkForFile "pf-data.rvn" |> Task.await
+checkForDir = \path ->
+    Path.isDir (Path.fromStr path)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+
+getAndCreateDataDir =
+    home = Env.var! "HOME"
+    dataDir = "$(home)/.roc-start"
+    if checkForDir! dataDir then
+        Task.ok dataDir
+    else
+        Dir.create! dataDir
+        Task.ok dataDir
+
+runUpdateIfNecessary = \dataDir ->
+    #dataDir = getAndCreateDataDir! # compiler bug prevents this from working
+    pkgsExists <- checkForFile "$(dataDir)/pkg-data.rvn" |> Task.await
+    pfsExists <- checkForFile "$(dataDir)/pf-data.rvn" |> Task.await
     if !pkgsExists || !pfsExists then
         updatePackageData!
         updatePlatformData
@@ -59,13 +79,15 @@ runUpdateIfNecessary =
         Task.ok {}
 
 updatePackageData =
+    dataDir = getAndCreateDataDir!
     pkgRvnStr = Task.loop! { repositoryList: getPackageList, rvnDataStr: "[\n" } reposToRvnStrLoop
-    File.writeBytes! (Path.fromStr "pkg-data.rvn") (pkgRvnStr |> Str.toUtf8)
+    File.writeBytes! "$(dataDir)/pkg-data.rvn" (pkgRvnStr |> Str.toUtf8)
     Stdout.line "Package data updated."
 
 updatePlatformData =
+    dataDir = getAndCreateDataDir!
     pfRvnStr = Task.loop! { repositoryList: getPlatformList, rvnDataStr: "[\n" } reposToRvnStrLoop
-    File.writeBytes! (Path.fromStr "pf-data.rvn") (pfRvnStr |> Str.toUtf8)
+    File.writeBytes! "$(dataDir)/pf-data.rvn" (pfRvnStr |> Str.toUtf8)
     Stdout.line "Platform data updated."
 
 getPackageList : List (Str, Str, Str)
@@ -185,13 +207,13 @@ createFromConfig = \filename, doDelete ->
     createRocFile! configuration.appName configuration.platform configuration.packages
     Stdout.line! "Created $(configuration.appName).roc"
     if doDelete then
-        File.delete (Path.fromStr filename)
+        File.delete filename
     else
         Task.ok {}
 
 createConfigIfNone = \filename ->
     if !(checkForFile! filename) then
-        File.writeUtf8! (Path.fromStr filename) configTemplate
+        File.writeUtf8! filename configTemplate
         Cmd.exec "nano" [filename]
     else
         Task.ok {}
@@ -206,14 +228,14 @@ configTemplate =
     """
 
 readConfig = \filename ->
-    configBytes = File.readBytes! (Path.fromStr filename)
+    configBytes = File.readBytes! filename
     when Decode.fromBytes configBytes Rvn.pretty is
         Ok config -> Task.ok config
         Err _ -> Task.ok { platform: "", packages: [], appName: "" }
 
 createRocFile = \appName, platform, packageList ->
     repos <- loadRepositories |> Task.await
-    File.writeBytes (Path.fromStr "$(appName).roc") (buildRocFile platform packageList repos)
+    File.writeBytes "$(appName).roc" (buildRocFile platform packageList repos)
 
 buildRocFile = \platform, packageList, repos ->
     pfStr =
