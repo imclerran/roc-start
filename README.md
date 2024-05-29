@@ -22,6 +22,8 @@ Roc start maintains a repository of package and platform git repos. From this li
 
 The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by running `roc-start update`.
 
+__Important:__ note that roc-start currently depends on the github cli tool to get the latest releases. 
+
 
 ## roc-start --help
 ```
