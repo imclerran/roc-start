@@ -65,6 +65,7 @@ runUpdateIfNecessary = \dataDir ->
     pkgsExists <- checkForFile "$(dataDir)/pkg-data.rvn" |> Task.await
     pfsExists <- checkForFile "$(dataDir)/pf-data.rvn" |> Task.await
     if !pkgsExists || !pfsExists then
+        Stdout.line! "Updating package data..."
         updatePackageData!
         updatePlatformData
         # compiler bug prevents this from working:
