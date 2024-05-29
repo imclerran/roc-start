@@ -198,7 +198,7 @@ run = \argData ->
                     {} <- createRocFile appName platform argData.packages |> Task.await
                     Stdout.line "Created $(appName).roc"
 
-                _ -> Stdout.line ArgParser.showBaseUsage
+                _ -> Stdout.line ArgParser.baseUsage
 
 createFromConfig = \filename, doDelete ->
     createConfigIfNone! filename
