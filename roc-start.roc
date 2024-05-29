@@ -22,11 +22,37 @@ import "repos/pf-repos.rvn" as pfRepos : List U8
 main =
     when ArgParser.parseOrDisplayMessage Arg.list! is
         Ok args ->
-            run args
+            runWith args
 
         Err message ->
             Stdout.line! message
             Task.err (Exit 1 "")
+
+runWith = \args ->
+    when args.subcommand is
+        Ok (Update {}) ->
+            Stdout.write! ""
+            # ^ avoid compiler bug -- indefinite hang without this line
+            updatePackageData!
+            updatePlatformData
+
+        Ok (Config { file, delete }) ->
+            when file is
+                Ok filename ->
+                    createFromConfig filename delete
+
+                Err NoValue ->
+                    createFromConfig "config.rvn" delete
+
+        Err NoSubcommand ->
+            when (args.appName, args.platform) is
+                (Ok appName, Ok platform) ->
+                    {} <- createRocFile appName platform args.packages |> Task.await
+                    Stdout.line "Created $(appName).roc"
+
+                _ ->
+                    {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
+                    Stdout.line ArgParser.baseUsage
 
 loadRepositories =
     dataDir = getAndCreateDataDir!
@@ -176,31 +202,9 @@ getPlatformRepo = \platformBytes ->
         Ok dict -> dict
         Err _ -> Dict.empty {}
 
-run = \argData ->
-    when argData.subcommand is
-        Ok (Update {}) ->
-            Stdout.write! ""
-            # avoid compiler bug -- indefinite hang without this line
-            updatePackageData!
-            updatePlatformData
-
-        Ok (Config { file, delete }) ->
-            when file is
-                Ok filename ->
-                    createFromConfig filename delete
-
-                Err NoValue ->
-                    createFromConfig "config.rvn" delete
-
-        Err NoSubcommand ->
-            when (argData.appName, argData.platform) is
-                (Ok appName, Ok platform) ->
-                    {} <- createRocFile appName platform argData.packages |> Task.await
-                    Stdout.line "Created $(appName).roc"
-
-                _ ->
-                    {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
-                    Stdout.line ArgParser.baseUsage
+# ==================================
+# ==== CONFIG RELATED FUNCTIONS ====
+# ==================================
 
 createFromConfig = \filename, doDelete ->
     createConfigIfNone! filename
@@ -233,6 +237,10 @@ readConfig = \filename ->
     when Decode.fromBytes configBytes Rvn.pretty is
         Ok config -> Task.ok config
         Err _ -> Task.ok { platform: "", packages: [], appName: "" }
+
+# ===================================
+# ==== CODE GENERATION FUNCTIONS ====
+# ===================================
 
 createRocFile = \appName, platform, packageList ->
     repos <- loadRepositories |> Task.await
