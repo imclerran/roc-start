@@ -54,6 +54,18 @@ runWith = \args ->
                     {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
                     Stdout.line ArgParser.baseUsage
 
+#======================================
+#==== REPOSITORY RELATED TYPES ========
+#======================================
+
+RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr : Str }
+RepositoryData : (Str, Str, Str)
+RepositoryEntry : { shortName : Str, version : Str, url : Str }
+
+#======================================
+#==== REPOSITORY RELATED FUNCTIONS ====
+#======================================
+
 loadRepositories =
     dataDir = getAndCreateDataDir!
     runUpdateIfNecessary! dataDir
@@ -62,29 +74,6 @@ loadRepositories =
     packages = getPackageRepo packageBytes
     platforms = getPlatformRepo platformBytes
     Task.ok { packages, platforms }
-
-checkForFile = \filename ->
-    Path.isFile (Path.fromStr filename)
-        |> Task.attempt! \res ->
-            when res is
-                Ok bool -> Task.ok bool
-                _ -> Task.ok Bool.false
-
-checkForDir = \path ->
-    Path.isDir (Path.fromStr path)
-        |> Task.attempt! \res ->
-            when res is
-                Ok bool -> Task.ok bool
-                _ -> Task.ok Bool.false
-
-getAndCreateDataDir =
-    home = Env.var! "HOME"
-    dataDir = "$(home)/.roc-start"
-    if checkForDir! dataDir then
-        Task.ok dataDir
-    else
-        Dir.create! dataDir
-        Task.ok dataDir
 
 runUpdateIfNecessary = \dataDir ->
     # dataDir = getAndCreateDataDir! # compiler bug prevents this from working
@@ -110,7 +99,7 @@ updatePackageData =
     pkgRvnStr = Task.loop! { repositoryList: getPackageRepoList, rvnDataStr: "[\n" } reposToRvnStrLoop
     File.writeBytes! "$(dataDir)/pkg-data.rvn" (pkgRvnStr |> Str.toUtf8)
     Stdout.line "Package data updated."
-
+    
 updatePlatformData =
     dataDir = getAndCreateDataDir!
     pfRvnStr = Task.loop! { repositoryList: getPlatformRepoList, rvnDataStr: "[\n" } reposToRvnStrLoop
@@ -128,9 +117,6 @@ getPlatformRepoList =
     when Decode.fromBytes pfRepos Rvn.pretty is
         Ok repos -> repos
         Err _ -> []
-
-RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr : Str }
-RepositoryData : (Str, Str, Str)
 
 reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
 reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
@@ -160,6 +146,7 @@ getLatestRelease = \ownerSlashRepo ->
         |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: [] }
 
 responseToReleaseData = \response ->
+    isTarBr = \{ browserDownloadUrl } -> Str.endsWith browserDownloadUrl ".tar.br"
     jsonResponse = Decode.fromBytes response.stdout (Json.utf8With { fieldNameMapping: SnakeCase })
     when jsonResponse is
         Ok { tagName, assets } ->
@@ -169,14 +156,10 @@ responseToReleaseData = \response ->
 
         Err _ -> Err ParsingError
 
-isTarBr = \{ browserDownloadUrl } -> Str.endsWith browserDownloadUrl ".tar.br"
-
 repoDataToRvnEntry = \repo, shortName, tagName, browserDownloadUrl ->
     """
         ("$(repo)", "$(shortName)", "$(tagName)", "$(browserDownloadUrl)"),\n
     """
-
-RepositoryEntry : { shortName : Str, version : Str, url : Str }
 
 getPackageRepo : List U8 -> Dict Str RepositoryEntry
 getPackageRepo = \packageBytes ->
@@ -201,6 +184,33 @@ getPlatformRepo = \platformBytes ->
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
+
+#======================================
+#==== FILESYSTEM RELATED FUNCTIONS ====
+#======================================
+
+checkForFile = \filename ->
+    Path.isFile (Path.fromStr filename)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+
+checkForDir = \path ->
+    Path.isDir (Path.fromStr path)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+
+getAndCreateDataDir =
+    home = Env.var! "HOME"
+    dataDir = "$(home)/.roc-start"
+    if checkForDir! dataDir then
+        Task.ok dataDir
+    else
+        Dir.create! dataDir
+        Task.ok dataDir
 
 # ==================================
 # ==== CONFIG RELATED FUNCTIONS ====
