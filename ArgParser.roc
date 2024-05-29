@@ -1,11 +1,14 @@
-module [cliParser, parseOrDisplayMessage]
+module [parseOrDisplayMessage, showBaseUsage]
 
 import weaver.Cli
+import weaver.Help
 import weaver.Opt
 import weaver.Param
 import weaver.Subcommand
 
-parseOrDisplayMessage =\args -> Cli.parseOrDisplayMessage cliParser args
+parseOrDisplayMessage = \args -> Cli.parseOrDisplayMessage cliParser args
+
+showBaseUsage = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
 
 cliParser =
     Cli.weave {
