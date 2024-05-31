@@ -1,0 +1,2 @@
+#!/bin/zsh
+roc build --output tui --optimize
