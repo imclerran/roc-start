@@ -9,30 +9,45 @@ exitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width
 controlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 outerBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
+navStr =\ model ->
+    if Model.isNotFirstPage model && Model.isNotLastPage model then
+        " | < PREV | > NEXT "
+    else if Model.isNotFirstPage model then
+        " | < PREV "
+    else if Model.isNotLastPage model then
+        " | > NEXT "
+    else ""
+
 platformSelect : Model -> List Core.DrawFn
 platformSelect = \model ->
     List.join [
         [
-            Core.drawCursor { fg: Standard Magenta, char: ">" },
             exitPrompt model.screen,
+            controlsPrompt " ENTER TO SELECT | S TO SEARCH $(navStr model)" model.screen,
+        ],
+        outerBorder model.screen,
+        [
             screenPrompt "SELECT A PLATFORM:",
-            controlsPrompt " ENTER TO SELECT | S TO SEARCH " model.screen,
+            Core.drawCursor { fg: Standard Magenta, char: ">" },
         ],
         drawMenu model,
-        outerBorder model.screen,
+
     ]
 
 packageSelect : Model -> List Core.DrawFn
 packageSelect = \model ->
     List.join [
         [
-            Core.drawCursor { fg: Standard Magenta, char: ">"},
             exitPrompt model.screen,
+            controlsPrompt " SPACE TO SELECT | ENTER TO CONFIRM | BKSPACE TO GO BACK $(navStr model)" model.screen,
+        ],
+        outerBorder model.screen,
+        [
             screenPrompt "SELECT 0+ PACKAGES:",
-            controlsPrompt " SPACE TO SELECT | ENTER TO CONFIRM " model.screen,
+            Core.drawCursor { fg: Standard Magenta, char: ">"},
         ],
         drawMultipleChoiceMenu model,
-        outerBorder model.screen,
+
     ]
 
 searchPage : Model -> List Core.DrawFn
@@ -42,13 +57,15 @@ searchPage = \model ->
             searchPrompt = if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
             List.join [
                 [
-                    Core.drawCursor { fg: Standard Magenta, char: ">" },
                     exitPrompt model.screen,
-                    screenPrompt searchPrompt,
                     controlsPrompt " ENTER TO SEARCH " model.screen,
-                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
                 ],
                 outerBorder model.screen,
+                [
+                    screenPrompt searchPrompt,
+                    Core.drawCursor { fg: Standard Magenta, char: ">" },
+                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                ],
             ]
 
         _ -> []
@@ -74,7 +91,8 @@ drawMenu = \model ->
         Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
 drawMultipleChoiceMenu = \model ->
-    checkedItems = List.mapWithIndex model.menu \item, idx -> if List.contains model.selected idx then "[X] $(item)" else "[ ] $(item)"
+    isSelected = \menuIdx -> List.contains model.selected (Model.menuIdxToFullIdx menuIdx model)
+    checkedItems = List.mapWithIndex model.menu \item, idx -> if isSelected idx then "[X] $(item)" else "[ ] $(item)"
     item, idx <- List.mapWithIndex checkedItems
     row = Num.toI32 idx + model.menuRow
     if model.cursor.row == row then

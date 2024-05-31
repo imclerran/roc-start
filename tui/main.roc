@@ -13,16 +13,7 @@ import cli.Tty
 import cli.Task
 import ansi.Core
 
-init : List Str -> Model
-init = \menuItems -> {
-    screen: { width: 0, height: 0 },
-    cursor: { row: 2, col: 2 },
-    menuRow: 2,
-    menu: menuItems,
-    selected: [],
-    inputs: List.withCapacity 1000,
-    state: PlatformSelect { config: Const.emptyConfig },
-}
+
 
 render : Model -> List Core.DrawFn
 render = \model ->
@@ -45,7 +36,8 @@ getTerminalSize =
 runUiLoop : Model -> Task.Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
-    model = { prevModel & screen: terminalSize }
+    #modeWithSize = { prevModel & screen: terminalSize }
+    model = Model.paginate { prevModel & screen: terminalSize }
     Core.drawScreen model (render model)
         |> Stdout.write!
 
@@ -72,8 +64,14 @@ handlePlatformSelectInput = \model, input ->
         KeyPress LowerS -> Task.ok (Step (Model.toSearchPageState model))
         KeyPress UpperS -> Task.ok (Step (Model.toSearchPageState model))
         KeyPress Enter -> Task.ok (Step (Model.toPackageSelectState model))
-        KeyPress Up -> Task.ok (Step (moveCursor model Up))
-        KeyPress Down -> Task.ok (Step (moveCursor model Down))
+        KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
+        KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
+        KeyPress Right -> Task.ok (Step (Model.nextPage model))
+        KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
+        KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
+        KeyPress Left -> Task.ok (Step (Model.prevPage model))
+        KeyPress LessThanSign -> Task.ok (Step (Model.prevPage model))
+        KeyPress Comma -> Task.ok (Step (Model.prevPage model))
         _ -> Task.ok (Step model)
 
 handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
@@ -82,8 +80,15 @@ handlePackageSelectInput = \model, input ->
         CtrlC -> Task.ok (Done { model & state: UserExited })
         KeyPress Enter -> Task.ok (Done (Model.toUserSelectedState model))
         KeyPress Space -> Task.ok (Step (toggleSelected model))
-        KeyPress Up -> Task.ok (Step (moveCursor model Up))
-        KeyPress Down -> Task.ok (Step (moveCursor model Down))
+        KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
+        KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
+        KeyPress Delete -> Task.ok (Step (Model.toPlatformSelectState model))
+        KeyPress Right -> Task.ok (Step (Model.nextPage model))
+        KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
+        KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
+        KeyPress Left -> Task.ok (Step (Model.prevPage model))
+        KeyPress LessThanSign -> Task.ok (Step (Model.prevPage model))
+        KeyPress Comma -> Task.ok (Step (Model.prevPage model))
         _ -> Task.ok (Step model)
 
 handleSearchPageInput : Model, Core.Input, [Platform, Package] -> Task.Task [Step Model, Done Model] _
@@ -119,30 +124,30 @@ backspaceSearchBuffer = \model ->
 
 toggleSelected : Model -> Model
 toggleSelected = \model ->
-    idx = Model.getHighlightedIndex model
+    idx = Model.getHighlightedIndex model |> Model.menuIdxToFullIdx model
     if List.contains model.selected idx then
         { model & selected: List.keepIf model.selected \i -> i != idx }
     else
         { model & selected: List.append model.selected idx }
 
-moveCursor : Model, [Up, Down] -> Model
-moveCursor = \model, direction ->
-    when direction is
-        Up ->
-            if model.cursor.row <= Num.toI32 (model.menuRow) then
-                { model & cursor: { row: Num.toI32 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
-            else
-                { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
+#Model.moveCursor : Model, [Up, Down] -> Model
+#Model.moveCursor = \model, direction ->
+#    when direction is
+#        Up ->
+#            if model.cursor.row <= Num.toI32 (model.menuRow) then
+#                { model & cursor: { row: Num.toI32 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
+#            else
+#                { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
 
-        Down ->
-            if model.cursor.row >= Num.toI32 (List.len model.menu - 1) + Num.toI32 (model.menuRow) then
-                { model & cursor: { row: Num.toI32 (model.menuRow), col: model.cursor.col } }
-            else
-                { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
+#        Down ->
+#            if model.cursor.row >= Num.toI32 (List.len model.menu - 1) + Num.toI32 (model.menuRow) then
+#                { model & cursor: { row: Num.toI32 (model.menuRow), col: model.cursor.col } }
+#            else
+#                { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
 
 main =
     Tty.enableRawMode!
-    model = Task.loop! (init Const.platformList) runUiLoop
+    model = Task.loop! (Model.init Const.platformList) runUiLoop
     Stdout.write! (Core.toStr Reset)
     Tty.disableRawMode!
     when model.state is
