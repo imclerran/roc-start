@@ -1,68 +1,105 @@
-module [platformSelect, packageSelect, searchPage, renderBox]
+module [renderPlatformSelect, renderPackageSelect, renderSearchPage, renderBox]
 
 import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
 import ansi.Core
 
-screenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard White }
-exitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width - 18, fg: Standard Red }
-controlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
-outerBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
+renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard White }
+renderExitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width - 18, fg: Standard Red }
+renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
+renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
-navStr =\ model ->
-    if Model.isNotFirstPage model && Model.isNotLastPage model then
-        " | < PREV | > NEXT "
-    else if Model.isNotFirstPage model then
-        " | < PREV "
-    else if Model.isNotLastPage model then
-        " | > NEXT "
-    else ""
+UiActions : [SingleSelect, MuitiSelect, MultiConfirm, GoBack, Search, SearchGo, PrevPage, NextPage, Cancel]
 
-platformSelect : Model -> List Core.DrawFn
-platformSelect = \model ->
+getActions : Model -> List UiActions
+getActions = \model ->
+    when model.state is
+        PlatformSelect _ ->
+            [SingleSelect, Search]
+            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
+            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+        PackageSelect _ ->
+            [MuitiSelect, MultiConfirm, GoBack]
+            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
+            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+        SearchPage _ -> [SearchGo, Cancel]
+        _ -> []
+
+controlPromptsDict = Dict.empty {}
+    |> Dict.insert SingleSelect "ENTER TO SELECT"
+    |> Dict.insert MuitiSelect "SPACE TO SELECT"
+    |> Dict.insert MultiConfirm "ENTER TO CONFIRM"
+    |> Dict.insert GoBack "BKSP TO GO BACK"
+    |> Dict.insert Search "S TO SEARCH"
+    |> Dict.insert SearchGo "ENTER TO SEARCH"
+    |> Dict.insert Cancel "ESC TO CANCEL"
+    |> Dict.insert PrevPage "< PREV"
+    |> Dict.insert NextPage "> NEXT"
+
+
+controlPromptsShortDict = Dict.empty {}
+    |> Dict.insert SingleSelect "ENTER"
+    |> Dict.insert MuitiSelect "SPACE"
+    |> Dict.insert MultiConfirm "ENTER"
+    |> Dict.insert GoBack "BKSP"
+    |> Dict.insert Search "S"
+    |> Dict.insert SearchGo "ENTER"
+    |> Dict.insert Cancel "ESC"
+    |> Dict.insert PrevPage "<"
+    |> Dict.insert NextPage ">"
+
+controlsPromptStr = \model ->
+    actions = getActions model
+    promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 20 then controlPromptsShortDict else controlPromptsDict
+    actionStrs = getActions model
+        |> List.map \action ->
+            Dict.get promptsDict action |> Result.withDefault ""
+    " $(Str.joinWith actionStrs " | ") "
+
+renderPlatformSelect : Model -> List Core.DrawFn
+renderPlatformSelect = \model ->
     List.join [
         [
-            exitPrompt model.screen,
-            controlsPrompt " ENTER TO SELECT | S TO SEARCH $(navStr model)" model.screen,
+            renderExitPrompt model.screen,
+            renderControlsPrompt (controlsPromptStr model) model.screen,
         ],
-        outerBorder model.screen,
+        renderOuterBorder model.screen,
         [
-            screenPrompt "SELECT A PLATFORM:",
+            renderScreenPrompt "SELECT A PLATFORM:",
             Core.drawCursor { fg: Standard Magenta, char: ">" },
         ],
-        drawMenu model,
-
+        renderMenu model,
     ]
 
-packageSelect : Model -> List Core.DrawFn
-packageSelect = \model ->
+renderPackageSelect : Model -> List Core.DrawFn
+renderPackageSelect = \model ->
     List.join [
         [
-            exitPrompt model.screen,
-            controlsPrompt " SPACE TO SELECT | ENTER TO CONFIRM | BKSPACE TO GO BACK $(navStr model)" model.screen,
+            renderExitPrompt model.screen,
+            renderControlsPrompt (controlsPromptStr model) model.screen,
         ],
-        outerBorder model.screen,
+        renderOuterBorder model.screen,
         [
-            screenPrompt "SELECT 0+ PACKAGES:",
+            renderScreenPrompt "SELECT 0+ PACKAGES:",
             Core.drawCursor { fg: Standard Magenta, char: ">"},
         ],
-        drawMultipleChoiceMenu model,
+        renderMultipleChoiceMenu model,
 
     ]
 
-searchPage : Model -> List Core.DrawFn
-searchPage = \model ->
+renderSearchPage : Model -> List Core.DrawFn
+renderSearchPage = \model ->
     when model.state is
         SearchPage { sender, searchBuffer } ->
             searchPrompt = if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
             List.join [
                 [
-                    exitPrompt model.screen,
-                    controlsPrompt " ENTER TO SEARCH " model.screen,
+                    renderExitPrompt model.screen,
+                    renderControlsPrompt (controlsPromptStr model) model.screen,
                 ],
-                outerBorder model.screen,
+                renderOuterBorder model.screen,
                 [
-                    screenPrompt searchPrompt,
+                    renderScreenPrompt searchPrompt,
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
                     Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
                 ],
@@ -82,7 +119,7 @@ renderBox = \col, row, width, height, style, color -> [
     Core.drawHLine { r: row + height - 1, c: col + width - 1, len: 1, char: border BotRight style, fg: color },
 ]
 
-drawMenu = \model ->
+renderMenu = \model ->
     item, idx <- List.mapWithIndex model.menu
     row = Num.toI32 idx + model.menuRow
     if model.cursor.row == row then
@@ -90,7 +127,7 @@ drawMenu = \model ->
     else
         Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
-drawMultipleChoiceMenu = \model ->
+renderMultipleChoiceMenu = \model ->
     isSelected = \menuIdx -> List.contains model.selected (Model.menuIdxToFullIdx menuIdx model)
     checkedItems = List.mapWithIndex model.menu \item, idx -> if isSelected idx then "[X] $(item)" else "[ ] $(item)"
     item, idx <- List.mapWithIndex checkedItems

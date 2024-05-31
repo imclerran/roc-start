@@ -41,6 +41,8 @@ init = \menuItems -> {
     state: PlatformSelect { config: Const.emptyConfig },
 }
 
+
+
 paginate: Model -> Model
 paginate = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64

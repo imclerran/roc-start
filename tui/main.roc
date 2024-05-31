@@ -18,10 +18,10 @@ import ansi.Core
 render : Model -> List Core.DrawFn
 render = \model ->
     when model.state is
-        PlatformSelect _ -> UI.platformSelect model
-        PackageSelect _ -> UI.packageSelect model
-        SearchPage _ -> UI.searchPage model
-        _ -> UI.platformSelect model
+        PlatformSelect _ -> UI.renderPlatformSelect model
+        PackageSelect _ -> UI.renderPackageSelect model
+        SearchPage _ -> UI.renderSearchPage model
+        _ -> UI.renderPlatformSelect model
 
 getTerminalSize : Task.Task Core.ScreenSize _
 getTerminalSize =
@@ -99,7 +99,7 @@ handleSearchPageInput = \model, input, sender ->
             when sender is
                 Platform -> Task.ok (Step (Model.toPlatformSelectState model))
                 Package -> Task.ok (Step (Model.toPackageSelectState model))
-
+        KeyPress Escape -> Task.ok (Step (model |> clearSearchBuffer |> Model.toPlatformSelectState))
         KeyPress Delete -> Task.ok (Step (backspaceSearchBuffer model))
         KeyPress c -> Task.ok (Step (appendToSearchBuffer model c))
         _ -> Task.ok (Step model)
@@ -119,6 +119,14 @@ backspaceSearchBuffer = \model ->
         SearchPage { searchBuffer, config, sender } ->
             newBuffer = List.dropLast searchBuffer 1
             { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+
+        _ -> model
+
+clearSearchBuffer : Model -> Model
+clearSearchBuffer = \model ->
+    when model.state is
+        SearchPage { config, sender } ->
+            { model & state: SearchPage { config, sender, searchBuffer: [] } }
 
         _ -> model
 
