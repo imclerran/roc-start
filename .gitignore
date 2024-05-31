@@ -3,5 +3,6 @@
 !repos/
 !tui/
 !tui/mkr
+!tui/mk
 pf-data.rvn
 pkg-data.rvn
