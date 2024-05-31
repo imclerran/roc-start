@@ -1,8 +1,13 @@
-module [platformSelect, packageSelect, searchPage]
+module [platformSelect, packageSelect, searchPage, renderBox]
 
 import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
 import ansi.Core
+
+screenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard White }
+exitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width - 18, fg: Standard Red }
+controlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
+outerBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
 platformSelect : Model -> List Core.DrawFn
 platformSelect = \model ->
@@ -21,7 +26,7 @@ packageSelect : Model -> List Core.DrawFn
 packageSelect = \model ->
     List.join [
         [
-            Core.drawCursor { fg: Standard Magenta, char: ">" },
+            Core.drawCursor { fg: Standard Magenta, char: ">"},
             exitPrompt model.screen,
             screenPrompt "SELECT 0+ PACKAGES:",
             controlsPrompt " SPACE TO SELECT | ENTER TO CONFIRM " model.screen,
@@ -48,13 +53,8 @@ searchPage = \model ->
 
         _ -> []
 
-screenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard White }
-exitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width - 18, fg: Standard Red }
-controlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
-outerBorder = \screen -> drawBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
-
-drawBox : I32, I32, I32, I32, BoxStyle, Core.Color -> List Core.DrawFn
-drawBox = \col, row, width, height, style, color -> [
+renderBox : I32, I32, I32, I32, BoxStyle, Core.Color -> List Core.DrawFn
+renderBox = \col, row, width, height, style, color -> [
     Core.drawHLine { r: row, c: col, len: 1, char: border TopLeft style, fg: color },
     Core.drawHLine { r: row, c: col + 1, len: width - 2, char: border Top style, fg: color },
     Core.drawHLine { r: row, c: col + width - 1, len: 1, char: border TopRight style, fg: color },
