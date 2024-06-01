@@ -11,20 +11,22 @@ module [
     getHighlightedItem, 
     menuIdxToFullIdx, 
     fullIdxToMenuIdx, 
-    appendToSearchBuffer,
-    backspaceSearchBuffer,
+    appendToBuffer,
+    backspaceBuffer,
     clearSearchBuffer,
     toggleSelected,
+    toInputAppNameState,
     toPackageSelectState, 
     toPlatformSelectState, 
     toFinishedState, 
     toSearchPageState, 
     toConfirmationState,
+    clearSearchFilter,
 ]
 
 import ansi.Core
-import Const
 import Keys exposing [Key]
+import Repos exposing [RepositoryEntry]
 
 Model : {
     screen : Core.ScreenSize,
@@ -35,8 +37,10 @@ Model : {
     fullMenu : List Str,
     selected : List Str,
     inputs : List Core.Input,
+    packageRepoDict : Dict Str RepositoryEntry,
+    platformRepoDict : Dict Str RepositoryEntry,
     state : [
-        InputAppName { nameBuffer : Str },
+        InputAppName { nameBuffer : List U8, config : Configuration },
         PlatformSelect { config : Configuration },
         PackageSelect { config : Configuration },
         Confirmation { config : Configuration },
@@ -52,17 +56,21 @@ Configuration : {
     packages : List Str,
 }
 
-init : List Str -> Model
-init = \menuItems -> {
+emptyConfig = { appName: "", platform: "", packages: [] }
+
+init : Dict Str RepositoryEntry, Dict Str RepositoryEntry -> Model
+init = \platformRepoDict, packageRepoDict -> {
     screen: { width: 0, height: 0 },
     cursor: { row: 2, col: 2 },
     menuRow: 2,
     pageFirstItem: 0,
-    menu: menuItems,
-    fullMenu: menuItems,
+    menu: Dict.keys platformRepoDict,
+    fullMenu: Dict.keys platformRepoDict,
+    platformRepoDict,
+    packageRepoDict,
     selected: [],
     inputs: List.withCapacity 1000,
-    state: PlatformSelect { config: Const.emptyConfig },
+    state: InputAppName { nameBuffer: [], config: emptyConfig }
 }
 
 paginate: Model -> Model
@@ -132,32 +140,47 @@ moveCursor = \model, direction ->
     else
         model
 
+toInputAppNameState : Model -> Model
+toInputAppNameState = \model ->
+    when model.state is
+        PlatformSelect { config } ->
+            { model &
+                cursor: { row: 2, col: 2 },
+                state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
+            }
+        _ -> model
+
 toPlatformSelectState : Model -> Model
 toPlatformSelectState = \model ->
     when model.state is
+        InputAppName { config, nameBuffer } ->
+            newConfig = { config & appName: nameBuffer |> Str.fromUtf8 |> Result.withDefault "" }
+            { model &
+                cursor: { row: 2, col: 2 },
+                state: PlatformSelect { config: newConfig },
+            } |> paginate
         SearchPage { config, searchBuffer } ->
             { model &
-                fullMenu: Const.platformList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                fullMenu: model.platformRepoDict |> Dict.keys |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config },
-            }
+            } |> paginate
         PackageSelect { config } ->
             configWithPackages = when (addSelectedPackagesToConfig model).state is
                 PackageSelect data -> data.config
                 _ -> config
             { model &
                 pageFirstItem: 0,
-                fullMenu: Const.platformList,
+                fullMenu: model.platformRepoDict |> Dict.keys,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: configWithPackages }
-            }
-
+            } |> paginate
         _ ->
             { model &
-                menu: Const.platformList,
+                menu: model.platformRepoDict |> Dict.keys,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: { platform: "", appName: "", packages: [] } },
-            }
+            } |> paginate
 
 toPackageSelectState : Model -> Model
 toPackageSelectState = \model ->
@@ -166,7 +189,7 @@ toPackageSelectState = \model ->
             platform = getHighlightedItem model
             { model &
                 pageFirstItem: 0,
-                fullMenu: Const.packageList,
+                fullMenu: model.packageRepoDict |> Dict.keys,
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config: { config & platform } },
@@ -175,7 +198,7 @@ toPackageSelectState = \model ->
         SearchPage { config, searchBuffer } ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: Const.packageList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                fullMenu: model.packageRepoDict |> Dict.keys |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config },
@@ -184,7 +207,7 @@ toPackageSelectState = \model ->
         Confirmation { config } ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: Const.packageList,
+                fullMenu: model.packageRepoDict |> Dict.keys,
                 selected: config.packages,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config },
@@ -193,7 +216,7 @@ toPackageSelectState = \model ->
         _ ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: Const.packageList,
+                fullMenu: model.packageRepoDict |> Dict.keys,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config: { platform: "", appName: "", packages: [] } },
             } |> paginate
@@ -220,34 +243,55 @@ toSearchPageState = \model ->
     when model.state is
         PlatformSelect { config } ->
             { model &
-                cursor: { row: 2, col: 2 },
+                cursor: { row: model.menuRow, col: 2 },
                 state: SearchPage { config, searchBuffer: [], sender: Platform },
             }
 
         PackageSelect { config } ->
             newConfig = { config & packages: model.selected }
             { model &
-                cursor: { row: 2, col: 2 },
+                cursor: { row: model.menuRow, col: 2 },
                 state: SearchPage { config: newConfig, searchBuffer: [], sender: Package },
             }
 
         _ -> model
 
-appendToSearchBuffer : Model, Key -> Model
-appendToSearchBuffer = \model, key ->
+clearSearchFilter : Model -> Model
+clearSearchFilter = \model ->
+    when model.state is
+        PackageSelect _ -> 
+            { model & 
+                fullMenu: model.packageRepoDict |> Dict.keys,
+                cursor: { row: model.menuRow, col: 2 },
+            } |> paginate
+        PlatformSelect _ -> 
+            { model & 
+                fullMenu: model.platformRepoDict |> Dict.keys,
+                cursor: { row: model.menuRow, col: 2 },
+            } |> paginate
+        _ -> model
+
+appendToBuffer : Model, Key -> Model
+appendToBuffer = \model, key ->
     when model.state is
         SearchPage { searchBuffer, config, sender } ->
             newBuffer = List.concat searchBuffer (Core.keyToStr key |> Str.toUtf8)
             { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+        InputAppName { nameBuffer, config } ->
+            newBuffer = List.concat nameBuffer (Core.keyToStr key |> Str.toUtf8)
+            { model & state: InputAppName { config, nameBuffer: newBuffer } }
 
         _ -> model
 
-backspaceSearchBuffer : Model -> Model
-backspaceSearchBuffer = \model ->
+backspaceBuffer : Model -> Model
+backspaceBuffer = \model ->
     when model.state is
         SearchPage { searchBuffer, config, sender } ->
             newBuffer = List.dropLast searchBuffer 1
             { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+        InputAppName { nameBuffer, config } ->
+            newBuffer = List.dropLast nameBuffer 1
+            { model & state: InputAppName { config, nameBuffer: newBuffer } }
 
         _ -> model
 

@@ -1,27 +1,114 @@
 app [main] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.10.0/vNe6s9hWzoTZtFmNkvEICPErI9ptji_ySjicO6CkucY.tar.br",
+    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.5/1JOFFXrqOrdoINq6C4OJ8k3UK0TJhgITLbcOb-6WMwY.tar.br",
+    rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.1.0/2d2PF4kq9UUum9YpQH7k9iFIJ4hffWXQVCi0GJJweiU.tar.br",
 }
 
 import Model exposing [Model]
-import Const
+import Repos exposing [RepositoryEntry]
 import UI
+import cli.File
+import cli.Dir
+import cli.Env
+import cli.Path
 import cli.Stdout
 import cli.Stdin
 import cli.Tty
-import cli.Task
+import cli.Task exposing [Task]
 import ansi.Core
+import rvn.Rvn
 
+Configuration : {
+    appName : Str,
+    platform : Str,
+    packages : List Str,
+}
 
+## Create the data directory if it doesn't exist, and return the string version of the path.
+getAndCreateDataDir =
+    home = Env.var! "HOME"
+    dataDir = "$(home)/.roc-start"
+    if checkForDir! dataDir then
+        Task.ok dataDir
+    else
+        Dir.create! dataDir
+        Task.ok dataDir
+
+## Check if a directory exists at the given path.
+checkForDir = \path ->
+    Path.isDir (Path.fromStr path)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+
+## Load the package and platform dictionaries from the files on disk.
+## If the data files do not yet exist, update to create them.
+loadRepositories : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
+loadRepositories =
+    dataDir = getAndCreateDataDir!
+    #runUpdateIfNecessary! dataDir
+    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn"
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn"
+    packages = getPackageDict packageBytes
+    platforms = getPlatformDict platformBytes
+    Task.ok { packages, platforms }
+
+## Convert the raw bytes from pkg-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
+getPackageDict : List U8 -> Dict Str RepositoryEntry
+getPackageDict = \packageBytes ->
+    res =
+        Decode.fromBytes packageBytes Rvn.pretty
+        |> Result.map \packageList ->
+            packageList
+            |> List.walk (Dict.empty {}) \dict, (name, shortName, version, url) ->
+                Dict.insert dict name { shortName, version, url }
+    when res is
+        Ok dict -> dict
+        Err _ -> Dict.empty {}
+
+## Convert the raw bytes from pf-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
+getPlatformDict : List U8 -> Dict Str RepositoryEntry
+getPlatformDict = \platformBytes ->
+    res =
+        Decode.fromBytes platformBytes Rvn.pretty
+        |> Result.map \packageList ->
+            packageList
+            |> List.walk (Dict.empty {}) \dict, (name, shortName, version, url) ->
+                Dict.insert dict name { shortName, version, url }
+    when res is
+        Ok dict -> dict
+        Err _ -> Dict.empty {}
+
+## Generate a roc file from the given appName, platform, and packageList.
+createRocFile : Configuration, { packages: Dict Str RepositoryEntry, platforms: Dict Str RepositoryEntry } -> Task {} _
+createRocFile = \config, repos ->
+    #repos <- loadRepositories |> Task.await
+    File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos)
+
+## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.
+buildRocFile : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> List U8
+buildRocFile = \platform, packageList, repos ->
+    pfStr =
+        when Dict.get repos.platforms platform is
+            Ok pf -> "    $(pf.shortName): platform \"$(pf.url)\",\n"
+            Err KeyNotFound -> crash "Invalid platform: $(platform)"
+    pkgsStr =
+        List.walk packageList "" \str, package ->
+            when Dict.get repos.packages package is
+                Ok pkg -> Str.concat str "    $(pkg.shortName): \"$(pkg.url)\",\n"
+                Err KeyNotFound -> ""
+    "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
 
 render : Model -> List Core.DrawFn
 render = \model ->
     when model.state is
+        InputAppName _ -> UI.renderInputAppName model
         PlatformSelect _ -> UI.renderPlatformSelect model
         PackageSelect _ -> UI.renderPackageSelect model
         SearchPage _ -> UI.renderSearchPage model
         Confirmation _ -> UI.renderConfirmation model
-        _ -> UI.renderPlatformSelect model
+        _ -> []
 
 getTerminalSize : Task.Task Core.ScreenSize _
 getTerminalSize =
@@ -43,6 +130,7 @@ runUiLoop = \prevModel ->
     input = Stdin.bytes |> Task.map! Core.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
     when model.state is
+        InputAppName _ -> handleInputAppNameInput modelWithInput input
         PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
         PackageSelect _ -> handlePackageSelectInput modelWithInput input
         SearchPage { sender } -> handleSearchPageInput modelWithInput input sender
@@ -64,6 +152,8 @@ handlePlatformSelectInput = \model, input ->
         KeyPress Enter -> Task.ok (Step (Model.toPackageSelectState model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
         KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
+        KeyPress Delete -> Task.ok (Step (Model.toInputAppNameState model))
+        KeyPress Escape -> Task.ok (Step (Model.clearSearchFilter model))
         KeyPress Right -> Task.ok (Step (Model.nextPage model))
         KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
         KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
@@ -83,6 +173,7 @@ handlePackageSelectInput = \model, input ->
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
         KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
         KeyPress Delete -> Task.ok (Step (Model.toPlatformSelectState model))
+        KeyPress Escape -> Task.ok (Step (Model.clearSearchFilter model))
         KeyPress Right -> Task.ok (Step (Model.nextPage model))
         KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
         KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
@@ -100,8 +191,17 @@ handleSearchPageInput = \model, input, sender ->
                 Platform -> Task.ok (Step (Model.toPlatformSelectState model))
                 Package -> Task.ok (Step (Model.toPackageSelectState model))
         KeyPress Escape -> Task.ok (Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState))
-        KeyPress Delete -> Task.ok (Step (Model.backspaceSearchBuffer model))
-        KeyPress c -> Task.ok (Step (Model.appendToSearchBuffer model c))
+        KeyPress Delete -> Task.ok (Step (Model.backspaceBuffer model))
+        KeyPress c -> Task.ok (Step (Model.appendToBuffer model c))
+        _ -> Task.ok (Step model)
+
+handleInputAppNameInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleInputAppNameInput = \model, input ->
+    when input is
+        CtrlC -> Task.ok (Done { model & state: UserExited })
+        KeyPress Enter -> Task.ok (Step (Model.toPlatformSelectState model))
+        KeyPress Delete -> Task.ok (Step (Model.backspaceBuffer model))
+        KeyPress c -> Task.ok (Step (Model.appendToBuffer model c))
         _ -> Task.ok (Step model)
 
 handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
@@ -112,28 +212,15 @@ handleConfirmationInput = \model, input ->
         KeyPress Delete -> Task.ok (Step (Model.toPackageSelectState model))
         _ -> Task.ok (Step model)
 
-
-
 main =
+    repos = loadRepositories!
     Tty.enableRawMode!
-    model = Task.loop! (Model.init Const.platformList) runUiLoop
+    model = Task.loop! (Model.init repos.platforms repos.packages) runUiLoop
     Stdout.write! (Core.toStr Reset)
     Tty.disableRawMode!
     when model.state is
-        UserExited -> Stdout.line! "Exiting..."
-        Finished { config } -> Stdout.line! (exitMessage config.platform config.packages)
-        _ -> Stdout.line! "Crash!"
-
-mapListToStr : List Str -> Str
-mapListToStr = \list ->
-    str, elem, idx <- List.walkWithIndex list ""
-    Str.joinWith [str, elem] (if idx == 0 then "" else ", ")
-
-exitMessage : Str, List Str -> Str
-exitMessage = \platform, packages ->
-    magenta = "\u(001b)[35m"
-    noColor = "\u(001b)[0m"
-    """
-    $(magenta)Platform: $(noColor)$(platform)
-    $(magenta)Packages: $(noColor)$(mapListToStr packages)
-    """
+        UserExited -> Task.ok {}
+        Finished { config } -> 
+            createRocFile! config repos
+            Stdout.line! "Created $(config.appName).roc"
+        _ -> Stdout.line! "Something went wrong..."

@@ -1,4 +1,4 @@
-module [renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox]
+module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox]
 
 import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
@@ -9,20 +9,27 @@ renderExitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
-UiActions : [SingleSelect, MuitiSelect, MultiConfirm, GoBack, Search, SearchGo, PrevPage, NextPage, Cancel, Finish]
+UiActions : [SingleSelect, MuitiSelect, MultiConfirm, TextConfirm, GoBack, Search, ClearFilter, SearchGo, PrevPage, NextPage, Cancel, Finish]
 
 getActions : Model -> List UiActions
 getActions = \model ->
     when model.state is
         PlatformSelect _ ->
-            [SingleSelect, Search]
+            [SingleSelect]
+            |> \actions -> if List.len model.menu < Dict.len model.platformRepoDict 
+                then List.append actions ClearFilter else List.append actions Search
+            |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         PackageSelect _ ->
-            [MuitiSelect, MultiConfirm, Search, GoBack]
+            [MuitiSelect, MultiConfirm]
+            |> \actions -> if List.len model.menu < Dict.len model.packageRepoDict 
+                then List.append actions ClearFilter else List.append actions Search
+            |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         Confirmation _ -> [Finish, GoBack]
+        InputAppName _ -> [TextConfirm]
         SearchPage _ -> [SearchGo, Cancel]
         _ -> []
 
@@ -30,8 +37,10 @@ controlPromptsDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER TO SELECT"
     |> Dict.insert MuitiSelect "SPACE TO SELECT"
     |> Dict.insert MultiConfirm "ENTER TO CONFIRM"
+    |> Dict.insert TextConfirm "ENTER TO CONFIRM"
     |> Dict.insert GoBack "BKSP TO GO BACK"
     |> Dict.insert Search "S TO SEARCH"
+    |> Dict.insert ClearFilter "ESC TO FULL LIST"
     |> Dict.insert SearchGo "ENTER TO SEARCH"
     |> Dict.insert Cancel "ESC TO CANCEL"
     |> Dict.insert Finish "ENTER TO FINISH"
@@ -43,8 +52,10 @@ controlPromptsShortDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER"
     |> Dict.insert MuitiSelect "SPACE"
     |> Dict.insert MultiConfirm "ENTER"
+    |> Dict.insert TextConfirm "ENTER"
     |> Dict.insert GoBack "BKSP"
     |> Dict.insert Search "S"
+    |> Dict.insert ClearFilter "ESC"
     |> Dict.insert SearchGo "ENTER"
     |> Dict.insert Cancel "ESC"
     |> Dict.insert Finish "ENTER"
@@ -90,6 +101,25 @@ renderPackageSelect = \model ->
 
     ]
 
+renderInputAppName : Model -> List Core.DrawFn
+renderInputAppName = \model ->
+    when model.state is
+        InputAppName { nameBuffer } ->
+            List.join [
+                [
+                    renderExitPrompt model.screen,
+                    renderControlsPrompt (controlsPromptStr model) model.screen,
+                ],
+                renderOuterBorder model.screen,
+                [
+                    renderScreenPrompt "ENTER THE APP NAME:",
+                    Core.drawCursor { fg: Standard Magenta, char: ">" },
+                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White }
+                ],
+            ]
+
+        _ -> []
+
 renderSearchPage : Model -> List Core.DrawFn
 renderSearchPage = \model ->
     when model.state is
@@ -122,10 +152,12 @@ renderConfirmation = \model ->
                 renderOuterBorder model.screen,
                 [
                     renderScreenPrompt "YOU SELECTED:",
-                    Core.drawText "Platform:" { r: 2, c: 2, fg: Standard Magenta },
-                    Core.drawText config.platform { r: 2, c: 12, fg: Standard White },
-                    Core.drawText "Packages:" { r: 3, c: 2, fg: Standard Magenta },
-                    Core.drawText (config.packages |> Str.joinWith ", ") { r: 3, c: 12, fg: Standard White },
+                    Core.drawText "App name:" { r: 2, c: 2, fg: Standard Magenta },
+                    Core.drawText config.appName { r: 2, c: 12, fg: Standard White },
+                    Core.drawText "Platform:" { r: 3, c: 2, fg: Standard Magenta },
+                    Core.drawText config.platform { r: 3, c: 12, fg: Standard White },
+                    Core.drawText "Packages:" { r: 4, c: 2, fg: Standard Magenta },
+                    Core.drawText (config.packages |> Str.joinWith ", ") { r: 4, c: 12, fg: Standard White },
                 ],
             ]
 
