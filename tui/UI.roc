@@ -19,7 +19,7 @@ getActions = \model ->
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         PackageSelect _ ->
-            [MuitiSelect, MultiConfirm, GoBack]
+            [MuitiSelect, MultiConfirm, Search, GoBack]
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         Confirmation _ -> [Finish, GoBack]

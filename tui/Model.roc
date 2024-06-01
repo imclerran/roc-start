@@ -225,9 +225,10 @@ toSearchPageState = \model ->
             }
 
         PackageSelect { config } ->
+            newConfig = { config & packages: model.selected }
             { model &
                 cursor: { row: 2, col: 2 },
-                state: SearchPage { config, searchBuffer: [], sender: Package },
+                state: SearchPage { config: newConfig, searchBuffer: [], sender: Package },
             }
 
         _ -> model

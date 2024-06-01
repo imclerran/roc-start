@@ -76,6 +76,8 @@ handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Mode
 handlePackageSelectInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done { model & state: UserExited })
+        KeyPress LowerS -> Task.ok (Step (Model.toSearchPageState model))
+        KeyPress UpperS -> Task.ok (Step (Model.toSearchPageState model))
         KeyPress Enter -> Task.ok (Step (Model.toConfirmationState model))
         KeyPress Space -> Task.ok (Step (Model.toggleSelected model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
