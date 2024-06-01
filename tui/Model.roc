@@ -11,6 +11,10 @@ module [
     getHighlightedItem, 
     menuIdxToFullIdx, 
     fullIdxToMenuIdx, 
+    appendToSearchBuffer,
+    backspaceSearchBuffer,
+    clearSearchBuffer,
+    toggleSelected,
     toPackageSelectState, 
     toPlatformSelectState, 
     toFinishedState, 
@@ -20,6 +24,7 @@ module [
 
 import ansi.Core
 import Const
+import Keys exposing [Key]
 
 Model : {
     screen : Core.ScreenSize,
@@ -28,7 +33,7 @@ Model : {
     pageFirstItem: U64,
     menu : List Str,
     fullMenu : List Str,
-    selected : List U64,
+    selected : List Str,
     inputs : List Core.Input,
     state : [
         InputAppName { nameBuffer : Str },
@@ -163,6 +168,7 @@ toPackageSelectState = \model ->
                 pageFirstItem: 0,
                 fullMenu: Const.packageList,
                 cursor: { row: 2, col: 2 },
+                selected: config.packages,
                 state: PackageSelect { config: { config & platform } },
             } |> paginate
 
@@ -171,6 +177,7 @@ toPackageSelectState = \model ->
                 pageFirstItem: 0,
                 fullMenu: Const.packageList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
+                selected: config.packages,
                 state: PackageSelect { config },
             } |> paginate
 
@@ -178,6 +185,7 @@ toPackageSelectState = \model ->
             { model &
                 pageFirstItem: 0,
                 fullMenu: Const.packageList,
+                selected: config.packages,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config },
             } |> paginate
@@ -224,6 +232,40 @@ toSearchPageState = \model ->
 
         _ -> model
 
+appendToSearchBuffer : Model, Key -> Model
+appendToSearchBuffer = \model, key ->
+    when model.state is
+        SearchPage { searchBuffer, config, sender } ->
+            newBuffer = List.concat searchBuffer (Core.keyToStr key |> Str.toUtf8)
+            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+
+        _ -> model
+
+backspaceSearchBuffer : Model -> Model
+backspaceSearchBuffer = \model ->
+    when model.state is
+        SearchPage { searchBuffer, config, sender } ->
+            newBuffer = List.dropLast searchBuffer 1
+            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+
+        _ -> model
+
+clearSearchBuffer : Model -> Model
+clearSearchBuffer = \model ->
+    when model.state is
+        SearchPage { config, sender } ->
+            { model & state: SearchPage { config, sender, searchBuffer: [] } }
+
+        _ -> model
+
+toggleSelected : Model -> Model
+toggleSelected = \model ->
+    item = getHighlightedItem model
+    if List.contains model.selected item then
+        { model & selected: List.dropIf model.selected \i -> i == item }
+    else
+        { model & selected: List.append model.selected item  }
+
 addSelectedPackagesToConfig : Model -> Model
 addSelectedPackagesToConfig = \model ->
     when model.state is
@@ -246,9 +288,4 @@ fullIdxToMenuIdx : U64, Model -> U64
 fullIdxToMenuIdx = \idx, model -> idx - model.pageFirstItem
 
 getSelectedItems : Model -> List Str
-getSelectedItems = \model ->
-    list, item, idx <- List.walkWithIndex model.fullMenu []
-    if List.contains model.selected idx then
-        List.append list item
-    else
-        list
+getSelectedItems = \model -> model.selected

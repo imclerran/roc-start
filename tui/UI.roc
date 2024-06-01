@@ -152,8 +152,8 @@ renderMenu = \model ->
         Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
 renderMultipleChoiceMenu = \model ->
-    isSelected = \menuIdx -> List.contains model.selected (Model.menuIdxToFullIdx menuIdx model)
-    checkedItems = List.mapWithIndex model.menu \item, idx -> if isSelected idx then "[X] $(item)" else "[ ] $(item)"
+    isSelected = \item -> List.contains model.selected item
+    checkedItems = List.map model.menu \item -> if isSelected item then "[X] $(item)" else "[ ] $(item)"
     item, idx <- List.mapWithIndex checkedItems
     row = Num.toI32 idx + model.menuRow
     if model.cursor.row == row then

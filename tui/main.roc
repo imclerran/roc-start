@@ -4,7 +4,6 @@ app [main] {
 }
 
 import Model exposing [Model]
-import Keys exposing [Key]
 import Const
 import UI
 import cli.Stdout
@@ -78,7 +77,7 @@ handlePackageSelectInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done { model & state: UserExited })
         KeyPress Enter -> Task.ok (Step (Model.toConfirmationState model))
-        KeyPress Space -> Task.ok (Step (toggleSelected model))
+        KeyPress Space -> Task.ok (Step (Model.toggleSelected model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
         KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
         KeyPress Delete -> Task.ok (Step (Model.toPlatformSelectState model))
@@ -98,9 +97,9 @@ handleSearchPageInput = \model, input, sender ->
             when sender is
                 Platform -> Task.ok (Step (Model.toPlatformSelectState model))
                 Package -> Task.ok (Step (Model.toPackageSelectState model))
-        KeyPress Escape -> Task.ok (Step (model |> clearSearchBuffer |> Model.toPlatformSelectState))
-        KeyPress Delete -> Task.ok (Step (backspaceSearchBuffer model))
-        KeyPress c -> Task.ok (Step (appendToSearchBuffer model c))
+        KeyPress Escape -> Task.ok (Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState))
+        KeyPress Delete -> Task.ok (Step (Model.backspaceSearchBuffer model))
+        KeyPress c -> Task.ok (Step (Model.appendToSearchBuffer model c))
         _ -> Task.ok (Step model)
 
 handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
@@ -111,39 +110,7 @@ handleConfirmationInput = \model, input ->
         KeyPress Delete -> Task.ok (Step (Model.toPackageSelectState model))
         _ -> Task.ok (Step model)
 
-appendToSearchBuffer : Model, Key -> Model
-appendToSearchBuffer = \model, key ->
-    when model.state is
-        SearchPage { searchBuffer, config, sender } ->
-            newBuffer = List.concat searchBuffer (Core.keyToStr key |> Str.toUtf8)
-            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
 
-        _ -> model
-
-backspaceSearchBuffer : Model -> Model
-backspaceSearchBuffer = \model ->
-    when model.state is
-        SearchPage { searchBuffer, config, sender } ->
-            newBuffer = List.dropLast searchBuffer 1
-            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
-
-        _ -> model
-
-clearSearchBuffer : Model -> Model
-clearSearchBuffer = \model ->
-    when model.state is
-        SearchPage { config, sender } ->
-            { model & state: SearchPage { config, sender, searchBuffer: [] } }
-
-        _ -> model
-
-toggleSelected : Model -> Model
-toggleSelected = \model ->
-    idx = Model.getHighlightedIndex model |> Model.menuIdxToFullIdx model
-    if List.contains model.selected idx then
-        { model & selected: List.keepIf model.selected \i -> i != idx }
-    else
-        { model & selected: List.append model.selected idx }
 
 main =
     Tty.enableRawMode!
