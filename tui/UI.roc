@@ -16,14 +16,14 @@ getActions = \model ->
     when model.state is
         PlatformSelect _ ->
             [SingleSelect]
-            |> \actions -> if List.len model.menu < Dict.len model.platformRepoDict 
+            |> \actions -> if List.len model.fullMenu < Dict.len model.platformRepoDict
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         PackageSelect _ ->
             [MuitiSelect, MultiConfirm]
-            |> \actions -> if List.len model.menu < Dict.len model.packageRepoDict 
+            |> \actions -> if List.len model.fullMenu < Dict.len model.packageRepoDict
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
@@ -34,16 +34,16 @@ getActions = \model ->
         _ -> []
 
 controlPromptsDict = Dict.empty {}
-    |> Dict.insert SingleSelect "ENTER TO SELECT"
-    |> Dict.insert MuitiSelect "SPACE TO SELECT"
-    |> Dict.insert MultiConfirm "ENTER TO CONFIRM"
-    |> Dict.insert TextConfirm "ENTER TO CONFIRM"
-    |> Dict.insert GoBack "BKSP TO GO BACK"
-    |> Dict.insert Search "S TO SEARCH"
-    |> Dict.insert ClearFilter "ESC TO FULL LIST"
-    |> Dict.insert SearchGo "ENTER TO SEARCH"
-    |> Dict.insert Cancel "ESC TO CANCEL"
-    |> Dict.insert Finish "ENTER TO FINISH"
+    |> Dict.insert SingleSelect "ENTER : SELECT"
+    |> Dict.insert MuitiSelect "SPACE : SELECT"
+    |> Dict.insert MultiConfirm "ENTER : CONFIRM"
+    |> Dict.insert TextConfirm "ENTER : CONFIRM"
+    |> Dict.insert GoBack "BKSP : GO BACK"
+    |> Dict.insert Search "S : SEARCH"
+    |> Dict.insert ClearFilter "ESC : FULL LIST"
+    |> Dict.insert SearchGo "ENTER : SEARCH"
+    |> Dict.insert Cancel "ESC : CANCEL"
+    |> Dict.insert Finish "ENTER : FINISH"
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
 
@@ -64,7 +64,7 @@ controlPromptsShortDict = Dict.empty {}
 
 controlsPromptStr = \model ->
     actions = getActions model
-    promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 20 then controlPromptsShortDict else controlPromptsDict
+    promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 16 then controlPromptsShortDict else controlPromptsDict
     actionStrs = getActions model
         |> List.map \action ->
             Dict.get promptsDict action |> Result.withDefault ""

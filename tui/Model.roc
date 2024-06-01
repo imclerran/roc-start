@@ -1,25 +1,25 @@
 module [
-    Model, 
-    init, 
-    paginate, 
-    nextPage, 
-    prevPage, 
-    isNotFirstPage, 
-    isNotLastPage, 
-    moveCursor, 
-    getHighlightedIndex, 
-    getHighlightedItem, 
-    menuIdxToFullIdx, 
-    fullIdxToMenuIdx, 
+    Model,
+    init,
+    paginate,
+    nextPage,
+    prevPage,
+    isNotFirstPage,
+    isNotLastPage,
+    moveCursor,
+    getHighlightedIndex,
+    getHighlightedItem,
+    menuIdxToFullIdx,
+    fullIdxToMenuIdx,
     appendToBuffer,
     backspaceBuffer,
     clearSearchBuffer,
     toggleSelected,
     toInputAppNameState,
-    toPackageSelectState, 
-    toPlatformSelectState, 
-    toFinishedState, 
-    toSearchPageState, 
+    toPackageSelectState,
+    toPlatformSelectState,
+    toFinishedState,
+    toSearchPageState,
     toConfirmationState,
     clearSearchFilter,
 ]
@@ -154,7 +154,8 @@ toPlatformSelectState : Model -> Model
 toPlatformSelectState = \model ->
     when model.state is
         InputAppName { config, nameBuffer } ->
-            newConfig = { config & appName: nameBuffer |> Str.fromUtf8 |> Result.withDefault "" }
+            appName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main" |> \name -> if Str.isEmpty name then "main" else name
+            newConfig = { config & appName }
             { model &
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: newConfig },
@@ -259,15 +260,15 @@ toSearchPageState = \model ->
 clearSearchFilter : Model -> Model
 clearSearchFilter = \model ->
     when model.state is
-        PackageSelect _ -> 
-            { model & 
+        PackageSelect _ ->
+            { model &
                 fullMenu: model.packageRepoDict |> Dict.keys,
-                cursor: { row: model.menuRow, col: 2 },
+                #cursor: { row: model.menuRow, col: 2 },
             } |> paginate
-        PlatformSelect _ -> 
-            { model & 
+        PlatformSelect _ ->
+            { model &
                 fullMenu: model.platformRepoDict |> Dict.keys,
-                cursor: { row: model.menuRow, col: 2 },
+                #cursor: { row: model.menuRow, col: 2 },
             } |> paginate
         _ -> model
 
