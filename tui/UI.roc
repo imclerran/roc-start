@@ -1,4 +1,4 @@
-module [renderPlatformSelect, renderPackageSelect, renderSearchPage, renderBox]
+module [renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox]
 
 import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
@@ -9,7 +9,7 @@ renderExitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
-UiActions : [SingleSelect, MuitiSelect, MultiConfirm, GoBack, Search, SearchGo, PrevPage, NextPage, Cancel]
+UiActions : [SingleSelect, MuitiSelect, MultiConfirm, GoBack, Search, SearchGo, PrevPage, NextPage, Cancel, Finish]
 
 getActions : Model -> List UiActions
 getActions = \model ->
@@ -22,6 +22,7 @@ getActions = \model ->
             [MuitiSelect, MultiConfirm, GoBack]
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+        Confirmation _ -> [Finish, GoBack]
         SearchPage _ -> [SearchGo, Cancel]
         _ -> []
 
@@ -33,6 +34,7 @@ controlPromptsDict = Dict.empty {}
     |> Dict.insert Search "S TO SEARCH"
     |> Dict.insert SearchGo "ENTER TO SEARCH"
     |> Dict.insert Cancel "ESC TO CANCEL"
+    |> Dict.insert Finish "ENTER TO FINISH"
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
 
@@ -45,6 +47,7 @@ controlPromptsShortDict = Dict.empty {}
     |> Dict.insert Search "S"
     |> Dict.insert SearchGo "ENTER"
     |> Dict.insert Cancel "ESC"
+    |> Dict.insert Finish "ENTER"
     |> Dict.insert PrevPage "<"
     |> Dict.insert NextPage ">"
 
@@ -102,6 +105,27 @@ renderSearchPage = \model ->
                     renderScreenPrompt searchPrompt,
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
                     Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                ],
+            ]
+
+        _ -> []
+
+renderConfirmation : Model -> List Core.DrawFn
+renderConfirmation = \model ->
+    when model.state is
+        Confirmation { config } ->
+            List.join [
+                [
+                    renderExitPrompt model.screen,
+                    renderControlsPrompt (controlsPromptStr model) model.screen,
+                ],
+                renderOuterBorder model.screen,
+                [
+                    renderScreenPrompt "YOU SELECTED:",
+                    Core.drawText "Platform:" { r: 2, c: 2, fg: Standard Magenta },
+                    Core.drawText config.platform { r: 2, c: 12, fg: Standard White },
+                    Core.drawText "Packages:" { r: 3, c: 2, fg: Standard Magenta },
+                    Core.drawText (config.packages |> Str.joinWith ", ") { r: 3, c: 12, fg: Standard White },
                 ],
             ]
 

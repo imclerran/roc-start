@@ -21,6 +21,7 @@ render = \model ->
         PlatformSelect _ -> UI.renderPlatformSelect model
         PackageSelect _ -> UI.renderPackageSelect model
         SearchPage _ -> UI.renderSearchPage model
+        Confirmation _ -> UI.renderConfirmation model
         _ -> UI.renderPlatformSelect model
 
 getTerminalSize : Task.Task Core.ScreenSize _
@@ -36,7 +37,6 @@ getTerminalSize =
 runUiLoop : Model -> Task.Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
-    #modeWithSize = { prevModel & screen: terminalSize }
     model = Model.paginate { prevModel & screen: terminalSize }
     Core.drawScreen model (render model)
         |> Stdout.write!
@@ -47,13 +47,12 @@ runUiLoop = \prevModel ->
         PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
         PackageSelect _ -> handlePackageSelectInput modelWithInput input
         SearchPage { sender } -> handleSearchPageInput modelWithInput input sender
+        Confirmation _ -> handleConfirmationInput modelWithInput input
         _ -> handleBasicInput modelWithInput input
 
 handleBasicInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handleBasicInput = \model, input ->
     when input is
-        KeyPress LowerX -> Task.ok (Done { model & state: UserExited })
-        KeyPress UpperX -> Task.ok (Done { model & state: UserExited })
         CtrlC -> Task.ok (Done { model & state: UserExited })
         _ -> Task.ok (Step model)
 
@@ -78,7 +77,7 @@ handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Mode
 handlePackageSelectInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done { model & state: UserExited })
-        KeyPress Enter -> Task.ok (Done (Model.toUserSelectedState model))
+        KeyPress Enter -> Task.ok (Step (Model.toConfirmationState model))
         KeyPress Space -> Task.ok (Step (toggleSelected model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
         KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
@@ -102,6 +101,14 @@ handleSearchPageInput = \model, input, sender ->
         KeyPress Escape -> Task.ok (Step (model |> clearSearchBuffer |> Model.toPlatformSelectState))
         KeyPress Delete -> Task.ok (Step (backspaceSearchBuffer model))
         KeyPress c -> Task.ok (Step (appendToSearchBuffer model c))
+        _ -> Task.ok (Step model)
+
+handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleConfirmationInput = \model, input ->
+    when input is
+        CtrlC -> Task.ok (Done { model & state: UserExited })
+        KeyPress Enter -> Task.ok (Done (Model.toFinishedState model))
+        KeyPress Delete -> Task.ok (Step (Model.toPackageSelectState model))
         _ -> Task.ok (Step model)
 
 appendToSearchBuffer : Model, Key -> Model
@@ -138,21 +145,6 @@ toggleSelected = \model ->
     else
         { model & selected: List.append model.selected idx }
 
-#Model.moveCursor : Model, [Up, Down] -> Model
-#Model.moveCursor = \model, direction ->
-#    when direction is
-#        Up ->
-#            if model.cursor.row <= Num.toI32 (model.menuRow) then
-#                { model & cursor: { row: Num.toI32 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
-#            else
-#                { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
-
-#        Down ->
-#            if model.cursor.row >= Num.toI32 (List.len model.menu - 1) + Num.toI32 (model.menuRow) then
-#                { model & cursor: { row: Num.toI32 (model.menuRow), col: model.cursor.col } }
-#            else
-#                { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
-
 main =
     Tty.enableRawMode!
     model = Task.loop! (Model.init Const.platformList) runUiLoop
@@ -160,7 +152,7 @@ main =
     Tty.disableRawMode!
     when model.state is
         UserExited -> Stdout.line! "Exiting..."
-        UserSelected { config } -> Stdout.line! (exitMessage config.platform config.packages)
+        Finished { config } -> Stdout.line! (exitMessage config.platform config.packages)
         _ -> Stdout.line! "Crash!"
 
 mapListToStr : List Str -> Str

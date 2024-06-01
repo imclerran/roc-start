@@ -1,4 +1,22 @@
-module [Model, init, paginate, nextPage, prevPage, isNotFirstPage, isNotLastPage, moveCursor, getHighlightedIndex, getHighlightedItem, menuIdxToFullIdx, fullIdxToMenuIdx, toPackageSelectState, toPlatformSelectState, toUserSelectedState, toSearchPageState]
+module [
+    Model, 
+    init, 
+    paginate, 
+    nextPage, 
+    prevPage, 
+    isNotFirstPage, 
+    isNotLastPage, 
+    moveCursor, 
+    getHighlightedIndex, 
+    getHighlightedItem, 
+    menuIdxToFullIdx, 
+    fullIdxToMenuIdx, 
+    toPackageSelectState, 
+    toPlatformSelectState, 
+    toFinishedState, 
+    toSearchPageState, 
+    toConfirmationState,
+]
 
 import ansi.Core
 import Const
@@ -16,9 +34,10 @@ Model : {
         InputAppName { nameBuffer : Str },
         PlatformSelect { config : Configuration },
         PackageSelect { config : Configuration },
+        Confirmation { config : Configuration },
         SearchPage { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
         UserExited,
-        UserSelected { config : Configuration },
+        Finished { config : Configuration },
     ],
 }
 
@@ -40,8 +59,6 @@ init = \menuItems -> {
     inputs: List.withCapacity 1000,
     state: PlatformSelect { config: Const.emptyConfig },
 }
-
-
 
 paginate: Model -> Model
 paginate = \model ->
@@ -157,6 +174,14 @@ toPackageSelectState = \model ->
                 state: PackageSelect { config },
             } |> paginate
 
+        Confirmation { config } ->
+            { model &
+                pageFirstItem: 0,
+                fullMenu: Const.packageList,
+                cursor: { row: 2, col: 2 },
+                state: PackageSelect { config },
+            } |> paginate
+
         _ ->
             { model &
                 pageFirstItem: 0,
@@ -165,13 +190,22 @@ toPackageSelectState = \model ->
                 state: PackageSelect { config: { platform: "", appName: "", packages: [] } },
             } |> paginate
 
-toUserSelectedState : Model -> Model
-toUserSelectedState = \model ->
+toFinishedState : Model -> Model
+toFinishedState = \model ->
     modelWithPackages = addSelectedPackagesToConfig model
     when modelWithPackages.state is
-        PlatformSelect { config } -> { model & state: UserSelected { config } }
-        PackageSelect { config } -> { model & state: UserSelected { config } }
-        _ -> { model & state: UserSelected { config: { platform: "", appName: "", packages: [] } } }
+        PlatformSelect { config } -> { model & state: Finished { config } }
+        PackageSelect { config } -> { model & state: Finished { config } }
+        Confirmation { config } -> { model & state: Finished { config } }
+        _ -> { model & state: Finished { config: { platform: "", appName: "", packages: [] } } }
+
+toConfirmationState : Model -> Model
+toConfirmationState = \model ->
+    modelWithPackages = addSelectedPackagesToConfig model
+    when modelWithPackages.state is
+        PlatformSelect { config } -> { model & state: Confirmation { config } }
+        PackageSelect { config } -> { model & state: Confirmation { config } }
+        _ -> { model & state: Confirmation { config: { platform: "", appName: "", packages: [] } } }
 
 toSearchPageState : Model -> Model
 toSearchPageState = \model ->
@@ -188,11 +222,7 @@ toSearchPageState = \model ->
                 state: SearchPage { config, searchBuffer: [], sender: Package },
             }
 
-        _ ->
-            { model &
-                cursor: { row: 2, col: 2 },
-                state: SearchPage { config: Const.emptyConfig, searchBuffer: [], sender: Platform },
-            }
+        _ -> model
 
 addSelectedPackagesToConfig : Model -> Model
 addSelectedPackagesToConfig = \model ->
