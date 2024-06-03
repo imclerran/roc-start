@@ -7,6 +7,7 @@ app [main] {
 import Model exposing [Model]
 import Repos exposing [RepositoryEntry]
 import UI
+import cli.Http
 import cli.File
 import cli.Dir
 import cli.Env
@@ -42,10 +43,48 @@ checkForDir = \path ->
                 Ok bool -> Task.ok bool
                 _ -> Task.ok Bool.false
 
+## Check if a file exists at the given path.
+checkForFile = \filename ->
+    Path.isFile (Path.fromStr filename)
+        |> Task.attempt! \res ->
+            when res is
+                Ok bool -> Task.ok bool
+                _ -> Task.ok Bool.false
+
+getRawRepoData : Task (List U8) _
+getRawRepoData =
+    request = {
+        method: Get,
+        headers: [],
+        url: "https://raw.githubusercontent.com/imclerran/roc-repo/main/repo.rvn",
+        mimeType: "",
+        body: [],
+        timeout: TimeoutMilliseconds 5000,
+    }
+    resp = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
+    Task.ok resp.body
+
+decodeRepoData : List U8 -> List { repo : Str, owner : Str, alias : Str, platform: Bool }
+decodeRepoData = \data ->
+    res = Decode.fromBytes data Rvn.pretty
+    when res is
+        Ok list -> list
+        Err _ -> []
+
+loadLatestRepoData =
+    bytes = getRawRepoData!
+    repos = decodeRepoData bytes
+    List.walk repos { packageRepoList: [], platformsRepoList: [] } \state, repoItem ->
+        if repoItem.platform then
+            {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
+        else
+            {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
+
+
 ## Load the package and platform dictionaries from the files on disk.
 ## If the data files do not yet exist, update to create them.
-loadRepositories : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
-loadRepositories =
+loadDictionaries : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
+loadDictionaries =
     dataDir = getAndCreateDataDir!
     #runUpdateIfNecessary! dataDir
     packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn"
@@ -83,7 +122,7 @@ getPlatformDict = \platformBytes ->
 ## Generate a roc file from the given appName, platform, and packageList.
 createRocFile : Configuration, { packages: Dict Str RepositoryEntry, platforms: Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
-    #repos <- loadRepositories |> Task.await
+    #repos <- loadDictionaries |> Task.await
     File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos)
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.
@@ -213,14 +252,20 @@ handleConfirmationInput = \model, input ->
         _ -> Task.ok (Step model)
 
 main =
-    repos = loadRepositories!
+    repos = loadDictionaries!
     Tty.enableRawMode!
     model = Task.loop! (Model.init repos.platforms repos.packages) runUiLoop
     Stdout.write! (Core.toStr Reset)
     Tty.disableRawMode!
     when model.state is
         UserExited -> Task.ok {}
-        Finished { config } -> 
-            createRocFile! config repos
-            Stdout.line! "Created $(config.appName).roc"
+        Finished { config } ->
+            repoData = getRawRepoData!
+            repo = decodeRepoData repoData
+            fileExists = checkForFile! "$(config.appName).roc"
+            if fileExists then
+                Stdout.line! "Error: $(config.appName).roc already exists."
+            else
+                createRocFile! config repos
+                Stdout.line! "Created $(config.appName).roc"
         _ -> Stdout.line! "Something went wrong..."
