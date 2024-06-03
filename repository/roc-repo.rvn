@@ -1,5 +1,5 @@
 [
-    { repo: "basic-cli", owner: "roc-lang", alias: "pf", platform: Bool.true },
+    { repo: "basic-cli", owner: "roc-lang", alias: "cli", platform: Bool.true },
     { repo: "basic-ssg", owner: "lukewilliamboswell", alias: "pf", platform: Bool.true },
     { repo: "basic-webserver", owner: "roc-lang", alias: "pf", platform: Bool.true },
     { repo: "crisp", owner: "KilianVounckx", alias: "crisp", platform: Bool.false },
