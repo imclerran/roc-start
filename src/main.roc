@@ -63,7 +63,7 @@ getRemoteRepoData =
     request = {
         method: Get,
         headers: [],
-        url: "https://raw.githubusercontent.com/imclerran/roc-repo/main/repo.rvn",
+        url: "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn",
         mimeType: "",
         body: [],
         timeout: TimeoutMilliseconds 5000,
@@ -82,10 +82,10 @@ getRemoteRepoData =
 
 loadRepoData = \forceUpdate ->
     dataDir = getAndCreateDataDir!
-    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # if this block is placed inside if statement
-    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # there is a compiler error
-    packages = getRepoDict packageBytes                      # would be better not to have to do this read
-    platforms = getRepoDict platformBytes                    # if force update is true, but does not noticably slow UX
+    packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok [] # if this block is placed inside if statement
+    platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok [] # there is a compiler error
+    packages = getRepoDict packageBytes                                                     # would be better not to have to do this read
+    platforms = getRepoDict platformBytes                                                   # if force update is true, but does not noticably slow UX
     if forceUpdate then
         loadLatestRepoData
     else if Dict.isEmpty platforms || Dict.isEmpty packages then
