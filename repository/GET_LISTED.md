@@ -7,6 +7,8 @@ In order to get your package or platform listed, you must meet a few basic requi
 2) Your release must include among its assets a Blake-3 hashed tar.br zip of your repo.
   - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
 
+Note that some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
+
 ## Make that pull request!
 That's it! Once you have released your package with the required tarball, simply make a PR against this repo, adding your package to the `roc-repo.rvn` file. The format should be as follows:
 
