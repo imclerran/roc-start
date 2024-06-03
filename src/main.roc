@@ -372,13 +372,3 @@ runWith = \args ->
                     {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
                     Stdout.line ArgParser.baseUsage
 
-# TODOS:
-# 6) add CLI arg handling from old roc-start version
-
-
-# 1) Move available actions function into model [NOT PLANNED]
-# 2) modify input handlers to only handle available actions [LATER]
-# 3) update cache to use records instead of tuples. If a tuple based cache is found, update the cache. [DONE]
-# 4) only update the cache if it does not exist, or when the user requests an update [DONE]
-# 5) improve function naming, especially related to repositories, which are currently confusiong [DONE]
-# 7) Remove Dicts from Model, use lists instead for both platforms and packages [DONE]
