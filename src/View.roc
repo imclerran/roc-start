@@ -1,4 +1,4 @@
-module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox, getActions]
+module [UiAction, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox, getActions]
 
 import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
