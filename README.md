@@ -8,21 +8,29 @@ Starting a new roc app which requires multiple packages can be a bit cumbersome,
 
 Roc-start is intended to streamline this process. 
 
-Roc start maintains a repository of package and platform git repos. From this list, it will fetch the latest release URLs for each of these packages and platforms. Then with a simple command, you can generate a new roc application file.
+Roc start maintains a repository of package and platform git repos. From this list, it will fetch the latest release URLs for each of these packages and platforms. Then with a simple command, you can generate a new roc application file. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
 
 ## Two workflows
 
 1) Include the application name, platform, and packages as CLI args:
    - `roc-start my-app basic-cli weaver json`
-2) Provide or edit a configuration file:
-   - `roc-start config -d`
-   - Using `config` allows you to specify a pre-existing config file, or launch an editor to edit a template configuration
+2) Launch the TUI app to browse and search for packages and platforms:
+   - `roc-start tui`
+
+
+  ![TUI app package select screen](assets/package-select-screen.png)
   
 ## Updating platform/package urls
 
-The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by running `roc-start update`.
+The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by appending `-u`/`--update` to your `roc-start` command. IE: `roc-start tui -u`.
 
 __Important:__ note that roc-start currently depends on the github cli tool to get the latest releases. 
+
+## Getting your package or platform added to roc-start
+ 
+ Please see [GET_LISTED](repository/GET_LISTED.md) for full instructions on getting your package or platform added to roc-start. 
+
+ __NOTE:__ Some packages and platforms are already included in the repository, but do not appear in the TUI app, and cannot be imported by the CLI app. This is because these packages do not have a github release, or do not include the proper release assets.
 
 
 ## roc-start --help
@@ -34,8 +42,7 @@ Usage:
   roc-start <COMMAND>
 
 Commands:
-  config  Use a configuration file to describes the application and dependencies.
-  update  Update the platform and package repositories.
+  tui  Use the TUI app to browse and search for platforms and packages.
 
 Arguments:
   <app-name>  Name your new roc app.
@@ -43,23 +50,9 @@ Arguments:
   <files...>  Any packages to use.
 
 Options:
+  -u, --update   Update the platform and package repositories.
   -h, --help     Show this help page.
   -V, --version  Show the version.
-```
-
-
-## roc-start config --help
-```
-Use a configuration file to describes the application and dependencies.
-
-Usage:
-  roc-start config [options] <file>
-
-Arguments:
-  <file>  The .rvn file to use.
-
-Options:
-  -d             Delete config file when finished.
 ```
 
 [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb
