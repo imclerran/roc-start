@@ -17,7 +17,7 @@ That's it! Once you have released your package with the required tarball, simply
 
 # alias: the short name you want to appear in the app header when your package or platform is imported. Should begin with a lowercase letter and include no symbols.
 
-# platform: a roc styel Boolean value indicating whether or not your package is a platform.
+# platform: a roc style Boolean value indicating whether or not your package is a platform.
 ```
 
 Please ensure that you add your package in alphabetic order, by repo-name first, then by username.
