@@ -82,6 +82,10 @@ loadLatestRepoData =
             {state & platformRepoList: List.append state.platformRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
         else
             {state & packageRepoList: List.append state.packageRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
+    # Bottleneck: updating repo cache also handles fetchting the latest release versions/urls
+    # TODO: split the update functionality into its own function, which is run only on first run
+    # or when the user requests an update. Caching should be in a separate function.
+    # this will also allow using the in-memory data structure for the repo data, instead of reading from disk
     updateRepoCache! repoLists.packageRepoList "pkg-data.rvn"
     updateRepoCache! repoLists.platformRepoList "pf-data.rvn"
     dataDir = getAndCreateDataDir!
