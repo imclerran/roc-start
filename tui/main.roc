@@ -6,7 +6,7 @@ app [main] {
 
 import Model exposing [Model]
 import Repos exposing [RepositoryEntry]
-import UI
+import View
 import cli.Http
 import cli.File
 import cli.Dir
@@ -71,14 +71,14 @@ decodeRepoData = \data ->
         Ok list -> list
         Err _ -> []
 
-loadLatestRepoData =
-    bytes = getRawRepoData!
-    repos = decodeRepoData bytes
-    List.walk repos { packageRepoList: [], platformsRepoList: [] } \state, repoItem ->
-        if repoItem.platform then
-            {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
-        else
-            {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
+# loadLatestRepoData =
+#     bytes = getRawRepoData!
+#     repos = decodeRepoData bytes
+#     List.walk repos { packageRepoList: [], platformsRepoList: [] } \state, repoItem ->
+#         if repoItem.platform then
+#             {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
+#         else
+#             {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
 
 
 ## Load the package and platform dictionaries from the files on disk.
@@ -142,11 +142,11 @@ buildRocFile = \platform, packageList, repos ->
 render : Model -> List Core.DrawFn
 render = \model ->
     when model.state is
-        InputAppName _ -> UI.renderInputAppName model
-        PlatformSelect _ -> UI.renderPlatformSelect model
-        PackageSelect _ -> UI.renderPackageSelect model
-        SearchPage _ -> UI.renderSearchPage model
-        Confirmation _ -> UI.renderConfirmation model
+        InputAppName _ -> View.renderInputAppName model
+        PlatformSelect _ -> View.renderPlatformSelect model
+        PackageSelect _ -> View.renderPackageSelect model
+        SearchPage _ -> View.renderSearchPage model
+        Confirmation _ -> View.renderConfirmation model
         _ -> []
 
 getTerminalSize : Task.Task Core.ScreenSize _
@@ -260,8 +260,8 @@ main =
     when model.state is
         UserExited -> Task.ok {}
         Finished { config } ->
-            repoData = getRawRepoData!
-            repo = decodeRepoData repoData
+            # repoData = getRawRepoData!
+            # repo = decodeRepoData repoData
             fileExists = checkForFile! "$(config.appName).roc"
             if fileExists then
                 Stdout.line! "Error: $(config.appName).roc already exists."
