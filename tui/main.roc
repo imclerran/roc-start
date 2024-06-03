@@ -2,6 +2,7 @@ app [main] {
     cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.5/1JOFFXrqOrdoINq6C4OJ8k3UK0TJhgITLbcOb-6WMwY.tar.br",
     rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.1.0/2d2PF4kq9UUum9YpQH7k9iFIJ4hffWXQVCi0GJJweiU.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.0/KbIfTNbxShRX1A1FgXei1SpO5Jn8sgP6HP6PXbi-xyA.tar.br",
 }
 
 import Model exposing [Model]
@@ -15,9 +16,11 @@ import cli.Path
 import cli.Stdout
 import cli.Stdin
 import cli.Tty
+import cli.Cmd
 import cli.Task exposing [Task]
 import ansi.Core
 import rvn.Rvn
+import json.Json
 
 Configuration : {
     appName : Str,
@@ -71,46 +74,92 @@ decodeRepoData = \data ->
         Ok list -> list
         Err _ -> []
 
-# loadLatestRepoData =
-#     bytes = getRawRepoData!
-#     repos = decodeRepoData bytes
-#     List.walk repos { packageRepoList: [], platformsRepoList: [] } \state, repoItem ->
-#         if repoItem.platform then
-#             {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
-#         else
-#             {state & platformRepoList: List.append (repoItem.alias, repoItem.user, repoItem.repo) }
-
-
-## Load the package and platform dictionaries from the files on disk.
-## If the data files do not yet exist, update to create them.
-loadDictionaries : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
-loadDictionaries =
+loadLatestRepoData =
+    bytes = getRawRepoData!
+    repos = decodeRepoData bytes
+    repoLists = List.walk repos { packageRepoList: [], platformRepoList: [] } \state, repoItem ->
+        if repoItem.platform then
+            {state & platformRepoList: List.append state.platformRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
+        else
+            {state & packageRepoList: List.append state.packageRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
+    updateRepoCache! repoLists.packageRepoList "pkg-data.rvn"
+    updateRepoCache! repoLists.platformRepoList "pf-data.rvn"
     dataDir = getAndCreateDataDir!
-    #runUpdateIfNecessary! dataDir
-    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn"
-    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn"
-    packages = getPackageDict packageBytes
-    platforms = getPlatformDict platformBytes
+    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
+    packages = getRepoDict packageBytes
+    platforms = getRepoDict platformBytes
     Task.ok { packages, platforms }
 
-## Convert the raw bytes from pkg-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
-getPackageDict : List U8 -> Dict Str RepositoryEntry
-getPackageDict = \packageBytes ->
-    res =
-        Decode.fromBytes packageBytes Rvn.pretty
-        |> Result.map \packageList ->
-            packageList
-            |> List.walk (Dict.empty {}) \dict, (name, shortName, version, url) ->
-                Dict.insert dict name { shortName, version, url }
-    when res is
-        Ok dict -> dict
-        Err _ -> Dict.empty {}
+## Get the latest release for each package in the repository.
+updateRepoCache : List (Str, Str, Str), Str -> Task {} _
+updateRepoCache = \repositoryList, filename ->
+    if List.isEmpty repositoryList then
+        Task.ok {}
+    else
+        dataDir = getAndCreateDataDir!
+        pkgRvnStr = Task.loop! { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop
+        File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
 
-## Convert the raw bytes from pf-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
-getPlatformDict : List U8 -> Dict Str RepositoryEntry
-getPlatformDict = \platformBytes ->
+RepositoryData : (Str, Str, Str)
+RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr : Str }
+
+## Loop function which processes each git repo in the platform or package list, gets the latest release for each,
+## and creates a string in rvn format containing the data for each package or platform. Used with `Task.loop`.
+reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
+reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
+    when List.get repositoryList 0 is
+        Ok (shortName, user, repo) ->
+            updatedList = List.dropFirst repositoryList 1
+            response = getLatestRelease! user repo
+            releaseData = responseToReleaseData response
+            when releaseData is
+                Ok { tagName, browserDownloadUrl } ->
+                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry repo shortName tagName browserDownloadUrl)
+                    Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
+
+                Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
+
+        Err OutOfBounds -> Task.ok (Done (Str.concat rvnDataStr "]"))
+
+## Use the github cli to get the latest release for a given repository.
+getLatestRelease : Str, Str -> Task { stdout : List U8, stderr : List U8 } _
+getLatestRelease = \owner, repo ->
+    Cmd.new "gh"
+        |> Cmd.arg "api"
+        |> Cmd.arg "-H"
+        |> Cmd.arg "Accept: application/vnd.github+json"
+        |> Cmd.arg "-H"
+        |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
+        |> Cmd.arg "/repos/$(owner)/$(repo)/releases/latest"
+        |> Cmd.output
+        |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: [] }
+
+## Parse the response from the github cli to get the tagName and browserDownloadUrl for the tar.br file for a given release.
+responseToReleaseData : { stdout : List U8 }* -> Result { tagName : Str, browserDownloadUrl : Str } [NoAssetsFound, ParsingError]
+responseToReleaseData = \response ->
+    isTarBr = \{ browserDownloadUrl } -> Str.endsWith browserDownloadUrl ".tar.br"
+    jsonResponse = Decode.fromBytes response.stdout (Json.utf8With { fieldNameMapping: SnakeCase })
+    when jsonResponse is
+        Ok { tagName, assets } ->
+            when assets |> List.keepIf isTarBr |> List.first is
+                Ok { browserDownloadUrl } -> Ok { tagName, browserDownloadUrl }
+                Err ListWasEmpty -> Err NoAssetsFound
+
+        Err _ -> Err ParsingError
+
+## Convert the data for a single repository entry to a string in rvn format.
+repoDataToRvnEntry : Str, Str, Str, Str -> Str
+repoDataToRvnEntry = \repo, shortName, tagName, browserDownloadUrl ->
+    """
+        ("$(repo)", "$(shortName)", "$(tagName)", "$(browserDownloadUrl)"),\n
+    """
+
+## Convert the raw bytes from pkg-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
+getRepoDict : List U8 -> Dict Str RepositoryEntry
+getRepoDict = \bytes ->
     res =
-        Decode.fromBytes platformBytes Rvn.pretty
+        Decode.fromBytes bytes Rvn.pretty
         |> Result.map \packageList ->
             packageList
             |> List.walk (Dict.empty {}) \dict, (name, shortName, version, url) ->
@@ -252,7 +301,8 @@ handleConfirmationInput = \model, input ->
         _ -> Task.ok (Step model)
 
 main =
-    repos = loadDictionaries!
+    #repos = loadDictionaries!
+    repos = loadLatestRepoData!
     Tty.enableRawMode!
     model = Task.loop! (Model.init repos.platforms repos.packages) runUiLoop
     Stdout.write! (Core.toStr Reset)
