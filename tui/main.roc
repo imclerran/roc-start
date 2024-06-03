@@ -6,8 +6,9 @@ app [main] {
 }
 
 import Model exposing [Model]
-import Repos exposing [RepositoryEntry]
+import Repo exposing [RepositoryEntry]
 import View
+import AnsiStrs exposing [greenFg]
 import cli.Http
 import cli.File
 import cli.Dir
@@ -74,6 +75,19 @@ decodeRepoData = \data ->
         Ok list -> list
         Err _ -> []
 
+loadRepoData = \forceUpdate ->
+    dataDir = getAndCreateDataDir!
+    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # if this block is placed inside if statement
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # there is a compiler error
+    packages = getRepoDict packageBytes                      # would be better not to have to do this read
+    platforms = getRepoDict platformBytes                    # if force update is true, but does not noticably slow UX
+    if forceUpdate then
+        loadLatestRepoData
+    else if Dict.isEmpty platforms || Dict.isEmpty packages then
+        loadLatestRepoData # this will migrate tuples to records from old roc-start installs
+    else
+        Task.ok { packages, platforms }
+
 loadLatestRepoData =
     bytes = getRawRepoData!
     repos = decodeRepoData bytes
@@ -82,12 +96,12 @@ loadLatestRepoData =
             {state & platformRepoList: List.append state.platformRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
         else
             {state & packageRepoList: List.append state.packageRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
-    # Bottleneck: updating repo cache also handles fetchting the latest release versions/urls
-    # TODO: split the update functionality into its own function, which is run only on first run
-    # or when the user requests an update. Caching should be in a separate function.
-    # this will also allow using the in-memory data structure for the repo data, instead of reading from disk
+    Stdout.write! "Updating package repository..."
     updateRepoCache! repoLists.packageRepoList "pkg-data.rvn"
+    Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
+    Stdout.write! "Updating platform repository..."
     updateRepoCache! repoLists.platformRepoList "pf-data.rvn"
+    Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
     dataDir = getAndCreateDataDir!
     packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
     platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
@@ -166,8 +180,8 @@ getRepoDict = \bytes ->
         Decode.fromBytes bytes Rvn.pretty
         |> Result.map \packageList ->
             packageList
-            |> List.walk (Dict.empty {}) \dict, (name, shortName, version, url) ->
-                Dict.insert dict name { shortName, version, url }
+            |> List.walk (Dict.empty {}) \dict, (name, alias, version, url) ->
+                Dict.insert dict name { alias, version, url }
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
@@ -183,12 +197,12 @@ buildRocFile : Str, List Str, { packages : Dict Str RepositoryEntry, platforms :
 buildRocFile = \platform, packageList, repos ->
     pfStr =
         when Dict.get repos.platforms platform is
-            Ok pf -> "    $(pf.shortName): platform \"$(pf.url)\",\n"
+            Ok pf -> "    $(pf.alias): platform \"$(pf.url)\",\n"
             Err KeyNotFound -> crash "Invalid platform: $(platform)"
     pkgsStr =
         List.walk packageList "" \str, package ->
             when Dict.get repos.packages package is
-                Ok pkg -> Str.concat str "    $(pkg.shortName): \"$(pkg.url)\",\n"
+                Ok pkg -> Str.concat str "    $(pkg.alias): \"$(pkg.url)\",\n"
                 Err KeyNotFound -> ""
     "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
 
@@ -202,6 +216,7 @@ render = \model ->
         Confirmation _ -> View.renderConfirmation model
         _ -> []
 
+# author: Luke Boswell
 getTerminalSize : Task.Task Core.ScreenSize _
 getTerminalSize =
     # Move the cursor to bottom right corner of terminal
@@ -306,7 +321,7 @@ handleConfirmationInput = \model, input ->
 
 main =
     #repos = loadDictionaries!
-    repos = loadLatestRepoData!
+    repos = loadRepoData! Bool.false
     Tty.enableRawMode!
     model = Task.loop! (Model.init repos.platforms repos.packages) runUiLoop
     Stdout.write! (Core.toStr Reset)
@@ -314,8 +329,6 @@ main =
     when model.state is
         UserExited -> Task.ok {}
         Finished { config } ->
-            # repoData = getRawRepoData!
-            # repo = decodeRepoData repoData
             fileExists = checkForFile! "$(config.appName).roc"
             if fileExists then
                 Stdout.line! "Error: $(config.appName).roc already exists."
@@ -323,3 +336,12 @@ main =
                 createRocFile! config repos
                 Stdout.line! "Created $(config.appName).roc"
         _ -> Stdout.line! "Something went wrong..."
+
+# TODOS:
+# 1) Move available actions function into model
+# 2) modify input handlers to only handle available actions
+# 3) update cache to use records instead of tuples. If a tuple based cache is found, update the cache.
+# 4) only update the cache if it does not exist, or when the user requests an update
+# 5) improve function naming, especially related to repositories, which are currently confusiong
+# 6) add CLI arg handling from old roc-start version
+# 7) Remove Dicts from Model, use lists instead for both platforms and packages

@@ -26,7 +26,7 @@ module [
 
 import ansi.Core
 import Keys exposing [Key]
-import Repos exposing [RepositoryEntry]
+import Repo exposing [RepositoryEntry]
 
 Model : {
     screen : Core.ScreenSize,
