@@ -4,8 +4,8 @@ import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
 import ansi.Core
 
-renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard White }
-renderExitPrompt = \screen -> Core.drawText " Ctrl+C TO QUIT " { r: 0, c: screen.width - 18, fg: Standard Red }
+renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard Cyan }
+renderExitPrompt = \screen -> Core.drawText " Ctrl+C : QUIT " { r: 0, c: screen.width - 17, fg: Standard Red }
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
