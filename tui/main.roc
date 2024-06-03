@@ -6,7 +6,7 @@ app [main] {
 }
 
 import Model exposing [Model]
-import Repo exposing [RepositoryEntry]
+import Repo exposing [RepositoryEntry, RemoteRepoEntry, CacheRepoEntry]
 import View
 import AnsiStrs exposing [greenFg]
 import cli.Http
@@ -68,7 +68,7 @@ getRawRepoData =
     resp = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
     Task.ok resp.body
 
-decodeRepoData : List U8 -> List { repo : Str, owner : Str, alias : Str, platform: Bool }
+decodeRepoData : List U8 -> List Repo.RemoteRepoEntry
 decodeRepoData = \data ->
     res = Decode.fromBytes data Rvn.pretty
     when res is
@@ -93,9 +93,9 @@ loadLatestRepoData =
     repos = decodeRepoData bytes
     repoLists = List.walk repos { packageRepoList: [], platformRepoList: [] } \state, repoItem ->
         if repoItem.platform then
-            {state & platformRepoList: List.append state.platformRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
+            {state & platformRepoList: List.append state.platformRepoList repoItem }
         else
-            {state & packageRepoList: List.append state.packageRepoList (repoItem.alias, repoItem.owner, repoItem.repo) }
+            {state & packageRepoList: List.append state.packageRepoList repoItem }
     Stdout.write! "Updating package repository..."
     updateRepoCache! repoLists.packageRepoList "pkg-data.rvn"
     Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
@@ -110,7 +110,7 @@ loadLatestRepoData =
     Task.ok { packages, platforms }
 
 ## Get the latest release for each package in the repository.
-updateRepoCache : List (Str, Str, Str), Str -> Task {} _
+updateRepoCache : List RemoteRepoEntry, Str -> Task {} _
 updateRepoCache = \repositoryList, filename ->
     if List.isEmpty repositoryList then
         Task.ok {}
@@ -119,21 +119,20 @@ updateRepoCache = \repositoryList, filename ->
         pkgRvnStr = Task.loop! { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop
         File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
 
-RepositoryData : (Str, Str, Str)
-RepositoryLoopState : { repositoryList : List RepositoryData, rvnDataStr : Str }
 
+RepositoryLoopState : { repositoryList : List RemoteRepoEntry, rvnDataStr : Str }
 ## Loop function which processes each git repo in the platform or package list, gets the latest release for each,
 ## and creates a string in rvn format containing the data for each package or platform. Used with `Task.loop`.
 reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
 reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
     when List.get repositoryList 0 is
-        Ok (shortName, user, repo) ->
+        Ok { owner, repo, alias, platform } ->
             updatedList = List.dropFirst repositoryList 1
-            response = getLatestRelease! user repo
+            response = getLatestRelease! owner repo
             releaseData = responseToReleaseData response
             when releaseData is
                 Ok { tagName, browserDownloadUrl } ->
-                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry repo shortName tagName browserDownloadUrl)
+                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry {repo, owner, alias, version: tagName, url: browserDownloadUrl, platform })
                     Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
 
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
@@ -167,10 +166,11 @@ responseToReleaseData = \response ->
         Err _ -> Err ParsingError
 
 ## Convert the data for a single repository entry to a string in rvn format.
-repoDataToRvnEntry : Str, Str, Str, Str -> Str
-repoDataToRvnEntry = \repo, shortName, tagName, browserDownloadUrl ->
+repoDataToRvnEntry : CacheRepoEntry -> Str
+repoDataToRvnEntry = \entry ->
+    boolStr = if entry.platform then "Bool.true" else "Bool.false"
     """
-        ("$(repo)", "$(shortName)", "$(tagName)", "$(browserDownloadUrl)"),\n
+        { repo: "$(entry.repo)", owner: "$(entry.owner)", alias: "$(entry.alias)", version: "$(entry.version)", url: "$(entry.url)", platform: $(boolStr) },\n
     """
 
 ## Convert the raw bytes from pkg-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
@@ -180,8 +180,8 @@ getRepoDict = \bytes ->
         Decode.fromBytes bytes Rvn.pretty
         |> Result.map \packageList ->
             packageList
-            |> List.walk (Dict.empty {}) \dict, (name, alias, version, url) ->
-                Dict.insert dict name { alias, version, url }
+            |> List.walk (Dict.empty {}) \dict, cacheEntry ->
+                Dict.insert dict cacheEntry.repo { alias: cacheEntry.alias, version: cacheEntry.version, url: cacheEntry.url }
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
@@ -323,7 +323,7 @@ main =
     #repos = loadDictionaries!
     repos = loadRepoData! Bool.false
     Tty.enableRawMode!
-    model = Task.loop! (Model.init repos.platforms repos.packages) runUiLoop
+    model = Task.loop! (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages)) runUiLoop
     Stdout.write! (Core.toStr Reset)
     Tty.disableRawMode!
     when model.state is
@@ -340,8 +340,10 @@ main =
 # TODOS:
 # 1) Move available actions function into model
 # 2) modify input handlers to only handle available actions
-# 3) update cache to use records instead of tuples. If a tuple based cache is found, update the cache.
-# 4) only update the cache if it does not exist, or when the user requests an update
 # 5) improve function naming, especially related to repositories, which are currently confusiong
 # 6) add CLI arg handling from old roc-start version
-# 7) Remove Dicts from Model, use lists instead for both platforms and packages
+
+
+# 3) update cache to use records instead of tuples. If a tuple based cache is found, update the cache. [DONE]
+# 4) only update the cache if it does not exist, or when the user requests an update [DONE]
+# 7) Remove Dicts from Model, use lists instead for both platforms and packages [DONE]

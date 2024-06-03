@@ -16,14 +16,14 @@ getActions = \model ->
     when model.state is
         PlatformSelect _ ->
             [SingleSelect]
-            |> \actions -> if List.len model.fullMenu < Dict.len model.platformRepoDict
+            |> \actions -> if List.len model.fullMenu < List.len model.platformList
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         PackageSelect _ ->
             [MuitiSelect, MultiConfirm]
-            |> \actions -> if List.len model.fullMenu < Dict.len model.packageRepoDict
+            |> \actions -> if List.len model.fullMenu < List.len model.packageList
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions

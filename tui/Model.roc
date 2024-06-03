@@ -26,7 +26,6 @@ module [
 
 import ansi.Core
 import Keys exposing [Key]
-import Repo exposing [RepositoryEntry]
 
 Model : {
     screen : Core.ScreenSize,
@@ -37,8 +36,8 @@ Model : {
     fullMenu : List Str,
     selected : List Str,
     inputs : List Core.Input,
-    packageRepoDict : Dict Str RepositoryEntry,
-    platformRepoDict : Dict Str RepositoryEntry,
+    packageList : List Str,
+    platformList : List Str,
     state : [
         InputAppName { nameBuffer : List U8, config : Configuration },
         PlatformSelect { config : Configuration },
@@ -58,16 +57,16 @@ Configuration : {
 
 emptyConfig = { appName: "", platform: "", packages: [] }
 
-init : Dict Str RepositoryEntry, Dict Str RepositoryEntry -> Model
-init = \platformRepoDict, packageRepoDict -> {
+init : List Str, List Str -> Model
+init = \platformList, packageList -> {
     screen: { width: 0, height: 0 },
     cursor: { row: 2, col: 2 },
     menuRow: 2,
     pageFirstItem: 0,
-    menu: Dict.keys platformRepoDict,
-    fullMenu: Dict.keys platformRepoDict,
-    platformRepoDict,
-    packageRepoDict,
+    menu: platformList,
+    fullMenu: platformList,
+    platformList,
+    packageList,
     selected: [],
     inputs: List.withCapacity 1000,
     state: InputAppName { nameBuffer: [], config: emptyConfig }
@@ -162,7 +161,7 @@ toPlatformSelectState = \model ->
             } |> paginate
         SearchPage { config, searchBuffer } ->
             { model &
-                fullMenu: model.platformRepoDict |> Dict.keys |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                fullMenu: model.platformList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config },
             } |> paginate
@@ -172,13 +171,13 @@ toPlatformSelectState = \model ->
                 _ -> config
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.platformRepoDict |> Dict.keys,
+                fullMenu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: configWithPackages }
             } |> paginate
         _ ->
             { model &
-                menu: model.platformRepoDict |> Dict.keys,
+                menu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: { platform: "", appName: "", packages: [] } },
             } |> paginate
@@ -190,7 +189,7 @@ toPackageSelectState = \model ->
             platform = getHighlightedItem model
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.packageRepoDict |> Dict.keys,
+                fullMenu: model.packageList,
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config: { config & platform } },
@@ -199,7 +198,7 @@ toPackageSelectState = \model ->
         SearchPage { config, searchBuffer } ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.packageRepoDict |> Dict.keys |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                fullMenu: model.packageList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config },
@@ -208,7 +207,7 @@ toPackageSelectState = \model ->
         Confirmation { config } ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.packageRepoDict |> Dict.keys,
+                fullMenu: model.packageList,
                 selected: config.packages,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config },
@@ -217,7 +216,7 @@ toPackageSelectState = \model ->
         _ ->
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.packageRepoDict |> Dict.keys,
+                fullMenu: model.packageList,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config: { platform: "", appName: "", packages: [] } },
             } |> paginate
@@ -262,12 +261,12 @@ clearSearchFilter = \model ->
     when model.state is
         PackageSelect _ ->
             { model &
-                fullMenu: model.packageRepoDict |> Dict.keys,
+                fullMenu: model.packageList,
                 #cursor: { row: model.menuRow, col: 2 },
             } |> paginate
         PlatformSelect _ ->
             { model &
-                fullMenu: model.platformRepoDict |> Dict.keys,
+                fullMenu: model.platformList,
                 #cursor: { row: model.menuRow, col: 2 },
             } |> paginate
         _ -> model
