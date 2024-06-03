@@ -1,30 +1,31 @@
 app [main] {
     cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.5/1JOFFXrqOrdoINq6C4OJ8k3UK0TJhgITLbcOb-6WMwY.tar.br",
-    rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.1.0/2d2PF4kq9UUum9YpQH7k9iFIJ4hffWXQVCi0GJJweiU.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.0/KbIfTNbxShRX1A1FgXei1SpO5Jn8sgP6HP6PXbi-xyA.tar.br",
+    rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.1.0/2d2PF4kq9UUum9YpQH7k9iFIJ4hffWXQVCi0GJJweiU.tar.br",
     weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
+
 }
 
+import AnsiStrs exposing [greenFg]
+import ArgParser
 import Model exposing [Model]
 import Repo exposing [RepositoryEntry, RemoteRepoEntry, CacheRepoEntry]
-import ArgParser
 import View
-import AnsiStrs exposing [greenFg]
+import ansi.Core
 import cli.Arg
-import cli.Http
-import cli.File
+import cli.Cmd
 import cli.Dir
 import cli.Env
+import cli.File
+import cli.Http
 import cli.Path
-import cli.Stdout
 import cli.Stdin
-import cli.Tty
-import cli.Cmd
+import cli.Stdout
 import cli.Task exposing [Task]
-import ansi.Core
-import rvn.Rvn
+import cli.Tty
 import json.Json
+import rvn.Rvn
 
 Configuration : {
     appName : Str,
@@ -73,19 +74,19 @@ getRemoteRepoData =
         Ok repos ->
             repoLists = List.walk repos { packageRepos: [], platformRepos: [] } \state, repoItem ->
                 if repoItem.platform then
-                    {state & platformRepos: List.append state.platformRepos repoItem }
+                    { state & platformRepos: List.append state.platformRepos repoItem }
                 else
-                    {state & packageRepos: List.append state.packageRepos repoItem }
+                    { state & packageRepos: List.append state.packageRepos repoItem }
             Task.ok repoLists
-        Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
 
+        Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
 
 loadRepoData = \forceUpdate ->
     dataDir = getAndCreateDataDir!
     packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok [] # if this block is placed inside if statement
     platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok [] # there is a compiler error
-    packages = getRepoDict packageBytes                                                     # would be better not to have to do this read
-    platforms = getRepoDict platformBytes                                                   # if force update is true, but does not noticably slow UX
+    packages = getRepoDict packageBytes # would be better not to have to do this read
+    platforms = getRepoDict platformBytes # if force update is true, but does not noticably slow UX
     if forceUpdate then
         loadLatestRepoData
     else if Dict.isEmpty platforms || Dict.isEmpty packages then
@@ -134,7 +135,7 @@ reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
             releaseData = responseToReleaseData response
             when releaseData is
                 Ok { tagName, browserDownloadUrl } ->
-                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry {repo, owner, alias, version: tagName, url: browserDownloadUrl, platform })
+                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform })
                     Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
 
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
@@ -189,7 +190,7 @@ getRepoDict = \bytes ->
         Err _ -> Dict.empty {}
 
 ## Generate a roc file from the given appName, platform, and packageList.
-createRocFile : Configuration, { packages: Dict Str RepositoryEntry, platforms: Dict Str RepositoryEntry } -> Task {} _
+createRocFile : Configuration, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
     File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos)
 
@@ -298,6 +299,7 @@ handleSearchPageInput = \model, input, sender ->
             when sender is
                 Platform -> Task.ok (Step (Model.toPlatformSelectState model))
                 Package -> Task.ok (Step (Model.toPackageSelectState model))
+
         KeyPress Escape -> Task.ok (Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState))
         KeyPress Delete -> Task.ok (Step (Model.backspaceBuffer model))
         KeyPress c -> Task.ok (Step (Model.appendToBuffer model c))
@@ -344,6 +346,7 @@ runTuiApp = \forceUpdate ->
             else
                 createRocFile! config repos
                 Stdout.line! "Created $(config.appName).roc"
+
         _ -> Stdout.line! "Something went wrong..."
 
 main : Task {} _
@@ -371,4 +374,3 @@ runWith = \args ->
                 _ ->
                     {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
                     Stdout.line ArgParser.baseUsage
-

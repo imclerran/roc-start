@@ -25,8 +25,8 @@ module [
     clearSearchFilter,
 ]
 
-import ansi.Core
 import Keys exposing [Key]
+import ansi.Core
 
 Model : {
     screen : Core.ScreenSize,

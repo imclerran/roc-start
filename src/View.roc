@@ -1,7 +1,7 @@
 module [UiAction, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox, getActions]
 
-import Model exposing [Model]
 import BoxStyle exposing [BoxStyle, border]
+import Model exposing [Model]
 import ansi.Core
 
 renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard Cyan }
