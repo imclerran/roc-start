@@ -276,10 +276,10 @@ appendToBuffer : Model, Key -> Model
 appendToBuffer = \model, key ->
     when model.state is
         SearchPage { searchBuffer, config, sender } ->
-            newBuffer = List.concat searchBuffer (Core.keyToStr key |> Str.toUtf8)
+            newBuffer = List.concat searchBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
             { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
         InputAppName { nameBuffer, config } ->
-            newBuffer = List.concat nameBuffer (Core.keyToStr key |> Str.toUtf8)
+            newBuffer = List.concat nameBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
 
         _ -> model
