@@ -1,9 +1,11 @@
 *
 !*.*
 !repos/
-!tui/
-!tui/mkr
-!tui/mk
+!src/
+!src/mkr
+!src/mk
+!repository
+!assets
 pf-data.rvn
 pkg-data.rvn
 .DS_Store
