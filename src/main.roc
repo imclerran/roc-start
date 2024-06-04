@@ -7,10 +7,9 @@ app [main] {
 
 }
 
-import Controller
-
 import AnsiStrs exposing [greenFg]
 import ArgParser
+import Controller
 import Model exposing [Model]
 import Repo exposing [RepositoryEntry, RemoteRepoEntry, CacheRepoEntry]
 import View
