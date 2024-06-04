@@ -24,7 +24,11 @@ Roc start maintains a repository of package and platform git repos. From this li
 
 The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by appending `-u`/`--update` to your `roc-start` command. IE: `roc-start tui -u`.
 
-__Important:__ note that roc-start currently depends on the github cli tool to get the latest releases. 
+__Important:__ note that roc-start currently depends on the github cli tool to get the latest releases.
+
+## Dependencies
+
+`roc-start depends on the [github cli](https://cli.github.com) tool to update its repository. Please make sure to install and log into `gh` before running `roc-start`.
 
 ## Getting your package or platform added to roc-start
  
