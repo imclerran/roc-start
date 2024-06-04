@@ -1,7 +1,19 @@
 #!/bin/zsh
 LOCAL_BIN="$HOME/.local/bin"
 
-roc build --output roc-start --optimize
+YELLOW="\033[33m"
+MAGENTA="\033[35m"
+CYAN="\033[36m"
+RESET="\033[0m"
+
+echo -e "Building ${MAGENTA}roc-start${RESET}...\n"
+roc build --output roc-start --optimize > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     cp ./roc-start $LOCAL_BIN
+    echo -e "${MAGENTA}roc-start${RESET} installed to $LOCAL_BIN"
+fi
+
+if ! command -v gh > /dev/null 2>&1; then
+    echo -e "${YELLOW}- NOTE: ${MAGENTA}roc-start${RESET} requires ${CYAN}gh${RESET} to be installed. Please install the GitHub CLI: https://cli.github.com"
+    exit 1
 fi
