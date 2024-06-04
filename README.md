@@ -1,6 +1,8 @@
 # `roc-start` CLI tool 🚀
 
 [![Roc-Lang][roc_badge]][roc_link]
+[![GitHub last commit][last_commit_badge]][last_commit_link]
+[![CI status][ci_status_badge]][ci_status_link]
 
 Roc-start is a CLI tool for generating application headers for a new roc application.
 
@@ -62,3 +64,8 @@ Options:
 
 [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb
 [roc_link]: https://github.com/roc-lang/roc
+
+[ci_status_badge]: https://img.shields.io/github/actions/workflow/status/imclerran/roc-start/ci.yaml
+[ci_status_link]: https://github.com/imclerran/roc-start/actions/workflows/ci.yaml
+[last_commit_badge]: https://img.shields.io/github/last-commit/imclerran/roc-start
+[last_commit_link]: https://github.com/imclerran/roc-start/commits/main/
