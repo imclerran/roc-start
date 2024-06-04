@@ -4,11 +4,11 @@
 
 Roc-start is a CLI tool for generating application headers for a new roc application.
 
-Starting a new roc app which requires multiple packages can be a bit cumbersome, due to the requirement for long urls which cannot be easily memorized. This typically requires opening previous projects which have some of the same dependencies, and copy/pasting from there, or visiting multiple github pages, finding the release page, and copying the url of the required asset.
+Starting a new roc app which requires multiple packages can be a bit cumbersome, due to the requirement for long urls which cannot be easily memorized. This typically requires opening previous projects which have some of the same dependencies, and copy/pasting from there, or visiting multiple github pages, finding the release page, and copying the url of the required assets.
 
 Roc-start is intended to streamline this process.
 
-Roc start maintains a repository of package and platform git repos. From this list, it will fetch the latest release URLs for each of these packages and platforms. Then with a simple command, you can generate a new roc application file. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
+Roc-start maintains a repository of package and platform git repos. From this list, it will fetch the latest release URLs for each of these packages and platforms. Then with a simple command, you can generate a new roc application file. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
 
 ## Two workflows
 
