@@ -1,0 +1,7 @@
+#!/bin/zsh
+LOCAL_BIN="$HOME/.local/bin"
+
+roc build --output roc-start --optimize
+if [ $? -eq 0 ]; then
+    cp ./roc-start $LOCAL_BIN
+fi

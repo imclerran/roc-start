@@ -4,6 +4,7 @@
 !src/
 !src/mkr
 !src/mk
+!src/install
 !repository
 !assets
 .DS_Store
