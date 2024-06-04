@@ -8,3 +8,5 @@
 !repository
 !assets
 .DS_Store
+!.github/workflows/
+!ci/
