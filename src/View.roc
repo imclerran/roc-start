@@ -1,4 +1,4 @@
-module [UiAction, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearchPage, renderConfirmation, renderBox, getActions]
+module [UserAction, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderBox, getActions]
 
 import BoxStyle exposing [BoxStyle, border]
 import Model exposing [Model]
@@ -9,29 +9,29 @@ renderExitPrompt = \screen -> Core.drawText " Ctrl+C : QUIT " { r: 0, c: screen.
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
-UiAction : [SingleSelect, MuitiSelect, MultiConfirm, TextConfirm, GoBack, Search, ClearFilter, SearchGo, PrevPage, NextPage, Cancel, Finish]
+UserAction : [Exit, SingleSelect, MuitiSelect, MultiConfirm, TextInput, TextBackspace, TextConfirm, GoBack, Search, ClearFilter, SearchGo, PrevPage, NextPage, Cancel, Finish]
 
-getActions : Model -> List UiAction
+getActions : Model -> List UserAction
 getActions = \model ->
     when model.state is
         PlatformSelect _ ->
-            [SingleSelect]
+            [Exit, SingleSelect]
             |> \actions -> if List.len model.fullMenu < List.len model.platformList
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
         PackageSelect _ ->
-            [MuitiSelect, MultiConfirm]
+            [Exit, MuitiSelect, MultiConfirm]
             |> \actions -> if List.len model.fullMenu < List.len model.packageList
                 then List.append actions ClearFilter else List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
-        Confirmation _ -> [Finish, GoBack]
-        InputAppName _ -> [TextConfirm]
-        SearchPage _ -> [SearchGo, Cancel]
-        _ -> []
+        Confirmation _ -> [Exit, Finish, GoBack]
+        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace]
+        Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
+        _ -> [Exit]
 
 controlPromptsDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER : SELECT"
@@ -44,9 +44,11 @@ controlPromptsDict = Dict.empty {}
     |> Dict.insert SearchGo "ENTER : SEARCH"
     |> Dict.insert Cancel "ESC : CANCEL"
     |> Dict.insert Finish "ENTER : FINISH"
+    |> Dict.insert TextInput ""
+    |> Dict.insert TextBackspace ""
+    |> Dict.insert Exit ""
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
-
 
 controlPromptsShortDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER"
@@ -59,6 +61,9 @@ controlPromptsShortDict = Dict.empty {}
     |> Dict.insert SearchGo "ENTER"
     |> Dict.insert Cancel "ESC"
     |> Dict.insert Finish "ENTER"
+    |> Dict.insert TextInput ""
+    |> Dict.insert TextBackspace ""
+    |> Dict.insert Exit ""
     |> Dict.insert PrevPage "<"
     |> Dict.insert NextPage ">"
 
@@ -120,10 +125,10 @@ renderInputAppName = \model ->
 
         _ -> []
 
-renderSearchPage : Model -> List Core.DrawFn
-renderSearchPage = \model ->
+renderSearch : Model -> List Core.DrawFn
+renderSearch = \model ->
     when model.state is
-        SearchPage { sender, searchBuffer } ->
+        Search { sender, searchBuffer } ->
             searchPrompt = if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
             List.join [
                 [

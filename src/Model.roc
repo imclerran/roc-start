@@ -19,7 +19,7 @@ module [
     toPackageSelectState,
     toPlatformSelectState,
     toFinishedState,
-    toSearchPageState,
+    toSearchState,
     toConfirmationState,
     toUserExitedState,
     clearSearchFilter,
@@ -44,7 +44,7 @@ Model : {
         PlatformSelect { config : Configuration },
         PackageSelect { config : Configuration },
         Confirmation { config : Configuration },
-        SearchPage { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
+        Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
         UserExited,
         Finished { config : Configuration },
     ],
@@ -163,7 +163,7 @@ toPlatformSelectState = \model ->
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: newConfig },
             } |> paginate
-        SearchPage { config, searchBuffer } ->
+        Search { config, searchBuffer } ->
             { model &
                 fullMenu: model.platformList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
@@ -199,7 +199,7 @@ toPackageSelectState = \model ->
                 state: PackageSelect { config: { config & platform } },
             } |> paginate
 
-        SearchPage { config, searchBuffer } ->
+        Search { config, searchBuffer } ->
             { model &
                 pageFirstItem: 0,
                 fullMenu: model.packageList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
@@ -242,20 +242,20 @@ toConfirmationState = \model ->
         PackageSelect { config } -> { model & state: Confirmation { config } }
         _ -> { model & state: Confirmation { config: { platform: "", appName: "", packages: [] } } }
 
-toSearchPageState : Model -> Model
-toSearchPageState = \model ->
+toSearchState : Model -> Model
+toSearchState = \model ->
     when model.state is
         PlatformSelect { config } ->
             { model &
                 cursor: { row: model.menuRow, col: 2 },
-                state: SearchPage { config, searchBuffer: [], sender: Platform },
+                state: Search { config, searchBuffer: [], sender: Platform },
             }
 
         PackageSelect { config } ->
             newConfig = { config & packages: model.selected }
             { model &
                 cursor: { row: model.menuRow, col: 2 },
-                state: SearchPage { config: newConfig, searchBuffer: [], sender: Package },
+                state: Search { config: newConfig, searchBuffer: [], sender: Package },
             }
 
         _ -> model
@@ -278,9 +278,9 @@ clearSearchFilter = \model ->
 appendToBuffer : Model, Key -> Model
 appendToBuffer = \model, key ->
     when model.state is
-        SearchPage { searchBuffer, config, sender } ->
+        Search { searchBuffer, config, sender } ->
             newBuffer = List.concat searchBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
-            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+            { model & state: Search { config, sender, searchBuffer: newBuffer } }
         InputAppName { nameBuffer, config } ->
             newBuffer = List.concat nameBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
@@ -290,9 +290,9 @@ appendToBuffer = \model, key ->
 backspaceBuffer : Model -> Model
 backspaceBuffer = \model ->
     when model.state is
-        SearchPage { searchBuffer, config, sender } ->
+        Search { searchBuffer, config, sender } ->
             newBuffer = List.dropLast searchBuffer 1
-            { model & state: SearchPage { config, sender, searchBuffer: newBuffer } }
+            { model & state: Search { config, sender, searchBuffer: newBuffer } }
         InputAppName { nameBuffer, config } ->
             newBuffer = List.dropLast nameBuffer 1
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
@@ -302,8 +302,8 @@ backspaceBuffer = \model ->
 clearSearchBuffer : Model -> Model
 clearSearchBuffer = \model ->
     when model.state is
-        SearchPage { config, sender } ->
-            { model & state: SearchPage { config, sender, searchBuffer: [] } }
+        Search { config, sender } ->
+            { model & state: Search { config, sender, searchBuffer: [] } }
 
         _ -> model
 

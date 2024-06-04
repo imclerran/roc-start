@@ -214,7 +214,7 @@ render = \model ->
         InputAppName _ -> View.renderInputAppName model
         PlatformSelect _ -> View.renderPlatformSelect model
         PackageSelect _ -> View.renderPackageSelect model
-        SearchPage _ -> View.renderSearchPage model
+        Search _ -> View.renderSearch model
         Confirmation _ -> View.renderConfirmation model
         _ -> []
 
@@ -242,7 +242,7 @@ runUiLoop = \prevModel ->
         InputAppName _ -> handleInputAppNameInput modelWithInput input
         PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
         PackageSelect _ -> handlePackageSelectInput modelWithInput input
-        SearchPage { sender } -> handleSearchPageInput modelWithInput input sender
+        Search { sender } -> handleSearchInput modelWithInput input sender
         Confirmation _ -> handleConfirmationInput modelWithInput input
         _ -> handleBasicInput modelWithInput input
 
@@ -256,8 +256,8 @@ handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Mod
 handlePlatformSelectInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress LowerS -> Task.ok (Step (Model.toSearchPageState model))
-        KeyPress UpperS -> Task.ok (Step (Model.toSearchPageState model))
+        KeyPress LowerS -> Task.ok (Step (Model.toSearchState model))
+        KeyPress UpperS -> Task.ok (Step (Model.toSearchState model))
         KeyPress Enter -> Task.ok (Step (Model.toPackageSelectState model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
         KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
@@ -275,8 +275,8 @@ handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Mode
 handlePackageSelectInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress LowerS -> Task.ok (Step (Model.toSearchPageState model))
-        KeyPress UpperS -> Task.ok (Step (Model.toSearchPageState model))
+        KeyPress LowerS -> Task.ok (Step (Model.toSearchState model))
+        KeyPress UpperS -> Task.ok (Step (Model.toSearchState model))
         KeyPress Enter -> Task.ok (Step (Model.toConfirmationState model))
         KeyPress Space -> Task.ok (Step (Model.toggleSelected model))
         KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
@@ -291,8 +291,8 @@ handlePackageSelectInput = \model, input ->
         KeyPress Comma -> Task.ok (Step (Model.prevPage model))
         _ -> Task.ok (Step model)
 
-handleSearchPageInput : Model, Core.Input, [Platform, Package] -> Task.Task [Step Model, Done Model] _
-handleSearchPageInput = \model, input, sender ->
+handleSearchInput : Model, Core.Input, [Platform, Package] -> Task.Task [Step Model, Done Model] _
+handleSearchInput = \model, input, sender ->
     when input is
         CtrlC -> Task.ok (Done (Model.toUserExitedState model))
         KeyPress Enter ->
