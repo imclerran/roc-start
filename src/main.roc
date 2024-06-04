@@ -257,21 +257,21 @@ handleBasicInput = \model, input ->
 handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
     action = when input is
-        CtrlC -> Exit # Task.ok (Done (Model.toUserExitedState model))
-        KeyPress LowerS -> Search #Task.ok (Step (Model.toSearchState model))
-        KeyPress UpperS -> Search #Task.ok (Step (Model.toSearchState model))
-        KeyPress Enter -> SingleSelect #Task.ok (Step (Model.toPackageSelectState model))
-        KeyPress Up -> CursorUp #Task.ok (Step (Model.moveCursor model Up))
-        KeyPress Down -> CursorDown #Task.ok (Step (Model.moveCursor model Down))
-        KeyPress Delete -> GoBack #Task.ok (Step (Model.toInputAppNameState model))
-        KeyPress Escape -> ClearFilter #Task.ok (Step (Model.clearSearchFilter model))
-        KeyPress Right -> NextPage #Task.ok (Step (Model.nextPage model))
-        KeyPress GreaterThanSign -> NextPage #Task.ok (Step (Model.nextPage model))
-        KeyPress FullStop -> NextPage #Task.ok (Step (Model.nextPage model))
-        KeyPress Left -> PrevPage #Task.ok (Step (Model.prevPage model))
-        KeyPress LessThanSign -> PrevPage #Task.ok (Step (Model.prevPage model))
-        KeyPress Comma -> PrevPage #Task.ok (Step (Model.prevPage model))
-        _ -> None #Task.ok (Step model)
+        CtrlC -> Exit 
+        KeyPress LowerS -> Search 
+        KeyPress UpperS -> Search 
+        KeyPress Enter -> SingleSelect 
+        KeyPress Up -> CursorUp 
+        KeyPress Down -> CursorDown 
+        KeyPress Delete -> GoBack 
+        KeyPress Escape -> ClearFilter 
+        KeyPress Right -> NextPage 
+        KeyPress GreaterThanSign -> NextPage 
+        KeyPress FullStop -> NextPage 
+        KeyPress Left -> PrevPage 
+        KeyPress LessThanSign -> PrevPage 
+        KeyPress Comma -> PrevPage 
+        _ -> None
     Task.ok (Controller.applyAction { model, action })
 
 handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
