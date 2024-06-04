@@ -8,11 +8,10 @@ roc='./roc_nightly/roc'
 
 src_dir='./src'
 
-# roc test
+# test-stub.roc
+$roc check $src_dir/test-stub.roc
 $roc test $src_dir/test-stub.roc
 
-# roc check
+# main.roc
 $roc check $src_dir/main.roc
-
-# roc build
 $roc build $src_dir/main.roc --linker=legacy
