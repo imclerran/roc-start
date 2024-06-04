@@ -24,17 +24,18 @@ Roc start maintains a repository of package and platform git repos. From this li
 
 The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by appending `-u`/`--update` to your `roc-start` command. IE: `roc-start tui -u`.
 
-__Important:__ note that roc-start currently depends on the github cli tool to get the latest releases.
+> __Important:__ 
+> Note that roc-start depends on the github cli tool to get the latest releases.
 
 ## Dependencies
 
-`roc-start` depends on the [github cli](https://cli.github.com) tool to update its repository. Please make sure to install and log into `gh` before running `roc-start`.
+As mentioned above, `roc-start` depends on the [github cli](https://cli.github.com) tool to fetch the latest release urls. Please make sure to install and log into `gh` before running `roc-start`.
 
 ## Getting your package or platform added to roc-start
  
  Please see [GET_LISTED](repository/GET_LISTED.md) for full instructions on getting your package or platform added to roc-start. 
 
-> **Note**  
+> __Note:__
 > Some packages and platforms are already included in the repository, but do not appear in the TUI app, and cannot be imported by the CLI app. This is because these packages do not have a github release, or do not include the proper release assets.
 
 
