@@ -1,6 +1,7 @@
-module [UserAction, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderBox, getActions]
+module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderBox]
 
 import BoxStyle exposing [BoxStyle, border]
+import Controller exposing [UserAction]
 import Model exposing [Model]
 import ansi.Core
 
@@ -9,33 +10,34 @@ renderExitPrompt = \screen -> Core.drawText " Ctrl+C : QUIT " { r: 0, c: screen.
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
-UserAction : [Exit, CursorUp, CursorDown, SingleSelect, MuitiSelect, MultiConfirm, TextInput, TextBackspace, TextConfirm, GoBack, Search, ClearFilter, SearchGo, PrevPage, NextPage, Cancel, Finish]
+#UserAction : [Exit, CursorUp, CursorDown, SingleSelect, MultiSelect, MultiConfirm, TextInput, TextBackspace, TextConfirm, GoBack, Search, ClearFilter, SearchGo, PrevPage, NextPage, Cancel, Finish]
 
-getActions : Model -> List UserAction
-getActions = \model ->
-    when model.state is
-        PlatformSelect _ ->
-            [Exit, SingleSelect, CursorUp, CursorDown]
-            |> \actions -> if List.len model.fullMenu < List.len model.platformList
-                then List.append actions ClearFilter else List.append actions Search
-            |> List.append GoBack
-            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
-            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
-        PackageSelect _ ->
-            [Exit, MuitiSelect, MultiConfirm, CursorUp, CursorDown]
-            |> \actions -> if List.len model.fullMenu < List.len model.packageList
-                then List.append actions ClearFilter else List.append actions Search
-            |> List.append GoBack
-            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
-            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
-        Confirmation _ -> [Exit, Finish, GoBack]
-        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace]
-        Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
-        _ -> [Exit]
+#getActions : Model -> List UserAction
+#getActions = \model ->
+#    when model.state is
+#        PlatformSelect _ ->
+#            [Exit, SingleSelect, CursorUp, CursorDown]
+#            |> \actions -> if List.len model.fullMenu < List.len model.platformList
+#                then List.append actions ClearFilter else List.append actions Search
+#            |> List.append GoBack
+#            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
+#            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+#        PackageSelect _ ->
+#            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
+#            |> \actions -> if List.len model.fullMenu < List.len model.packageList
+#                then List.append actions ClearFilter else List.append actions Search
+#            |> List.append GoBack
+#            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
+#            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+#        Confirmation _ -> [Exit, Finish, GoBack]
+#        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace]
+#        Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
+#        _ -> [Exit]
 
+controlPromptsDict : Dict UserAction Str
 controlPromptsDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER : SELECT"
-    |> Dict.insert MuitiSelect "SPACE : SELECT"
+    |> Dict.insert MultiSelect "SPACE : SELECT"
     |> Dict.insert MultiConfirm "ENTER : CONFIRM"
     |> Dict.insert TextConfirm "ENTER : CONFIRM"
     |> Dict.insert GoBack "BKSP : GO BACK"
@@ -49,12 +51,14 @@ controlPromptsDict = Dict.empty {}
     |> Dict.insert TextInput ""
     |> Dict.insert TextBackspace ""
     |> Dict.insert Exit ""
+    |> Dict.insert None ""
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
 
+controlPromptsShortDict : Dict UserAction Str
 controlPromptsShortDict = Dict.empty {}
     |> Dict.insert SingleSelect "ENTER"
-    |> Dict.insert MuitiSelect "SPACE"
+    |> Dict.insert MultiSelect "SPACE"
     |> Dict.insert MultiConfirm "ENTER"
     |> Dict.insert TextConfirm "ENTER"
     |> Dict.insert GoBack "BKSP"
@@ -68,15 +72,17 @@ controlPromptsShortDict = Dict.empty {}
     |> Dict.insert TextInput ""
     |> Dict.insert TextBackspace ""
     |> Dict.insert Exit ""
+    |> Dict.insert None ""
     |> Dict.insert PrevPage "<"
     |> Dict.insert NextPage ">"
 
 controlsPromptStr = \model ->
-    actions = getActions model
+    actions = Controller.getActions model
     promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 16 then controlPromptsShortDict else controlPromptsDict
-    actionStrs = getActions model
+    actionStrs = Controller.getActions model
         |> List.map \action ->
             Dict.get promptsDict action |> Result.withDefault ""
+        |> List.dropIf (\str -> Str.isEmpty str)
     " $(Str.joinWith actionStrs " | ") "
 
 renderPlatformSelect : Model -> List Core.DrawFn

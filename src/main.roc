@@ -7,6 +7,8 @@ app [main] {
 
 }
 
+import Controller
+
 import AnsiStrs exposing [greenFg]
 import ArgParser
 import Model exposing [Model]
@@ -254,22 +256,23 @@ handleBasicInput = \model, input ->
 
 handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress LowerS -> Task.ok (Step (Model.toSearchState model))
-        KeyPress UpperS -> Task.ok (Step (Model.toSearchState model))
-        KeyPress Enter -> Task.ok (Step (Model.toPackageSelectState model))
-        KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
-        KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
-        KeyPress Delete -> Task.ok (Step (Model.toInputAppNameState model))
-        KeyPress Escape -> Task.ok (Step (Model.clearSearchFilter model))
-        KeyPress Right -> Task.ok (Step (Model.nextPage model))
-        KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
-        KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
-        KeyPress Left -> Task.ok (Step (Model.prevPage model))
-        KeyPress LessThanSign -> Task.ok (Step (Model.prevPage model))
-        KeyPress Comma -> Task.ok (Step (Model.prevPage model))
-        _ -> Task.ok (Step model)
+    action = when input is
+        CtrlC -> Exit # Task.ok (Done (Model.toUserExitedState model))
+        KeyPress LowerS -> Search #Task.ok (Step (Model.toSearchState model))
+        KeyPress UpperS -> Search #Task.ok (Step (Model.toSearchState model))
+        KeyPress Enter -> SingleSelect #Task.ok (Step (Model.toPackageSelectState model))
+        KeyPress Up -> CursorUp #Task.ok (Step (Model.moveCursor model Up))
+        KeyPress Down -> CursorDown #Task.ok (Step (Model.moveCursor model Down))
+        KeyPress Delete -> GoBack #Task.ok (Step (Model.toInputAppNameState model))
+        KeyPress Escape -> ClearFilter #Task.ok (Step (Model.clearSearchFilter model))
+        KeyPress Right -> NextPage #Task.ok (Step (Model.nextPage model))
+        KeyPress GreaterThanSign -> NextPage #Task.ok (Step (Model.nextPage model))
+        KeyPress FullStop -> NextPage #Task.ok (Step (Model.nextPage model))
+        KeyPress Left -> PrevPage #Task.ok (Step (Model.prevPage model))
+        KeyPress LessThanSign -> PrevPage #Task.ok (Step (Model.prevPage model))
+        KeyPress Comma -> PrevPage #Task.ok (Step (Model.prevPage model))
+        _ -> None #Task.ok (Step model)
+    Task.ok (Controller.applyAction { model, action })
 
 handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
