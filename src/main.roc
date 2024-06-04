@@ -276,54 +276,54 @@ handlePlatformSelectInput = \model, input ->
 
 handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress LowerS -> Task.ok (Step (Model.toSearchState model))
-        KeyPress UpperS -> Task.ok (Step (Model.toSearchState model))
-        KeyPress Enter -> Task.ok (Step (Model.toConfirmationState model))
-        KeyPress Space -> Task.ok (Step (Model.toggleSelected model))
-        KeyPress Up -> Task.ok (Step (Model.moveCursor model Up))
-        KeyPress Down -> Task.ok (Step (Model.moveCursor model Down))
-        KeyPress Delete -> Task.ok (Step (Model.toPlatformSelectState model))
-        KeyPress Escape -> Task.ok (Step (Model.clearSearchFilter model))
-        KeyPress Right -> Task.ok (Step (Model.nextPage model))
-        KeyPress GreaterThanSign -> Task.ok (Step (Model.nextPage model))
-        KeyPress FullStop -> Task.ok (Step (Model.nextPage model))
-        KeyPress Left -> Task.ok (Step (Model.prevPage model))
-        KeyPress LessThanSign -> Task.ok (Step (Model.prevPage model))
-        KeyPress Comma -> Task.ok (Step (Model.prevPage model))
-        _ -> Task.ok (Step model)
+    action = when input is
+        CtrlC -> Exit 
+        KeyPress LowerS -> Search
+        KeyPress UpperS -> Search
+        KeyPress Enter -> MultiConfirm
+        KeyPress Space -> MultiSelect
+        KeyPress Up -> CursorUp
+        KeyPress Down -> CursorDown
+        KeyPress Delete -> GoBack
+        KeyPress Escape -> ClearFilter
+        KeyPress Right -> NextPage
+        KeyPress GreaterThanSign -> NextPage
+        KeyPress FullStop -> NextPage
+        KeyPress Left -> PrevPage
+        KeyPress LessThanSign -> PrevPage
+        KeyPress Comma -> PrevPage
+        _ -> None
+    Task.ok (Controller.applyAction { model, action })
 
 handleSearchInput : Model, Core.Input, [Platform, Package] -> Task.Task [Step Model, Done Model] _
-handleSearchInput = \model, input, sender ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress Enter ->
-            when sender is
-                Platform -> Task.ok (Step (Model.toPlatformSelectState model))
-                Package -> Task.ok (Step (Model.toPackageSelectState model))
-
-        KeyPress Escape -> Task.ok (Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState))
-        KeyPress Delete -> Task.ok (Step (Model.backspaceBuffer model))
-        KeyPress c -> Task.ok (Step (Model.appendToBuffer model c))
-        _ -> Task.ok (Step model)
+handleSearchInput = \model, input, _sender ->
+    ( action, keyPress ) = when input is
+        CtrlC -> (Exit, None)
+        KeyPress Enter -> (SearchGo, None)
+        KeyPress Escape -> (Cancel, None)
+        KeyPress Delete -> (TextBackspace, None)
+        KeyPress key -> (TextInput, KeyPress key)
+        _ -> (None, None)
+    Task.ok (Controller.applyAction { model, action, keyPress })
 
 handleInputAppNameInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress Enter -> Task.ok (Step (Model.toPlatformSelectState model))
-        KeyPress Delete -> Task.ok (Step (Model.backspaceBuffer model))
-        KeyPress c -> Task.ok (Step (Model.appendToBuffer model c))
-        _ -> Task.ok (Step model)
+    (action, keyPress ) = when input is
+        CtrlC -> (Exit, None)
+        KeyPress Enter -> (TextConfirm, None)
+        KeyPress Delete -> (TextBackspace, None)
+        KeyPress key -> (TextInput, KeyPress key)
+        _ -> (None, None)
+    Task.ok (Controller.applyAction { model, action, keyPress })
 
 handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
 handleConfirmationInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        KeyPress Enter -> Task.ok (Done (Model.toFinishedState model))
-        KeyPress Delete -> Task.ok (Step (Model.toPackageSelectState model))
-        _ -> Task.ok (Step model)
+    action = when input is
+        CtrlC -> Exit
+        KeyPress Enter -> Finish
+        KeyPress Delete -> GoBack
+        _ -> None
+    Task.ok (Controller.applyAction { model, action })
 
 runCliApp = \appName, platform, packages, forceUpdate ->
     repos = loadRepoData! forceUpdate

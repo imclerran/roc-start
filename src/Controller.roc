@@ -70,7 +70,7 @@ platformSelect = \model, action ->
         SingleSelect -> Step (Model.toPackageSelectState model)
         CursorUp -> Step (Model.moveCursor model Up)
         CursorDown -> Step (Model.moveCursor model Down)
-        GoBack -> Step (Model.toUserExitedState model)
+        GoBack -> Step (Model.toInputAppNameState model)
         ClearFilter -> Step (Model.clearSearchFilter model)
         NextPage -> Step (Model.nextPage model)
         PrevPage -> Step (Model.prevPage model)
@@ -104,13 +104,17 @@ searchActionHandler = \model, action, { sender, keyPress ? None } ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
                 None -> Step model
+        Cancel -> 
+            when sender is
+                Platform -> Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState)
+                Package -> Step (model |> Model.clearSearchBuffer |> Model.toPackageSelectState)
         _ -> Step model
 
 inputAppName : Model, UserAction, { keyPress ? [KeyPress Key, None]} -> [Step Model, Done Model]
 inputAppName = \model, action, { keyPress ? None } ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
-        TextConfirm -> Step (Model.toConfirmationState model)
+        TextConfirm -> Step (Model.toPlatformSelectState model)
         TextInput ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
