@@ -84,7 +84,7 @@ paginate = \model ->
             model.pageFirstItem
     menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
     curRow =
-        if model.cursor.row >= model.menuRow + Num.toI32 (List.len menu) then
+        if model.cursor.row >= model.menuRow + Num.toI32 (List.len menu) && List.len menu > 0 then
             model.menuRow + Num.toI32 (List.len menu) - 1
         else
             model.cursor.row
