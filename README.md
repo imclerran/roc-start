@@ -28,7 +28,7 @@ __Important:__ note that roc-start currently depends on the github cli tool to g
 
 ## Dependencies
 
-`roc-start depends on the [github cli](https://cli.github.com) tool to update its repository. Please make sure to install and log into `gh` before running `roc-start`.
+`roc-start` depends on the [github cli](https://cli.github.com) tool to update its repository. Please make sure to install and log into `gh` before running `roc-start`.
 
 ## Getting your package or platform added to roc-start
  
