@@ -34,7 +34,8 @@ __Important:__ note that roc-start currently depends on the github cli tool to g
  
  Please see [GET_LISTED](repository/GET_LISTED.md) for full instructions on getting your package or platform added to roc-start. 
 
- __NOTE:__ Some packages and platforms are already included in the repository, but do not appear in the TUI app, and cannot be imported by the CLI app. This is because these packages do not have a github release, or do not include the proper release assets.
+> **Note**  
+> Some packages and platforms are already included in the repository, but do not appear in the TUI app, and cannot be imported by the CLI app. This is because these packages do not have a github release, or do not include the proper release assets.
 
 
 ## roc-start --help
