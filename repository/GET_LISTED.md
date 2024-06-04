@@ -5,7 +5,7 @@ In order to get your package or platform listed, you must meet a few basic requi
 ## Requirements for listing:
 1) Your package must be hosted on github, and have a github release which is *not* marked as pre-release.
 2) Your release must include among its assets a Blake-3 hashed tar.br zip of your repo.
-  - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
+    - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
 
 Note that some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
 
