@@ -124,6 +124,48 @@ expect # TEST: InputAppName - backspaceBuffer
         |> Model.backspaceBuffer
     newModel.state == InputAppName { nameBuffer: [], config: emptyConfig }
 
+expect # TEST: PlatformSelect - moveCursor Up w/ only one item
+    initModel = Model.init ["platform1"] []
+    model = Model.toPlatformSelectState initModel
+    newModel = model |> Model.moveCursor Up
+    newModel == model
+
+expect # TEST: PlatformSelect - moveCursor Down w/ only one item
+    initModel = Model.init ["platform1"] []
+    model = Model.toPlatformSelectState initModel
+    newModel = model |> Model.moveCursor Down
+    newModel == model
+
+expect # TEST: PlatformSelect - moveCursor Up w/ cursor starting at bottom
+    initModel = Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    model = { initModel &
+        cursor: { row: initModel.menuRow + 2, col: 2 }
+    }
+    newModel = model |> Model.moveCursor Up
+    newModel.cursor.row == model.menuRow + 1
+
+expect # TEST: PlatformSelect - moveCursor Down w/ cursor starting at top
+    model = Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    newModel = model |> Model.moveCursor Down
+    newModel.cursor.row == model.menuRow + 1
+
+expect # TEST: PlatformSelect - moveCursor Up w/ cursor starting at top
+    model = Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    newModel = model |> Model.moveCursor Up
+    newModel.cursor.row == model.menuRow + 2
+
+expect # TEST: PlatformSelect - moveCursor Down w/ cursor starting at bottom
+    initModel = Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    model = { initModel &
+        cursor: { row: initModel.menuRow + 2, col: 2 }
+    }
+    newModel = model |> Model.moveCursor Down
+    newModel.cursor.row == model.menuRow
+
 
 
 
