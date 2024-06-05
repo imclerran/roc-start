@@ -442,8 +442,7 @@ getAppStubsLoop = \{ platforms, dir } ->
     when List.get platforms 0 is
         Ok platform ->
             updatedList = List.dropFirst platforms 1
-            # request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/app-stubs/$(platform).roc",
-            request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/add-pf-stubs/repository/app-stubs/$(platform).roc"
+            request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/app-stubs/$(platform).roc",
             response = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
             if response.statusCode == 200 && !(List.isEmpty response.body) then
                 File.writeBytes! "$(dir)/$(platform)" response.body
