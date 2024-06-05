@@ -6,7 +6,7 @@ app [main] {
     weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
 }
 
-import AnsiStrs exposing [greenFg]
+import AnsiStrs exposing [greenFg, redFg, resetStyle]
 import ArgParser
 import Controller
 import Model exposing [Model]
@@ -69,10 +69,10 @@ runCliApp = \appName, platform, packages, forceUpdate ->
     getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
     fileExists = checkForFile! "$(appName).roc"
     if fileExists then
-        Stdout.line! "Error: $(appName).roc already exists."
+        Stdout.line! "Error: $(appName).roc already exists. $(redFg)✖$(resetStyle)"
     else
         createRocFile! { appName, platform, packages } repos
-        Stdout.line! "Created $(appName).roc"
+        Stdout.line! "Created $(appName).roc $(greenFg)✔$(resetStyle)"
 
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
@@ -89,10 +89,10 @@ runTuiApp = \forceUpdate ->
         Finished { config } ->
             fileExists = checkForFile! "$(config.appName).roc"
             if fileExists then
-                Stdout.line "Error: $(config.appName).roc already exists."
+                Stdout.line "Error: $(config.appName).roc already exists. $(redFg)✖$(resetStyle)"
             else
                 createRocFile! config repos
-                Stdout.line "Created $(config.appName).roc"
+                Stdout.line "Created $(config.appName).roc $(greenFg)✔$(resetStyle)"
 
         _ -> Stdout.line "Oops! Something went wrong..."
 
@@ -308,10 +308,10 @@ doRepoUpdate =
     repoLists = getRemoteRepoData!
     Stdout.write! "Updating platform repository..."
     updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
+    Stdout.line! " $(greenFg)✔$(resetStyle)"
     Stdout.write! "Updating package repository..."
     updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line "$(greenFg)✔$(AnsiStrs.reset)"
+    Stdout.line " $(greenFg)✔$(resetStyle)"
 
 ## Get the remote repository data, decode it, and split it into a list of package and platform repos.
 getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
@@ -440,7 +440,7 @@ getAppStubs = \platforms ->
     appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
     Stdout.write! "Downloading app-stubs..."
     Task.loop! { platforms, dir: appStubsDir } getAppStubsLoop
-    Stdout.line "$(greenFg)✔$(AnsiStrs.reset)"
+    Stdout.line " $(greenFg)✔$(resetStyle)"
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
