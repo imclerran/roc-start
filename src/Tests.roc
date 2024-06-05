@@ -215,3 +215,41 @@ expect
     && newModel.cursor.row
     == newModel.menuRow
 
+expect
+    # TEST: PlatformSelect to Search
+    initModel =
+        Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    model = { initModel &
+        state: PlatformSelect { config: { appName: "a", platform: "b", packages: ["c", "d"] } },
+    }
+    newModel = Model.toSearchState model
+    newModel.state
+    == Search { searchBuffer: [], sender: Platform, config: { appName: "a", platform: "b", packages: ["c", "d"] } }
+    && newModel.cursor.row
+    == newModel.menuRow
+
+expect
+    # TEST: PlatformSelect to UserExited
+    model =
+        Model.init [] []
+        |> Model.toPlatformSelectState
+    newModel = Model.toUserExitedState model
+    newModel.state == UserExited
+
+expect
+    # TEST: PlatformSelect to PackageSelect
+    initModel =
+        Model.init ["b"] ["c", "d"]
+        |> Model.toPlatformSelectState
+    model = { initModel &
+        cursor: { row: initModel.menuRow, col: 2 },
+        state: PlatformSelect { config: { appName: "a", platform: "", packages: ["c"] } },
+    }
+    newModel = Model.toPackageSelectState model
+    newModel.state
+    == PackageSelect { config: { appName: "a", platform: "b", packages: ["c"] } }
+    && newModel.cursor.row
+    == newModel.menuRow
+    && newModel.selected
+    == ["c"]
