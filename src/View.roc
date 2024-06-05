@@ -113,10 +113,12 @@ renderInputAppName = \model ->
                     renderControlsPrompt (controlsPromptStr model) model.screen,
                 ],
                 renderOuterBorder model.screen,
+                if List.len nameBuffer == 0 then [Core.drawText " (Leave blank for \"main\"):" { r: 1, c: 20, fg: Standard Cyan }] else [],
                 [
                     renderScreenPrompt "ENTER THE APP NAME:",
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
                     Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
+                    
                 ],
             ]
 
