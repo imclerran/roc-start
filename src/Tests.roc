@@ -201,3 +201,17 @@ expect
     newModel = model |> Model.moveCursor Down
     newModel.cursor.row == model.menuRow
 
+expect
+    # TEST: PlatformSelect to InputAppName
+    initModel =
+        Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
+    model = { initModel &
+        state: PlatformSelect { config: { appName: "a", platform: "b", packages: ["c", "d"] } },
+    }
+    newModel = Model.toInputAppNameState model
+    newModel.state
+    == InputAppName { nameBuffer: ['a'], config: { appName: "a", platform: "b", packages: ["c", "d"] } }
+    && newModel.cursor.row
+    == newModel.menuRow
+

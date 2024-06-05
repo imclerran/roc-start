@@ -5,11 +5,13 @@ import Controller exposing [UserAction]
 import Model exposing [Model]
 import ansi.Core
 
+## Render functions for each page
 renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard Cyan }
 renderExitPrompt = \screen -> Core.drawText " Ctrl+C : QUIT " { r: 0, c: screen.width - 17, fg: Standard Red }
 renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
+## Control prompts for each user action
 controlPromptsDict : Dict UserAction Str
 controlPromptsDict =
     Dict.empty {}
@@ -32,6 +34,7 @@ controlPromptsDict =
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
 
+## Shortened control prompts for smaller screens
 controlPromptsShortDict : Dict UserAction Str
 controlPromptsShortDict =
     Dict.empty {}
@@ -54,6 +57,8 @@ controlPromptsShortDict =
     |> Dict.insert PrevPage "<"
     |> Dict.insert NextPage ">"
 
+## Build string with all available controls
+controlsPromptStr : Model -> Str
 controlsPromptStr = \model ->
     actions = Controller.getActions model
     promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 16 then controlPromptsShortDict else controlPromptsDict
@@ -64,6 +69,7 @@ controlsPromptStr = \model ->
         |> List.dropIf (\str -> Str.isEmpty str)
     " $(Str.joinWith actionStrs " | ") "
 
+## Generate the list of functions to draw the platform select page.
 renderPlatformSelect : Model -> List Core.DrawFn
 renderPlatformSelect = \model ->
     List.join [
@@ -79,6 +85,7 @@ renderPlatformSelect = \model ->
         renderMenu model,
     ]
 
+## Generate the list of functions to draw the package select page.
 renderPackageSelect : Model -> List Core.DrawFn
 renderPackageSelect = \model ->
     List.join [
@@ -95,6 +102,7 @@ renderPackageSelect = \model ->
 
     ]
 
+## Generate the list of functions to draw the app name input page.
 renderInputAppName : Model -> List Core.DrawFn
 renderInputAppName = \model ->
     when model.state is
@@ -108,12 +116,13 @@ renderInputAppName = \model ->
                 [
                     renderScreenPrompt "ENTER THE APP NAME:",
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
                 ],
             ]
 
         _ -> []
 
+## Generate the list of functions to draw the search page.
 renderSearch : Model -> List Core.DrawFn
 renderSearch = \model ->
     when model.state is
@@ -128,12 +137,13 @@ renderSearch = \model ->
                 [
                     renderScreenPrompt searchPrompt,
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
                 ],
             ]
 
         _ -> []
 
+## Generate the list of functions to draw the confirmation page.
 renderConfirmation : Model -> List Core.DrawFn
 renderConfirmation = \model ->
     when model.state is
@@ -146,17 +156,18 @@ renderConfirmation = \model ->
                 renderOuterBorder model.screen,
                 [
                     renderScreenPrompt "YOU SELECTED:",
-                    Core.drawText "App name:" { r: 2, c: 2, fg: Standard Magenta },
-                    Core.drawText config.appName { r: 2, c: 12, fg: Standard White },
-                    Core.drawText "Platform:" { r: 3, c: 2, fg: Standard Magenta },
-                    Core.drawText config.platform { r: 3, c: 12, fg: Standard White },
-                    Core.drawText "Packages:" { r: 4, c: 2, fg: Standard Magenta },
-                    Core.drawText (config.packages |> Str.joinWith ", ") { r: 4, c: 12, fg: Standard White },
+                    Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                    Core.drawText config.appName { r: model.menuRow, c: 12, fg: Standard White },
+                    Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
+                    Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
+                    Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
+                    Core.drawText (config.packages |> Str.joinWith ", ") { r: model.menuRow + 2, c: 12, fg: Standard White },
                 ],
             ]
 
         _ -> []
 
+## Generate the list of functions to draw a box.
 renderBox : I32, I32, I32, I32, BoxStyle, Core.Color -> List Core.DrawFn
 renderBox = \col, row, width, height, style, color -> [
     Core.drawHLine { r: row, c: col, len: 1, char: border TopLeft style, fg: color },
@@ -169,6 +180,8 @@ renderBox = \col, row, width, height, style, color -> [
     Core.drawHLine { r: row + height - 1, c: col + width - 1, len: 1, char: border BotRight style, fg: color },
 ]
 
+## Generate the list of functions to draw a single select menu.
+renderMenu : Model -> List Core.DrawFn
 renderMenu = \model ->
     item, idx <- List.mapWithIndex model.menu
     row = Num.toI32 idx + model.menuRow
@@ -177,6 +190,8 @@ renderMenu = \model ->
     else
         Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
+## Generate the list of functions to draw a multiple choice menu.
+renderMultipleChoiceMenu : Model -> List Core.DrawFn
 renderMultipleChoiceMenu = \model ->
     isSelected = \item -> List.contains model.selected item
     checkedItems = List.map model.menu \item -> if isSelected item then "[X] $(item)" else "[ ] $(item)"
