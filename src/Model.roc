@@ -22,6 +22,7 @@ module [
     toConfirmationState,
     toUserExitedState,
     clearSearchFilter,
+    menuIsFiltered,
 ]
 
 import Keys exposing [Key]
@@ -364,3 +365,10 @@ menuIdxToFullIdx = \idx, model -> idx + model.pageFirstItem
 ## Get the selected items in a multi-select menu
 getSelectedItems : Model -> List Str
 getSelectedItems = \model -> model.selected
+
+menuIsFiltered : Model -> Bool
+menuIsFiltered = \model -> 
+    when model.state is
+        PlatformSelect _ -> List.len model.fullMenu < List.len model.platformList
+        PackageSelect _ -> List.len model.fullMenu < List.len model.packageList
+        _ -> Bool.false

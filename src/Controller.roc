@@ -30,7 +30,7 @@ getActions = \model ->
         PlatformSelect _ ->
             [Exit, SingleSelect, CursorUp, CursorDown]
             |> \actions -> if
-                    List.len model.fullMenu < List.len model.platformList
+                    Model.menuIsFiltered model
                 then
                     List.append actions ClearFilter
                 else
@@ -42,7 +42,7 @@ getActions = \model ->
         PackageSelect _ ->
             [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
             |> \actions -> if
-                    List.len model.fullMenu < List.len model.packageList
+                    Model.menuIsFiltered model
                 then
                     List.append actions ClearFilter
                 else
@@ -80,7 +80,12 @@ platformSelect = \model, action ->
         SingleSelect -> Step (Model.toPackageSelectState model)
         CursorUp -> Step (Model.moveCursor model Up)
         CursorDown -> Step (Model.moveCursor model Down)
-        GoBack -> Step (Model.toInputAppNameState model)
+        GoBack ->
+            if Model.menuIsFiltered model then
+                Step (Model.clearSearchFilter model)
+            else
+                Step (Model.toInputAppNameState model)
+
         ClearFilter -> Step (Model.clearSearchFilter model)
         NextPage -> Step (Model.nextPage model)
         PrevPage -> Step (Model.prevPage model)
@@ -95,7 +100,12 @@ packageSelect = \model, action ->
         MultiSelect -> Step (Model.toggleSelected model)
         CursorUp -> Step (Model.moveCursor model Up)
         CursorDown -> Step (Model.moveCursor model Down)
-        GoBack -> Step (Model.toPlatformSelectState model)
+        GoBack ->
+            if Model.menuIsFiltered model then
+                Step (Model.clearSearchFilter model)
+            else
+                Step (Model.toPlatformSelectState model)
+
         ClearFilter -> Step (Model.clearSearchFilter model)
         NextPage -> Step (Model.nextPage model)
         PrevPage -> Step (Model.prevPage model)
