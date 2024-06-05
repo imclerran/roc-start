@@ -61,13 +61,19 @@ controlPromptsShortDict =
 controlsPromptStr : Model -> Str
 controlsPromptStr = \model ->
     actions = Controller.getActions model
-    promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 16 then controlPromptsShortDict else controlPromptsDict
-    actionStrs =
-        Controller.getActions model
-        |> List.map \action ->
-            Dict.get promptsDict action |> Result.withDefault ""
-        |> List.dropIf (\str -> Str.isEmpty str)
-    " $(Str.joinWith actionStrs " | ") "
+    longStr = buildControlPromptStr actions controlPromptsDict
+    if Num.toI32 (Str.countUtf8Bytes longStr) <= model.screen.width - 6 then
+        " $(longStr) "
+    else
+        " $(buildControlPromptStr actions controlPromptsShortDict) "
+
+buildControlPromptStr : List UserAction, Dict UserAction Str -> Str
+buildControlPromptStr = \actions, promptsDict ->
+    actions
+    |> List.map \action ->
+        Dict.get promptsDict action |> Result.withDefault ""
+    |> List.dropIf (\str -> Str.isEmpty str)
+    |> Str.joinWith " | "
 
 ## Generate the list of functions to draw the platform select page.
 renderPlatformSelect : Model -> List Core.DrawFn
