@@ -1,5 +1,5 @@
 module [
-    reset,
+    resetStyle,
     redFg,
     greenFg,
     yellowFg,
@@ -9,7 +9,7 @@ module [
     whiteFg,
 ]
 
-reset = "\u(001b)[0m"
+resetStyle = "\u(001b)[0m"
 
 redFg = "\u(001b)[31m"
 greenFg = "\u(001b)[32m"
