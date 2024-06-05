@@ -22,6 +22,7 @@ module [
     toConfirmationState,
     toUserExitedState,
     clearSearchFilter,
+    menuIsFiltered,
 ]
 
 import Keys exposing [Key]
@@ -196,13 +197,7 @@ toPlatformSelectState = \model ->
             }
             |> paginate
 
-        _ ->
-            { model &
-                menu: model.platformList,
-                cursor: { row: 2, col: 2 },
-                state: PlatformSelect { config: { platform: "", appName: "", packages: [] } },
-            }
-            |> paginate
+        _ -> model
 
 ## To the PackageSelect state
 toPackageSelectState : Model -> Model
@@ -239,14 +234,7 @@ toPackageSelectState = \model ->
             }
             |> paginate
 
-        _ ->
-            { model &
-                pageFirstItem: 0,
-                fullMenu: model.packageList,
-                cursor: { row: 2, col: 2 },
-                state: PackageSelect { config: { platform: "", appName: "", packages: [] } },
-            }
-            |> paginate
+        _ -> model
 
 ## Transition to the Finished state
 toFinishedState : Model -> Model
@@ -256,7 +244,7 @@ toFinishedState = \model ->
         PlatformSelect { config } -> { model & state: Finished { config } }
         PackageSelect { config } -> { model & state: Finished { config } }
         Confirmation { config } -> { model & state: Finished { config } }
-        _ -> { model & state: Finished { config: { platform: "", appName: "", packages: [] } } }
+        _ -> model
 
 ## Transition to the Confirmation state
 toConfirmationState : Model -> Model
@@ -265,7 +253,7 @@ toConfirmationState = \model ->
     when modelWithPackages.state is
         PlatformSelect { config } -> { model & state: Confirmation { config } }
         PackageSelect { config } -> { model & state: Confirmation { config } }
-        _ -> { model & state: Confirmation { config: { platform: "", appName: "", packages: [] } } }
+        _ -> model
 
 ## Transition to the Search state
 toSearchState : Model -> Model
@@ -377,3 +365,10 @@ menuIdxToFullIdx = \idx, model -> idx + model.pageFirstItem
 ## Get the selected items in a multi-select menu
 getSelectedItems : Model -> List Str
 getSelectedItems = \model -> model.selected
+
+menuIsFiltered : Model -> Bool
+menuIsFiltered = \model -> 
+    when model.state is
+        PlatformSelect _ -> List.len model.fullMenu < List.len model.platformList
+        PackageSelect _ -> List.len model.fullMenu < List.len model.packageList
+        _ -> Bool.false
