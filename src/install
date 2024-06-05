@@ -9,9 +9,15 @@ RESET="\033[0m"
 # Check if $LOCAL_BIN exists and create it if it does not
 [ ! -d "$LOCAL_BIN" ] && mkdir -p "$LOCAL_BIN"
 
+# Parse arguments
+OPTIMIZE="--optimize"
+if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--no-optimize" ]; then
+    OPTIMIZE=""
+fi
+
 # Notify user that roc-start build process is starting
 echo -e "Building ${MAGENTA}roc-start${RESET}...\n"
-roc build --output roc-start --optimize > /dev/null 2>&1
+roc build --output roc-start $OPTIMIZE > /dev/null 2>&1
 
 # If build succeeds, copy the executable to $LOCAL_BIN and notify user
 if [ $? -eq 0 ]; then
