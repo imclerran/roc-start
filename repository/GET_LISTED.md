@@ -15,6 +15,9 @@ To create an app stub, your PR should also include the file: `repository/app-stu
 
 For example, here is `app-stubs/basic-webserver.roc`:
 ```roc
+import pf.Task exposing [Task]
+import pf.Http exposing [Request, Response]
+
 main : Request -> Task Response []
 main = \req ->
     Task.ok { status: 200, headers: [], body: Str.toUtf8 "<b>Hello, world!</b>\n" }
