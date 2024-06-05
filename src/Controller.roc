@@ -29,24 +29,34 @@ getActions = \model ->
     when model.state is
         PlatformSelect _ ->
             [Exit, SingleSelect, CursorUp, CursorDown]
-            |> \actions -> if List.len model.fullMenu < List.len model.platformList
-                then List.append actions ClearFilter else List.append actions Search
+            |> \actions -> if
+                    List.len model.fullMenu < List.len model.platformList
+                then
+                    List.append actions ClearFilter
+                else
+                    List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+
         PackageSelect _ ->
             [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
-            |> \actions -> if List.len model.fullMenu < List.len model.packageList
-                then List.append actions ClearFilter else List.append actions Search
+            |> \actions -> if
+                    List.len model.fullMenu < List.len model.packageList
+                then
+                    List.append actions ClearFilter
+                else
+                    List.append actions Search
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+
         Confirmation _ -> [Exit, Finish, GoBack]
         InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace]
         Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
         _ -> [Exit]
 
-applyAction : { model: Model, action: UserAction, keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
+applyAction : { model : Model, action : UserAction, keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
 applyAction = \{ model, action, keyPress ? None } ->
     if actionIsAvailable model action then
         when model.state is
@@ -91,7 +101,7 @@ packageSelect = \model, action ->
         PrevPage -> Step (Model.prevPage model)
         _ -> Step model
 
-searchActionHandler : Model, UserAction, { sender: [Platform, Package], keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
+searchActionHandler : Model, UserAction, { sender : [Platform, Package], keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
 searchActionHandler = \model, action, { sender, keyPress ? None } ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
@@ -99,18 +109,21 @@ searchActionHandler = \model, action, { sender, keyPress ? None } ->
             when sender is
                 Platform -> Step (Model.toPlatformSelectState model)
                 Package -> Step (Model.toPackageSelectState model)
+
         TextBackspace -> Step (Model.backspaceBuffer model)
         TextInput ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
                 None -> Step model
-        Cancel -> 
+
+        Cancel ->
             when sender is
                 Platform -> Step (model |> Model.clearSearchBuffer |> Model.toPlatformSelectState)
                 Package -> Step (model |> Model.clearSearchBuffer |> Model.toPackageSelectState)
+
         _ -> Step model
 
-inputAppName : Model, UserAction, { keyPress ? [KeyPress Key, None]} -> [Step Model, Done Model]
+inputAppName : Model, UserAction, { keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
 inputAppName = \model, action, { keyPress ? None } ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
@@ -119,6 +132,7 @@ inputAppName = \model, action, { keyPress ? None } ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
                 None -> Step model
+
         TextBackspace -> Step (Model.backspaceBuffer model)
         _ -> Step model
 

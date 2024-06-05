@@ -17,7 +17,7 @@ cliParser =
         appName: <- Param.maybeStr { name: "app-name", help: "Name your new roc app." },
         platform: <- Param.maybeStr { name: "platform", help: "The platform to use." },
         packages: <- Param.strList { name: "packages", help: "Any packages to use." },
-        
+
     }
     |> Cli.finish {
         name: "roc-start",
@@ -27,9 +27,9 @@ cliParser =
     }
     |> Cli.assertValid
 
-tuiSubcommand = 
+tuiSubcommand =
     Cli.weave {}
-    |> Subcommand.finish { 
+    |> Subcommand.finish {
         name: "tui",
         description: "Use the TUI app to browse and search for platforms and packages.",
         mapper: Tui,

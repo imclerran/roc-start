@@ -32,7 +32,7 @@ Model : {
     screen : Core.ScreenSize,
     cursor : Core.Position,
     menuRow : I32,
-    pageFirstItem: U64,
+    pageFirstItem : U64,
     menu : List Str,
     fullMenu : List Str,
     selected : List Str,
@@ -70,10 +70,10 @@ init = \platformList, packageList -> {
     packageList,
     selected: [],
     inputs: List.withCapacity 1000,
-    state: InputAppName { nameBuffer: [], config: emptyConfig }
+    state: InputAppName { nameBuffer: [], config: emptyConfig },
 }
 
-paginate: Model -> Model
+paginate : Model -> Model
 paginate = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
     pageFirstItem =
@@ -91,7 +91,7 @@ paginate = \model ->
     cursor = { row: curRow, col: model.cursor.col }
     { model & menu, pageFirstItem, cursor }
 
-nextPage: Model -> Model
+nextPage : Model -> Model
 nextPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
     if isNotLastPage model then
@@ -102,7 +102,7 @@ nextPage = \model ->
     else
         model
 
-prevPage: Model -> Model
+prevPage : Model -> Model
 prevPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
     if isNotFirstPage model then
@@ -120,7 +120,6 @@ isNotLastPage : Model -> Bool
 isNotLastPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
     model.pageFirstItem + maxItems < List.len model.fullMenu
-
 
 moveCursor : Model, [Up, Down] -> Model
 moveCursor = \model, direction ->
@@ -151,6 +150,7 @@ toInputAppNameState = \model ->
                 cursor: { row: 2, col: 2 },
                 state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
             }
+
         _ -> model
 
 toPlatformSelectState : Model -> Model
@@ -162,29 +162,37 @@ toPlatformSelectState = \model ->
             { model &
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: newConfig },
-            } |> paginate
+            }
+            |> paginate
+
         Search { config, searchBuffer } ->
             { model &
                 fullMenu: model.platformList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config },
-            } |> paginate
+            }
+            |> paginate
+
         PackageSelect { config } ->
-            configWithPackages = when (addSelectedPackagesToConfig model).state is
-                PackageSelect data -> data.config
-                _ -> config
+            configWithPackages =
+                when (addSelectedPackagesToConfig model).state is
+                    PackageSelect data -> data.config
+                    _ -> config
             { model &
                 pageFirstItem: 0,
                 fullMenu: model.platformList,
                 cursor: { row: 2, col: 2 },
-                state: PlatformSelect { config: configWithPackages }
-            } |> paginate
+                state: PlatformSelect { config: configWithPackages },
+            }
+            |> paginate
+
         _ ->
             { model &
                 menu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: { platform: "", appName: "", packages: [] } },
-            } |> paginate
+            }
+            |> paginate
 
 toPackageSelectState : Model -> Model
 toPackageSelectState = \model ->
@@ -197,7 +205,8 @@ toPackageSelectState = \model ->
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config: { config & platform } },
-            } |> paginate
+            }
+            |> paginate
 
         Search { config, searchBuffer } ->
             { model &
@@ -206,7 +215,8 @@ toPackageSelectState = \model ->
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config },
-            } |> paginate
+            }
+            |> paginate
 
         Confirmation { config } ->
             { model &
@@ -215,7 +225,8 @@ toPackageSelectState = \model ->
                 selected: config.packages,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config },
-            } |> paginate
+            }
+            |> paginate
 
         _ ->
             { model &
@@ -223,7 +234,8 @@ toPackageSelectState = \model ->
                 fullMenu: model.packageList,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect { config: { platform: "", appName: "", packages: [] } },
-            } |> paginate
+            }
+            |> paginate
 
 toFinishedState : Model -> Model
 toFinishedState = \model ->
@@ -266,13 +278,17 @@ clearSearchFilter = \model ->
         PackageSelect _ ->
             { model &
                 fullMenu: model.packageList,
-                #cursor: { row: model.menuRow, col: 2 },
-            } |> paginate
+                # cursor: { row: model.menuRow, col: 2 },
+            }
+            |> paginate
+
         PlatformSelect _ ->
             { model &
                 fullMenu: model.platformList,
-                #cursor: { row: model.menuRow, col: 2 },
-            } |> paginate
+                # cursor: { row: model.menuRow, col: 2 },
+            }
+            |> paginate
+
         _ -> model
 
 appendToBuffer : Model, Key -> Model
@@ -281,6 +297,7 @@ appendToBuffer = \model, key ->
         Search { searchBuffer, config, sender } ->
             newBuffer = List.concat searchBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
             { model & state: Search { config, sender, searchBuffer: newBuffer } }
+
         InputAppName { nameBuffer, config } ->
             newBuffer = List.concat nameBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
@@ -293,6 +310,7 @@ backspaceBuffer = \model ->
         Search { searchBuffer, config, sender } ->
             newBuffer = List.dropLast searchBuffer 1
             { model & state: Search { config, sender, searchBuffer: newBuffer } }
+
         InputAppName { nameBuffer, config } ->
             newBuffer = List.dropLast nameBuffer 1
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
@@ -313,7 +331,7 @@ toggleSelected = \model ->
     if List.contains model.selected item then
         { model & selected: List.dropIf model.selected \i -> i == item }
     else
-        { model & selected: List.append model.selected item  }
+        { model & selected: List.append model.selected item }
 
 addSelectedPackagesToConfig : Model -> Model
 addSelectedPackagesToConfig = \model ->

@@ -11,7 +11,8 @@ renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
 controlPromptsDict : Dict UserAction Str
-controlPromptsDict = Dict.empty {}
+controlPromptsDict =
+    Dict.empty {}
     |> Dict.insert SingleSelect "ENTER : SELECT"
     |> Dict.insert MultiSelect "SPACE : SELECT"
     |> Dict.insert MultiConfirm "ENTER : CONFIRM"
@@ -32,7 +33,8 @@ controlPromptsDict = Dict.empty {}
     |> Dict.insert NextPage "> NEXT"
 
 controlPromptsShortDict : Dict UserAction Str
-controlPromptsShortDict = Dict.empty {}
+controlPromptsShortDict =
+    Dict.empty {}
     |> Dict.insert SingleSelect "ENTER"
     |> Dict.insert MultiSelect "SPACE"
     |> Dict.insert MultiConfirm "ENTER"
@@ -55,7 +57,8 @@ controlPromptsShortDict = Dict.empty {}
 controlsPromptStr = \model ->
     actions = Controller.getActions model
     promptsDict = if model.screen.width // Num.toI32 (List.len actions) < 16 then controlPromptsShortDict else controlPromptsDict
-    actionStrs = Controller.getActions model
+    actionStrs =
+        Controller.getActions model
         |> List.map \action ->
             Dict.get promptsDict action |> Result.withDefault ""
         |> List.dropIf (\str -> Str.isEmpty str)
@@ -86,7 +89,7 @@ renderPackageSelect = \model ->
         renderOuterBorder model.screen,
         [
             renderScreenPrompt "SELECT 0+ PACKAGES:",
-            Core.drawCursor { fg: Standard Magenta, char: ">"},
+            Core.drawCursor { fg: Standard Magenta, char: ">" },
         ],
         renderMultipleChoiceMenu model,
 
@@ -105,7 +108,7 @@ renderInputAppName = \model ->
                 [
                     renderScreenPrompt "ENTER THE APP NAME:",
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White }
+                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
                 ],
             ]
 
