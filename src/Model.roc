@@ -10,7 +10,6 @@ module [
     getHighlightedIndex,
     getHighlightedItem,
     menuIdxToFullIdx,
-    fullIdxToMenuIdx,
     appendToBuffer,
     backspaceBuffer,
     clearSearchBuffer,
@@ -58,6 +57,7 @@ Configuration : {
 
 emptyConfig = { appName: "", platform: "", packages: [] }
 
+## Initialize the model
 init : List Str, List Str -> Model
 init = \platformList, packageList -> {
     screen: { width: 0, height: 0 },
@@ -73,6 +73,7 @@ init = \platformList, packageList -> {
     state: InputAppName { nameBuffer: [], config: emptyConfig },
 }
 
+## Split the menu into pages, and adjust the cursor position if necessary
 paginate : Model -> Model
 paginate = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
@@ -91,6 +92,7 @@ paginate = \model ->
     cursor = { row: curRow, col: model.cursor.col }
     { model & menu, pageFirstItem, cursor }
 
+## Move to the next page if possible
 nextPage : Model -> Model
 nextPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
@@ -102,6 +104,7 @@ nextPage = \model ->
     else
         model
 
+## Move to the previous page if possible
 prevPage : Model -> Model
 prevPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
@@ -113,14 +116,17 @@ prevPage = \model ->
     else
         model
 
+## Check if the current page is not the first page
 isNotFirstPage : Model -> Bool
 isNotFirstPage = \model -> model.pageFirstItem > 0
 
+## Check if the current page is not the last page
 isNotLastPage : Model -> Bool
 isNotLastPage = \model ->
     maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
     model.pageFirstItem + maxItems < List.len model.fullMenu
 
+## Move the cursor up or down
 moveCursor : Model, [Up, Down] -> Model
 moveCursor = \model, direction ->
     if List.len model.menu > 0 then
@@ -139,6 +145,7 @@ moveCursor = \model, direction ->
     else
         model
 
+## Transition to the UserExited state
 toUserExitedState : Model -> Model
 toUserExitedState = \model -> { model & state: UserExited }
 
@@ -153,6 +160,7 @@ toInputAppNameState = \model ->
 
         _ -> model
 
+## Transition to the PlatformSelect state
 toPlatformSelectState : Model -> Model
 toPlatformSelectState = \model ->
     when model.state is
@@ -160,6 +168,8 @@ toPlatformSelectState = \model ->
             appName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main" |> \name -> if Str.isEmpty name then "main" else name
             newConfig = { config & appName }
             { model &
+                pageFirstItem: 0,
+                fullMenu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: newConfig },
             }
@@ -194,6 +204,7 @@ toPlatformSelectState = \model ->
             }
             |> paginate
 
+## To the PackageSelect state
 toPackageSelectState : Model -> Model
 toPackageSelectState = \model ->
     when model.state is
@@ -237,6 +248,7 @@ toPackageSelectState = \model ->
             }
             |> paginate
 
+## Transition to the Finished state
 toFinishedState : Model -> Model
 toFinishedState = \model ->
     modelWithPackages = addSelectedPackagesToConfig model
@@ -246,6 +258,7 @@ toFinishedState = \model ->
         Confirmation { config } -> { model & state: Finished { config } }
         _ -> { model & state: Finished { config: { platform: "", appName: "", packages: [] } } }
 
+## Transition to the Confirmation state
 toConfirmationState : Model -> Model
 toConfirmationState = \model ->
     modelWithPackages = addSelectedPackagesToConfig model
@@ -254,6 +267,7 @@ toConfirmationState = \model ->
         PackageSelect { config } -> { model & state: Confirmation { config } }
         _ -> { model & state: Confirmation { config: { platform: "", appName: "", packages: [] } } }
 
+## Transition to the Search state
 toSearchState : Model -> Model
 toSearchState = \model ->
     when model.state is
@@ -272,6 +286,7 @@ toSearchState = \model ->
 
         _ -> model
 
+## Clear the search filter
 clearSearchFilter : Model -> Model
 clearSearchFilter = \model ->
     when model.state is
@@ -291,6 +306,7 @@ clearSearchFilter = \model ->
 
         _ -> model
 
+## Append a key to the name or search buffer
 appendToBuffer : Model, Key -> Model
 appendToBuffer = \model, key ->
     when model.state is
@@ -304,6 +320,7 @@ appendToBuffer = \model, key ->
 
         _ -> model
 
+## Remove the last character from the name or search buffer
 backspaceBuffer : Model -> Model
 backspaceBuffer = \model ->
     when model.state is
@@ -317,6 +334,7 @@ backspaceBuffer = \model ->
 
         _ -> model
 
+## Clear the search buffer
 clearSearchBuffer : Model -> Model
 clearSearchBuffer = \model ->
     when model.state is
@@ -325,6 +343,7 @@ clearSearchBuffer = \model ->
 
         _ -> model
 
+## Toggle the selected state of an item in a multi-select menu
 toggleSelected : Model -> Model
 toggleSelected = \model ->
     item = getHighlightedItem model
@@ -333,6 +352,7 @@ toggleSelected = \model ->
     else
         { model & selected: List.append model.selected item }
 
+## Add the selected packages to the configuration
 addSelectedPackagesToConfig : Model -> Model
 addSelectedPackagesToConfig = \model ->
     when model.state is
@@ -342,17 +362,18 @@ addSelectedPackagesToConfig = \model ->
 
         _ -> model
 
+## Get the index of the highlighted item
 getHighlightedIndex : Model -> U64
 getHighlightedIndex = \model -> Num.toU64 model.cursor.row - Num.toU64 model.menuRow
 
+## Get the highlighted item
 getHighlightedItem : Model -> Str
 getHighlightedItem = \model -> List.get model.menu (getHighlightedIndex model) |> Result.withDefault ""
 
+## Convert the index of an item in the menu to the index in the full menu
 menuIdxToFullIdx : U64, Model -> U64
 menuIdxToFullIdx = \idx, model -> idx + model.pageFirstItem
 
-fullIdxToMenuIdx : U64, Model -> U64
-fullIdxToMenuIdx = \idx, model -> idx - model.pageFirstItem
-
+## Get the selected items in a multi-select menu
 getSelectedItems : Model -> List Str
 getSelectedItems = \model -> model.selected
