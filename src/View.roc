@@ -108,7 +108,7 @@ renderInputAppName = \model ->
                 [
                     renderScreenPrompt "ENTER THE APP NAME:",
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
                 ],
             ]
 
@@ -128,7 +128,7 @@ renderSearch = \model ->
                 [
                     renderScreenPrompt searchPrompt,
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: 2, c: 4, fg: Standard White },
+                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
                 ],
             ]
 
@@ -146,12 +146,12 @@ renderConfirmation = \model ->
                 renderOuterBorder model.screen,
                 [
                     renderScreenPrompt "YOU SELECTED:",
-                    Core.drawText "App name:" { r: 2, c: 2, fg: Standard Magenta },
-                    Core.drawText config.appName { r: 2, c: 12, fg: Standard White },
-                    Core.drawText "Platform:" { r: 3, c: 2, fg: Standard Magenta },
-                    Core.drawText config.platform { r: 3, c: 12, fg: Standard White },
-                    Core.drawText "Packages:" { r: 4, c: 2, fg: Standard Magenta },
-                    Core.drawText (config.packages |> Str.joinWith ", ") { r: 4, c: 12, fg: Standard White },
+                    Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                    Core.drawText config.appName { r: model.menuRow, c: 12, fg: Standard White },
+                    Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
+                    Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
+                    Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
+                    Core.drawText (config.packages |> Str.joinWith ", ") { r: model.menuRow + 2, c: 12, fg: Standard White },
                 ],
             ]
 
