@@ -1,5 +1,4 @@
 # Getting your platform or package listed
-
 In order to get your package or platform listed, you must meet a few basic requirements. Once those requirements are met, make a pull request to the roc-start repository, adding your package to the roc-repo.rvn file.
 
 ## Requirements for listing:
@@ -8,6 +7,18 @@ In order to get your package or platform listed, you must meet a few basic requi
     - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
 
 Note that some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
+
+## For platform authors
+Platform authors may optionally add an app-stub to improve the experience for users creating apps with their platform. This allows `roc-start` to generate a basic implementation of the interface provided to the platform, as well as the application header. Thus the output of `roc-start` can be a fully functional hello-world app, or similar.
+
+To create an app stub, your PR should also include the file: `repository/app-stubs/<your-platform>.roc`. The name of the file should be the name of your platform repository on GitHub. The file should include only the bare minimum roc code to run an application with your platform, and only the code following the application header. 
+
+For example, here is `app-stubs/basic-webserver.roc`:
+```roc
+main : Request -> Task Response []
+main = \req ->
+    Task.ok { status: 200, headers: [], body: Str.toUtf8 "<b>Hello, world!</b>\n" }
+```
 
 ## Make that pull request!
 That's it! Once you have released your package with the required tarball, simply make a PR against this repo, adding your package to the `roc-repo.rvn` file. The format should be as follows:
