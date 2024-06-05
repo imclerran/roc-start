@@ -66,6 +66,7 @@ runWith = \args ->
 runCliApp : Str, Str, List Str, Bool -> Task {} _
 runCliApp = \appName, platform, packages, forceUpdate ->
     repos = loadRepoData! forceUpdate
+    getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
     fileExists = checkForFile! "$(appName).roc"
     if fileExists then
         Stdout.line! "Error: $(appName).roc already exists."
@@ -78,6 +79,7 @@ runCliApp = \appName, platform, packages, forceUpdate ->
 runTuiApp : Bool -> Task {} _
 runTuiApp = \forceUpdate ->
     repos = loadRepoData! forceUpdate
+    getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
     Tty.enableRawMode!
     model = Task.loop! (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages)) runUiLoop
     Stdout.write! (Core.toStr Reset)
@@ -256,7 +258,7 @@ checkForFile = \filename ->
                 Ok bool -> Task.ok bool
                 _ -> Task.ok Bool.false
 
-## Load the repository data from the local cache. If the cache does not exist, 
+## Load the repository data from the local cache. If the cache does not exist,
 ## or the user requests an update, fetch the latest data from the remote repository.
 loadRepoData : Bool -> Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
 loadRepoData = \forceUpdate ->
@@ -314,14 +316,15 @@ doRepoUpdate =
 ## Get the remote repository data, decode it, and split it into a list of package and platform repos.
 getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
 getRemoteRepoData =
-    request = {
-        method: Get,
-        headers: [],
-        url: "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn",
-        mimeType: "",
-        body: [],
-        timeout: TimeoutMilliseconds 5000,
-    }
+    # request = {
+    #     method: Get,
+    #     headers: [],
+    #     url: "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn",
+    #     mimeType: "",
+    #     body: [],
+    #     timeout: TimeoutMilliseconds 5000,
+    # }
+    request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn"
     resp = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
     when Decode.fromBytes resp.body Rvn.pretty is
         Ok repos ->
@@ -333,6 +336,15 @@ getRemoteRepoData =
             Task.ok repoLists
 
         Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
+
+getRequest = \url -> {
+    method: Get,
+    headers: [],
+    url,
+    mimeType: "",
+    body: [],
+    timeout: TimeoutMilliseconds 5000,
+}
 
 ## Get the latest release for each package in the repository.
 updateRepoCache : List RemoteRepoEntry, Str -> Task {} _
@@ -411,14 +423,62 @@ getRepoDict = \bytes ->
         Ok dict -> dict
         Err _ -> Dict.empty {}
 
+## Update the app-stubs for the given platforms if they don't already exist, or if the user requests an update.
+getAppStubsIfNeeded : List Str, Bool -> Task {} _
+getAppStubsIfNeeded = \platforms, forceUpdate ->
+    dataDir = getAndCreateDataDir!
+    dirExists = checkForDir! "$(dataDir)/app-stubs"
+    if !dirExists || forceUpdate then
+        getAppStubs! platforms
+    else
+        Task.ok {}
+
+## Update the app-stubs for the given platforms.
+getAppStubs : List Str -> Task {} _
+getAppStubs = \platforms ->
+    dataDir = getAndCreateDataDir!
+    appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
+    Stdout.write! "Downloading app-stubs..."
+    Task.loop! { platforms, dir: appStubsDir } getAppStubsLoop
+    Stdout.line "$(greenFg)✔$(AnsiStrs.reset)"
+
+AppStubsLoopState : { platforms : List Str, dir : Str }
+
+## Loop function which processes each platform in the platform list, gets the app-stub for each.
+getAppStubsLoop : AppStubsLoopState -> Task [Step AppStubsLoopState, Done {}] _
+getAppStubsLoop = \{ platforms, dir } ->
+    when List.get platforms 0 is
+        Ok platform ->
+            updatedList = List.dropFirst platforms 1
+            # request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/app-stubs/$(platform).roc",
+            request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/add-pf-stubs/repository/app-stubs/$(platform).roc"
+            response = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
+            if response.statusCode == 200 && !(List.isEmpty response.body) then
+                File.writeBytes! "$(dir)/$(platform)" response.body
+                Task.ok (Step { platforms: updatedList, dir })
+            else
+                Task.ok (Step { platforms: updatedList, dir })
+
+        Err OutOfBounds -> Task.ok (Done {})
+
+## Create a directory at the given path if it doesn't already exist.
+getAndCreateDir : Str -> Task Str _
+getAndCreateDir = \dirPath ->
+    if checkForDir! dirPath then
+        Task.ok dirPath
+    else
+        Dir.create! dirPath
+        Task.ok dirPath
+
 ## Generate a roc file from the given appName, platform, and packageList.
 createRocFile : Configuration, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
-    File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos)
+    appStub = getAppStub! config.platform
+    File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos appStub)
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.
-buildRocFile : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> List U8
-buildRocFile = \platform, packageList, repos ->
+buildRocFile : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry }, List U8 -> List U8
+buildRocFile = \platform, packageList, repos, appStub ->
     pfStr =
         when Dict.get repos.platforms platform is
             Ok pf -> "    $(pf.alias): platform \"$(pf.url)\",\n"
@@ -428,5 +488,14 @@ buildRocFile = \platform, packageList, repos ->
             when Dict.get repos.packages package is
                 Ok pkg -> Str.concat str "    $(pkg.alias): \"$(pkg.url)\",\n"
                 Err KeyNotFound -> ""
-    "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
+
+    "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8 |> List.concat appStub
+
+## Get the application stub for the platform, if it exists
+getAppStub : Str -> Task (List U8) _
+getAppStub = \platform ->
+    dataDir = getAndCreateDataDir!
+    File.readBytes "$(dataDir)/app-stubs/$(platform)"
+        |> Task.onErr \_ -> Task.ok []
+        |> Task.map! \bytes -> if List.isEmpty bytes then bytes else List.prepend bytes '\n'
 
