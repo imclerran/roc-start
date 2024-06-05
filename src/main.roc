@@ -33,7 +33,200 @@ Configuration : {
     packages : List Str,
 }
 
+## The main entry point for the program.
+main : Task {} _
+main =
+    when ArgParser.parseOrDisplayMessage Arg.list! is
+        Ok args ->
+            runWith args
+
+        Err message ->
+            Stdout.line! message
+            Task.err (Exit 1 "")
+
+## Run the program with the parsed commandline args.
+runWith : _ -> Task {} _
+runWith = \args ->
+    when args.subcommand is
+        Ok (Tui {}) ->
+            runTuiApp args.update
+
+        Err NoSubcommand ->
+            when (args.appName, args.platform) is
+                (Ok appName, Ok platform) ->
+                    runCliApp appName platform args.packages args.update
+
+                _ ->
+                    # Must use backpassing here instead of bang to avoid compiler crash.
+                    {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
+                    Stdout.line ArgParser.baseUsage
+
+## Run the CLI application.
+## Load the repository data, and create the roc file if it doesn't already exist.
+runCliApp : Str, Str, List Str, Bool -> Task {} _
+runCliApp = \appName, platform, packages, forceUpdate ->
+    repos = loadRepoData! forceUpdate
+    fileExists = checkForFile! "$(appName).roc"
+    if fileExists then
+        Stdout.line! "Error: $(appName).roc already exists."
+    else
+        createRocFile! { appName, platform, packages } repos
+        Stdout.line! "Created $(appName).roc"
+
+## Run the TUI application.
+## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
+runTuiApp : Bool -> Task {} _
+runTuiApp = \forceUpdate ->
+    repos = loadRepoData! forceUpdate
+    Tty.enableRawMode!
+    model = Task.loop! (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages)) runUiLoop
+    Stdout.write! (Core.toStr Reset)
+    Tty.disableRawMode!
+    when model.state is
+        UserExited -> Task.ok {}
+        Finished { config } ->
+            fileExists = checkForFile! "$(config.appName).roc"
+            if fileExists then
+                Stdout.line "Error: $(config.appName).roc already exists."
+            else
+                createRocFile! config repos
+                Stdout.line "Created $(config.appName).roc"
+
+        _ -> Stdout.line "Oops! Something went wrong..."
+
+## The main loop for running the TUI.
+## Checks the terminal size, draws the screen, reads input, and handles the input.
+runUiLoop : Model -> Task.Task [Step Model, Done Model] _
+runUiLoop = \prevModel ->
+    terminalSize = getTerminalSize!
+    model = Model.paginate { prevModel & screen: terminalSize }
+    Core.drawScreen model (render model) |> Stdout.write!
+
+    input = Stdin.bytes |> Task.map! Core.parseRawStdin
+    modelWithInput = { model & inputs: List.append model.inputs input }
+    when model.state is
+        InputAppName _ -> handleInputAppNameInput modelWithInput input
+        PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
+        PackageSelect _ -> handlePackageSelectInput modelWithInput input
+        Search _ -> handleSearchInput modelWithInput input
+        Confirmation _ -> handleConfirmationInput modelWithInput input
+        _ -> handleBasicInput modelWithInput input
+
+## Get the size of the terminal window.
+## Author: Luke Boswell
+getTerminalSize : Task.Task Core.ScreenSize _
+getTerminalSize =
+    # Move the cursor to bottom right corner of terminal
+    cmd = [MoveCursor (To { row: 999, col: 999 }), GetCursor] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
+    Stdout.write! cmd
+    # Read the cursor position
+    Stdin.bytes
+        |> Task.map Core.parseCursor
+        |> Task.map! \{ row, col } -> { width: col, height: row }
+
+## Generate the list of draw functions which will be used to draw the screen.
+render : Model -> List Core.DrawFn
+render = \model ->
+    when model.state is
+        InputAppName _ -> View.renderInputAppName model
+        PlatformSelect _ -> View.renderPlatformSelect model
+        PackageSelect _ -> View.renderPackageSelect model
+        Search _ -> View.renderSearch model
+        Confirmation _ -> View.renderConfirmation model
+        _ -> []
+
+## Basic input handler which ensures that the program can always be exited.
+## This ensures that even if forget to handle input for a state, or end up
+## in a state that doesn't have an input handler, the program can still be exited.
+handleBasicInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleBasicInput = \model, input ->
+    when input is
+        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
+        _ -> Task.ok (Step model)
+
+## The input handler for the PlatformSelect state.
+handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handlePlatformSelectInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
+            KeyPress LowerS -> Search
+            KeyPress UpperS -> Search
+            KeyPress Enter -> SingleSelect
+            KeyPress Up -> CursorUp
+            KeyPress Down -> CursorDown
+            KeyPress Delete -> GoBack
+            KeyPress Escape -> ClearFilter
+            KeyPress Right -> NextPage
+            KeyPress GreaterThanSign -> NextPage
+            KeyPress FullStop -> NextPage
+            KeyPress Left -> PrevPage
+            KeyPress LessThanSign -> PrevPage
+            KeyPress Comma -> PrevPage
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
+
+## The input handler for the PackageSelect state.
+handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handlePackageSelectInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
+            KeyPress LowerS -> Search
+            KeyPress UpperS -> Search
+            KeyPress Enter -> MultiConfirm
+            KeyPress Space -> MultiSelect
+            KeyPress Up -> CursorUp
+            KeyPress Down -> CursorDown
+            KeyPress Delete -> GoBack
+            KeyPress Escape -> ClearFilter
+            KeyPress Right -> NextPage
+            KeyPress GreaterThanSign -> NextPage
+            KeyPress FullStop -> NextPage
+            KeyPress Left -> PrevPage
+            KeyPress LessThanSign -> PrevPage
+            KeyPress Comma -> PrevPage
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
+
+## The input handler for the Search state.
+handleSearchInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleSearchInput = \model, input ->
+    (action, keyPress) =
+        when input is
+            CtrlC -> (Exit, None)
+            KeyPress Enter -> (SearchGo, None)
+            KeyPress Escape -> (Cancel, None)
+            KeyPress Delete -> (TextBackspace, None)
+            KeyPress key -> (TextInput, KeyPress key)
+            _ -> (None, None)
+    Task.ok (Controller.applyAction { model, action, keyPress })
+
+## The input handler for the InputAppName state.
+handleInputAppNameInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleInputAppNameInput = \model, input ->
+    (action, keyPress) =
+        when input is
+            CtrlC -> (Exit, None)
+            KeyPress Enter -> (TextConfirm, None)
+            KeyPress Delete -> (TextBackspace, None)
+            KeyPress key -> (TextInput, KeyPress key)
+            _ -> (None, None)
+    Task.ok (Controller.applyAction { model, action, keyPress })
+
+## The input handler for the Confirmation state.
+handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleConfirmationInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
+            KeyPress Enter -> Finish
+            KeyPress Delete -> GoBack
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
+
 ## Create the data directory if it doesn't exist, and return the string version of the path.
+getAndCreateDataDir : Task Str _
 getAndCreateDataDir =
     home = Env.var! "HOME"
     dataDir = "$(home)/.roc-start"
@@ -44,6 +237,8 @@ getAndCreateDataDir =
         Task.ok dataDir
 
 ## Check if a directory exists at the given path.
+## Guarantee Task.ok Bool result.
+checkForDir : Str -> Task Bool _
 checkForDir = \path ->
     Path.isDir (Path.fromStr path)
         |> Task.attempt! \res ->
@@ -52,6 +247,8 @@ checkForDir = \path ->
                 _ -> Task.ok Bool.false
 
 ## Check if a file exists at the given path.
+## Guarantee Task.ok Bool result.
+checkForFile : Str -> Task Bool _
 checkForFile = \filename ->
     Path.isFile (Path.fromStr filename)
         |> Task.attempt! \res ->
@@ -59,6 +256,62 @@ checkForFile = \filename ->
                 Ok bool -> Task.ok bool
                 _ -> Task.ok Bool.false
 
+## Load the repository data from the local cache. If the cache does not exist, 
+## or the user requests an update, fetch the latest data from the remote repository.
+loadRepoData : Bool -> Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
+loadRepoData = \forceUpdate ->
+    dataDir = getAndCreateDataDir!
+    packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok [] # if this block is placed inside if statement
+    platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok [] # the compiler hangs indefinitely
+    packages = getRepoDict packageBytes # it would be better not to do this read here
+    platforms = getRepoDict platformBytes # but does not noticably slow UX.
+    if forceUpdate then
+        loadLatestRepoData
+    else if Dict.isEmpty platforms || Dict.isEmpty packages then
+        loadLatestRepoData # this will migrate tuples to records from old roc-start installs
+    else
+        Task.ok { packages, platforms }
+
+## DO NOT DELETE ME!
+## This is the perfered version of loadRepoData, but putting the logic to read the files inside the if statement
+## causes the compiler to hang indefinitely. If this bug is fixed, the above version should be replaced with this one.
+# loadRepoData = \forceUpdate ->
+#     if forceUpdate then
+#         loadLatestRepoData
+#     else
+# >         dataDir = getAndCreateDataDir!
+#         packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok []
+#         platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok []
+# >        packages = getRepoDict packageBytes
+#         platforms = getRepoDict platformBytes
+#         if Dict.isEmpty platforms || Dict.isEmpty packages then
+#             loadLatestRepoData # this will migrate tuples to records from old roc-start installs
+#         else
+#             Task.ok { packages, platforms }
+
+## Load the latest repository data from the remote repository.
+loadLatestRepoData : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
+loadLatestRepoData =
+    doRepoUpdate!
+    dataDir = getAndCreateDataDir!
+    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
+    packages = getRepoDict packageBytes
+    platforms = getRepoDict platformBytes
+    Task.ok { packages, platforms }
+
+## Update the local repository cache with the latest data from the remote repository.
+doRepoUpdate : Task {} _
+doRepoUpdate =
+    repoLists = getRemoteRepoData!
+    Stdout.write! "Updating platform repository..."
+    updateRepoCache! repoLists.platformRepos "pf-data.rvn"
+    Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
+    Stdout.write! "Updating package repository..."
+    updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
+    Stdout.line "$(greenFg)✔$(AnsiStrs.reset)"
+
+## Get the remote repository data, decode it, and split it into a list of package and platform repos.
 getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
 getRemoteRepoData =
     request = {
@@ -80,37 +333,6 @@ getRemoteRepoData =
             Task.ok repoLists
 
         Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
-
-loadRepoData = \forceUpdate ->
-    dataDir = getAndCreateDataDir!
-    packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok [] # if this block is placed inside if statement
-    platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok [] # there is a compiler error
-    packages = getRepoDict packageBytes # would be better not to have to do this read
-    platforms = getRepoDict platformBytes # if force update is true, but does not noticably slow UX
-    if forceUpdate then
-        loadLatestRepoData
-    else if Dict.isEmpty platforms || Dict.isEmpty packages then
-        loadLatestRepoData # this will migrate tuples to records from old roc-start installs
-    else
-        Task.ok { packages, platforms }
-
-loadLatestRepoData =
-    doRepoUpdate!
-    dataDir = getAndCreateDataDir!
-    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
-    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
-    packages = getRepoDict packageBytes
-    platforms = getRepoDict platformBytes
-    Task.ok { packages, platforms }
-
-doRepoUpdate =
-    repoLists = getRemoteRepoData!
-    Stdout.write! "Updating platform repository..."
-    updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! "$(greenFg)✔$(AnsiStrs.reset)"
-    Stdout.write! "Updating package repository..."
-    updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line "$(greenFg)✔$(AnsiStrs.reset)"
 
 ## Get the latest release for each package in the repository.
 updateRepoCache : List RemoteRepoEntry, Str -> Task {} _
@@ -208,170 +430,3 @@ buildRocFile = \platform, packageList, repos ->
                 Err KeyNotFound -> ""
     "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8
 
-render : Model -> List Core.DrawFn
-render = \model ->
-    when model.state is
-        InputAppName _ -> View.renderInputAppName model
-        PlatformSelect _ -> View.renderPlatformSelect model
-        PackageSelect _ -> View.renderPackageSelect model
-        Search _ -> View.renderSearch model
-        Confirmation _ -> View.renderConfirmation model
-        _ -> []
-
-# author: Luke Boswell
-getTerminalSize : Task.Task Core.ScreenSize _
-getTerminalSize =
-    # Move the cursor to bottom right corner of terminal
-    cmd = [MoveCursor (To { row: 999, col: 999 }), GetCursor] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
-    Stdout.write! cmd
-    # Read the cursor position
-    Stdin.bytes
-        |> Task.map Core.parseCursor
-        |> Task.map! \{ row, col } -> { width: col, height: row }
-
-runUiLoop : Model -> Task.Task [Step Model, Done Model] _
-runUiLoop = \prevModel ->
-    terminalSize = getTerminalSize!
-    model = Model.paginate { prevModel & screen: terminalSize }
-    Core.drawScreen model (render model)
-        |> Stdout.write!
-
-    input = Stdin.bytes |> Task.map! Core.parseRawStdin
-    modelWithInput = { model & inputs: List.append model.inputs input }
-    when model.state is
-        InputAppName _ -> handleInputAppNameInput modelWithInput input
-        PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
-        PackageSelect _ -> handlePackageSelectInput modelWithInput input
-        Search { sender } -> handleSearchInput modelWithInput input sender
-        Confirmation _ -> handleConfirmationInput modelWithInput input
-        _ -> handleBasicInput modelWithInput input
-
-handleBasicInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
-handleBasicInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        _ -> Task.ok (Step model)
-
-handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
-handlePlatformSelectInput = \model, input ->
-    action = when input is
-        CtrlC -> Exit 
-        KeyPress LowerS -> Search 
-        KeyPress UpperS -> Search 
-        KeyPress Enter -> SingleSelect 
-        KeyPress Up -> CursorUp 
-        KeyPress Down -> CursorDown 
-        KeyPress Delete -> GoBack 
-        KeyPress Escape -> ClearFilter 
-        KeyPress Right -> NextPage 
-        KeyPress GreaterThanSign -> NextPage 
-        KeyPress FullStop -> NextPage 
-        KeyPress Left -> PrevPage 
-        KeyPress LessThanSign -> PrevPage 
-        KeyPress Comma -> PrevPage 
-        _ -> None
-    Task.ok (Controller.applyAction { model, action })
-
-handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
-handlePackageSelectInput = \model, input ->
-    action = when input is
-        CtrlC -> Exit 
-        KeyPress LowerS -> Search
-        KeyPress UpperS -> Search
-        KeyPress Enter -> MultiConfirm
-        KeyPress Space -> MultiSelect
-        KeyPress Up -> CursorUp
-        KeyPress Down -> CursorDown
-        KeyPress Delete -> GoBack
-        KeyPress Escape -> ClearFilter
-        KeyPress Right -> NextPage
-        KeyPress GreaterThanSign -> NextPage
-        KeyPress FullStop -> NextPage
-        KeyPress Left -> PrevPage
-        KeyPress LessThanSign -> PrevPage
-        KeyPress Comma -> PrevPage
-        _ -> None
-    Task.ok (Controller.applyAction { model, action })
-
-handleSearchInput : Model, Core.Input, [Platform, Package] -> Task.Task [Step Model, Done Model] _
-handleSearchInput = \model, input, _sender ->
-    ( action, keyPress ) = when input is
-        CtrlC -> (Exit, None)
-        KeyPress Enter -> (SearchGo, None)
-        KeyPress Escape -> (Cancel, None)
-        KeyPress Delete -> (TextBackspace, None)
-        KeyPress key -> (TextInput, KeyPress key)
-        _ -> (None, None)
-    Task.ok (Controller.applyAction { model, action, keyPress })
-
-handleInputAppNameInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
-handleInputAppNameInput = \model, input ->
-    (action, keyPress ) = when input is
-        CtrlC -> (Exit, None)
-        KeyPress Enter -> (TextConfirm, None)
-        KeyPress Delete -> (TextBackspace, None)
-        KeyPress key -> (TextInput, KeyPress key)
-        _ -> (None, None)
-    Task.ok (Controller.applyAction { model, action, keyPress })
-
-handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
-handleConfirmationInput = \model, input ->
-    action = when input is
-        CtrlC -> Exit
-        KeyPress Enter -> Finish
-        KeyPress Delete -> GoBack
-        _ -> None
-    Task.ok (Controller.applyAction { model, action })
-
-runCliApp = \appName, platform, packages, forceUpdate ->
-    repos = loadRepoData! forceUpdate
-    fileExists = checkForFile! "$(appName).roc"
-    if fileExists then
-        Stdout.line! "Error: $(appName).roc already exists."
-    else
-        createRocFile! { appName, platform, packages } repos
-        Stdout.line! "Created $(appName).roc"
-
-runTuiApp = \forceUpdate ->
-    repos = loadRepoData! forceUpdate
-    Tty.enableRawMode!
-    model = Task.loop! (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages)) runUiLoop
-    Stdout.write! (Core.toStr Reset)
-    Tty.disableRawMode!
-    when model.state is
-        UserExited -> Task.ok {}
-        Finished { config } ->
-            fileExists = checkForFile! "$(config.appName).roc"
-            if fileExists then
-                Stdout.line! "Error: $(config.appName).roc already exists."
-            else
-                createRocFile! config repos
-                Stdout.line! "Created $(config.appName).roc"
-
-        _ -> Stdout.line! "Something went wrong..."
-
-main : Task {} _
-main =
-    when ArgParser.parseOrDisplayMessage Arg.list! is
-        Ok args ->
-            runWith args
-
-        Err message ->
-            Stdout.line! message
-            Task.err (Exit 1 "")
-
-## run the program with the parsed args
-runWith : _ -> Task {} _
-runWith = \args ->
-    when args.subcommand is
-        Ok (Tui {}) ->
-            runTuiApp args.update
-
-        Err NoSubcommand ->
-            when (args.appName, args.platform) is
-                (Ok appName, Ok platform) ->
-                    runCliApp appName platform args.packages args.update
-
-                _ ->
-                    {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
-                    Stdout.line ArgParser.baseUsage
