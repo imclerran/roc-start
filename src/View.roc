@@ -76,7 +76,7 @@ buildControlPromptStr = \actions, promptsDict ->
     |> Str.joinWith " | "
 
 ## Render a multi-line text with word wrapping
-renderMultiLineText : List Str, { startCol: I32, startRow: I32, maxCol: I32, wrapCol: I32, wordDelim ? Str, fg ? Core.Color } -> List Core.DrawFn
+renderMultiLineText : List Str, { startCol : I32, startRow : I32, maxCol : I32, wrapCol : I32, wordDelim ? Str, fg ? Core.Color } -> List Core.DrawFn
 renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ? " ", fg ? Standard White } ->
     firstLineWidth = maxCol - startCol
     consecutiveWidths = maxCol - wrapCol
@@ -90,11 +90,13 @@ renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ?
                         [Str.concat line word]
                     else
                         [line, word]
+
                 [.. as prevLines, line] ->
                     if Num.toI32 (Str.countUtf8Bytes line + Str.countUtf8Bytes word) <= consecutiveWidths then
                         List.concat prevLines [Str.concat line word]
                     else
                         List.concat prevLines [line, word]
+
                 [] -> [word]
     List.mapWithIndex lineList \line, idx ->
         if idx == 0 then
@@ -151,7 +153,7 @@ renderInputAppName = \model ->
                     renderScreenPrompt "ENTER THE APP NAME:",
                     Core.drawCursor { fg: Standard Magenta, char: ">" },
                     Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
-                    
+
                 ],
             ]
 
@@ -197,13 +199,13 @@ renderConfirmation = \model ->
                     Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
                     Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
                 ],
-                renderMultiLineText config.packages { 
+                renderMultiLineText config.packages {
                     startCol: 12,
                     startRow: (model.menuRow + 2),
                     maxCol: (model.screen.width - 1),
                     wrapCol: 2,
                     wordDelim: ", ",
-                    fg: (Standard White) 
+                    fg: Standard White,
                 },
             ]
 

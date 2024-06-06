@@ -367,7 +367,7 @@ getSelectedItems : Model -> List Str
 getSelectedItems = \model -> model.selected
 
 menuIsFiltered : Model -> Bool
-menuIsFiltered = \model -> 
+menuIsFiltered = \model ->
     when model.state is
         PlatformSelect _ -> List.len model.fullMenu < List.len model.platformList
         PackageSelect _ -> List.len model.fullMenu < List.len model.packageList
