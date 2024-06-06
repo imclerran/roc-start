@@ -80,7 +80,7 @@ renderMultiLineText : List Str, { startCol: I32, startRow: I32, maxCol: I32, wra
 renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ? " ", fg ? Standard White } ->
     firstLineWidth = maxCol - startCol
     consecutiveWidths = maxCol - wrapCol
-    delims = List.repeat wordDelim (List.len words - 1) |> List.append ""
+    delims = List.repeat wordDelim (if List.len words == 0 then 0 else List.len words - 1) |> List.append ""
     wordsWithDelims = List.map2 words delims \word, delim -> Str.concat word delim
     lineList =
         List.walk wordsWithDelims [] \lines, word ->
