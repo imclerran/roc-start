@@ -316,7 +316,7 @@ doRepoUpdate =
 ## Get the remote repository data, decode it, and split it into a list of package and platform repos.
 getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
 getRemoteRepoData =
-    request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn"
+    request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/non-std-pfs/repository/roc-repo.rvn"
     resp = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
     when Decode.fromBytes resp.body Rvn.pretty is
         Ok repos ->
