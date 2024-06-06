@@ -27,11 +27,13 @@ main = \req ->
 That's it! Once you have released your package with the required tarball, simply make a PR against this repo, adding your package to the `roc-repo.rvn` file. The format should be as follows:
 
 ```roc
-{ repo: "your-repo-name", owner: "your-git-username", alias: "sn", platform: <Bool.true/Bool.false> },
+{ repo: "your-repo-name", owner: "your-git-username", alias: "sn", platform: <Bool.true/Bool.false>, requires: [] },
 
 # alias: the short name you want to appear in the app header when your package or platform is imported. Should begin with a lowercase letter and include no symbols.
 
 # platform: a roc style Boolean value indicating whether or not your package is a platform.
+
+# requires: *For platforms only* - A `List Str` containing the parameters required by your platform, ie: "main". Should be an empty list for packages.
 ```
 
 Please ensure that you add your package in alphabetic order, by repo-name first, then by username.
