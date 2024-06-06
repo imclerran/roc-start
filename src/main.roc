@@ -355,13 +355,13 @@ RepositoryLoopState : { repositoryList : List RemoteRepoEntry, rvnDataStr : Str 
 reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
 reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
     when List.get repositoryList 0 is
-        Ok { owner, repo, alias, platform } ->
+        Ok { owner, repo, alias, platform, requires } ->
             updatedList = List.dropFirst repositoryList 1
             response = getLatestRelease! owner repo
             releaseData = responseToReleaseData response
             when releaseData is
                 Ok { tagName, browserDownloadUrl } ->
-                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform })
+                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform, requires })
                     Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
 
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
@@ -397,10 +397,10 @@ responseToReleaseData = \response ->
 ## Convert the data for a single repository entry to a string in rvn format.
 repoDataToRvnEntry : CacheRepoEntry -> Str
 repoDataToRvnEntry = \entry ->
-    boolStr = if entry.platform then "Bool.true" else "Bool.false"
-    """
-        { repo: "$(entry.repo)", owner: "$(entry.owner)", alias: "$(entry.alias)", version: "$(entry.version)", url: "$(entry.url)", platform: $(boolStr) },\n
-    """
+    Encode.toBytes entry Rvn.compact
+    |> Str.fromUtf8
+    |> Result.withDefault ""
+    |> \str -> if !(Str.isEmpty str) then "    $(str),\n" else str # Str.concat str ",\n" else str
 
 ## Convert the raw bytes from pkg-data.rvn to a Dictionary of RepositoryEntry with the repo name as the key.
 getRepoDict : List U8 -> Dict Str RepositoryEntry
@@ -409,8 +409,8 @@ getRepoDict = \bytes ->
         Decode.fromBytes bytes Rvn.pretty
         |> Result.map \packageList ->
             packageList
-            |> List.walk (Dict.empty {}) \dict, cacheEntry ->
-                Dict.insert dict cacheEntry.repo { alias: cacheEntry.alias, version: cacheEntry.version, url: cacheEntry.url }
+            |> List.walk (Dict.empty {}) \dict, entry ->
+                Dict.insert dict entry.repo { alias: entry.alias, version: entry.version, url: entry.url, requires: entry.requires }
     when res is
         Ok dict -> dict
         Err _ -> Dict.empty {}
@@ -479,8 +479,13 @@ buildRocFile = \platform, packageList, repos, appStub ->
             when Dict.get repos.packages package is
                 Ok pkg -> Str.concat str "    $(pkg.alias): \"$(pkg.url)\",\n"
                 Err KeyNotFound -> ""
+    requiresStr =
+        Dict.get repos.platforms platform
+        |> Result.withDefault { requires: ["main"], alias: "", url: "", version: "" }
+        |> \pf -> pf.requires
+        |> Str.joinWith ", "
 
-    "app [main] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8 |> List.concat appStub
+    "app [$(requiresStr)] {\n$(pfStr)$(pkgsStr)}\n" |> Str.toUtf8 |> List.concat appStub
 
 ## Get the application stub for the platform, if it exists
 getAppStub : Str -> Task (List U8) _
