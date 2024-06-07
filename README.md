@@ -62,6 +62,21 @@ Options:
   -V, --version  Show the version.
 ```
 
+## roc-start update --help
+```
+Update the platform and package repositories and app stubs. Update all, or specify which to update.
+
+Usage:
+  roc-start update [options]
+
+Options:
+  -k, --packages   Update the package repositories.
+  -f, --platforms  Update the platform repositories.
+  -s, --app-stubs  Update the app stubs.
+  -h, --help       Show this help page.
+  -V, --version    Show the version.
+```
+
 [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb
 [roc_link]: https://github.com/roc-lang/roc
 

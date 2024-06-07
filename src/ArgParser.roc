@@ -13,7 +13,7 @@ baseUsage = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
 cliParser =
     Cli.weave {
         update: <- Opt.flag { short: "u", long: "update", help: "Update the platform and package repositories." },
-        subcommand: <- Subcommand.optional [tuiSubcommand],
+        subcommand: <- Subcommand.optional [tuiSubcommand, updateSubcommand],
         appName: <- Param.maybeStr { name: "app-name", help: "Name your new roc app." },
         platform: <- Param.maybeStr { name: "platform", help: "The platform to use." },
         packages: <- Param.strList { name: "packages", help: "Any packages to use." },
@@ -33,4 +33,16 @@ tuiSubcommand =
         name: "tui",
         description: "Use the TUI app to browse and search for platforms and packages.",
         mapper: Tui,
+    }
+
+updateSubcommand =
+    Cli.weave {
+        doPkgs: <- Opt.flag { short: "k", long: "packages", help: "Update the package repositories." },
+        doPfs: <- Opt.flag { short: "f", long: "platforms", help: "Update the platform repositories." },
+        doStubs: <- Opt.flag { short: "s", long: "app-stubs", help: "Update the app stubs." },
+    }
+    |> Subcommand.finish {
+        name: "update",
+        description: "Update the platform and package repositories and app stubs. Update all, or specify which to update.",
+        mapper: Update,
     }
