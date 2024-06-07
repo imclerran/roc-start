@@ -51,6 +51,12 @@ runWith = \args ->
         Ok (Tui {}) ->
             runTuiApp args.update
 
+        Ok (Update { doPfs, doPkgs, doStubs }) ->
+            if doPfs == doPkgs && doPkgs == doStubs then
+                runUpdates Bool.true Bool.true Bool.true
+            else
+                runUpdates doPfs doPkgs doStubs
+
         Err NoSubcommand ->
             when (args.appName, args.platform) is
                 (Ok appName, Ok platform) ->
@@ -95,6 +101,19 @@ runTuiApp = \forceUpdate ->
                 Stdout.line "Created $(config.appName).roc $(greenFg)✔$(resetStyle)"
 
         _ -> Stdout.line "Oops! Something went wrong..."
+
+## Run the update tasks for the platform, package, and app-stub repositories.
+runUpdates : Bool, Bool, Bool -> Task {} _
+runUpdates = \doPfs, doPkgs, doStubs ->
+    Task.loop! [(doPfs, doPlatformUpdate), (doPkgs, doPackageUpdate), (doStubs, doAppStubUpdate)] \updateList ->
+        when List.first updateList is
+            Ok (doUpdate, updater) ->
+                if doUpdate then
+                    updater!
+                    Task.ok (Step (List.dropFirst updateList 1))
+                else
+                    Task.ok (Step (List.dropFirst updateList 1))
+            _ -> Task.ok (Done {})
 
 ## The main loop for running the TUI.
 ## Checks the terminal size, draws the screen, reads input, and handles the input.
@@ -313,6 +332,30 @@ doRepoUpdate =
     updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
     Stdout.line " $(greenFg)✔$(resetStyle)"
 
+## Update the local package repository cache with the latest data from the remote repository.
+doPackageUpdate : Task {} _
+doPackageUpdate =
+    repoLists = getRemoteRepoData!
+    Stdout.write! "Updating package repository..."
+    updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
+    Stdout.line " $(greenFg)✔$(resetStyle)"
+
+## Update the local platform repository cache with the latest data from the remote repository.
+doPlatformUpdate : Task {} _
+doPlatformUpdate =
+    repoLists = getRemoteRepoData!
+    Stdout.write! "Updating platform repository..."
+    updateRepoCache! repoLists.platformRepos "pf-data.rvn"
+    Stdout.line! " $(greenFg)✔$(resetStyle)"
+
+## Download the app stubs for the currently cached platforms.
+doAppStubUpdate : Task {} _
+doAppStubUpdate =
+    dataDir = getAndCreateDataDir!
+    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn"
+    platforms = getRepoDict platformBytes
+    getAppStubsIfNeeded! (Dict.keys platforms) Bool.true
+
 ## Get the remote repository data, decode it, and split it into a list of package and platform repos.
 getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
 getRemoteRepoData =
@@ -329,6 +372,8 @@ getRemoteRepoData =
 
         Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
 
+## Create an Http.Request object with the given url.
+getRequest : Str -> Http.Request
 getRequest = \url -> {
     method: Get,
     headers: [],
