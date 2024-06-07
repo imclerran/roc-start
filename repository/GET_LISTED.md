@@ -37,4 +37,4 @@ That's it! Once you have released your package with the required tarball, simply
 # requires: *For platforms only* - A `List Str` containing the parameters required by your platform, ie: "main". Should be an empty list for packages.
 ```
 
-Please ensure that you add your package in alphabetic order, by repo-name first, then by username.
+Please ensure that you add your package in alphabetic order, by repo-name first, then by username. If you are a platform author, and include an app stub, make sure the alias you choose matches the name given the imported platform in your stub.
