@@ -45,16 +45,17 @@ Note that some packages and platforms are already included in the repository, bu
 A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.
 
 Usage:
-  roc-start [options] <app-name> <platform> <files...>
+  roc-start [options] <app-name> <platform> <packages...>
   roc-start <COMMAND>
 
 Commands:
-  tui  Use the TUI app to browse and search for platforms and packages.
+  tui     Use the TUI app to browse and search for platforms and packages.
+  update  Update the platform and package repositories and app stubs. Update all, or specify which to update.
 
 Arguments:
-  <app-name>  Name your new roc app.
-  <platform>  The platform to use.
-  <files...>  Any packages to use.
+  <app-name>     Name your new roc app.
+  <platform>     The platform to use.
+  <packages...>  Any packages to use.
 
 Options:
   -u, --update   Update the platform and package repositories.
