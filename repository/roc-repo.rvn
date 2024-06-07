@@ -3,7 +3,7 @@
     { repo: "basic-ssg", owner: "lukewilliamboswell", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "basic-webserver", owner: "roc-lang", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "crisp", owner: "KilianVounckx", alias: "crisp", platform: Bool.false, requires: [] },
-    { repo: "kingfisher", owner: "ostcar", alias: "pf", platform: Bool.true, requires: ["main", "Model"] },
+    { repo: "kingfisher", owner: "ostcar", alias: "webserver", platform: Bool.true, requires: ["main", "Model"] },
     { repo: "roc_regex", owner: "KilianVounckx", alias: "regex", platform: Bool.false, requires: [] },
     { repo: "roc-ansi", owner: "lukewilliamboswell", alias: "ansi", platform: Bool.false, requires: [] },
     { repo: "roc-array2d", owner: "mulias", alias: "a2d", platform: Bool.false, requires: [] },
