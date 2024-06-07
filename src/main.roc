@@ -475,7 +475,7 @@ getAppStubs : List Str -> Task {} _
 getAppStubs = \platforms ->
     dataDir = getAndCreateDataDir!
     appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
-    Stdout.write! "Downloading app-stubs..."
+    Stdout.write! "Updating app-stubs..."
     Task.loop! { platforms, dir: appStubsDir } getAppStubsLoop
     Stdout.line " $(greenFg)✔$(resetStyle)"
 
