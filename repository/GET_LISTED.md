@@ -6,7 +6,8 @@ In order to get your package or platform listed, you must meet a few basic requi
 2) Your release must include among its assets a Blake-3 hashed tar.br zip of your repo.
     - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
 
-Note that some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
+> __Note__
+> Some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
 
 ## For platform authors
 Platform authors may optionally add an app-stub to improve the experience for users creating apps with their platform. This allows `roc-start` to generate a basic implementation of the interface provided to the platform, as well as the application header. Thus the output of `roc-start` can be a fully functional hello-world app, or similar.
@@ -36,4 +37,4 @@ That's it! Once you have released your package with the required tarball, simply
 # requires: *For platforms only* - A `List Str` containing the parameters required by your platform, ie: "main". Should be an empty list for packages.
 ```
 
-Please ensure that you add your package in alphabetic order, by repo-name first, then by username.
+Please ensure that you add your package in alphabetic order, by repo-name first, then by username. If you are a platform author, and include an app stub, make sure the alias you choose matches the name given the imported platform in your stub.
