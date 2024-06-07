@@ -41,12 +41,12 @@ Model : {
     platformList : List Str,
     state : [
         InputAppName { nameBuffer : List U8, config : Configuration },
+        Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
         PlatformSelect { config : Configuration },
         PackageSelect { config : Configuration },
         Confirmation { config : Configuration },
-        Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
-        UserExited,
         Finished { config : Configuration },
+        UserExited,
     ],
 }
 

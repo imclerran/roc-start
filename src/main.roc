@@ -117,7 +117,7 @@ runUpdates = \doPfs, doPkgs, doStubs ->
 
 ## The main loop for running the TUI.
 ## Checks the terminal size, draws the screen, reads input, and handles the input.
-runUiLoop : Model -> Task.Task [Step Model, Done Model] _
+runUiLoop : Model -> Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
     model = Model.paginate { prevModel & screen: terminalSize }
@@ -135,7 +135,7 @@ runUiLoop = \prevModel ->
 
 ## Get the size of the terminal window.
 ## Author: Luke Boswell
-getTerminalSize : Task.Task Core.ScreenSize _
+getTerminalSize : Task Core.ScreenSize _
 getTerminalSize =
     # Move the cursor to bottom right corner of terminal
     cmd = [MoveCursor (To { row: 999, col: 999 }), GetCursor] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
@@ -159,14 +159,14 @@ render = \model ->
 ## Basic input handler which ensures that the program can always be exited.
 ## This ensures that even if forget to handle input for a state, or end up
 ## in a state that doesn't have an input handler, the program can still be exited.
-handleBasicInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleBasicInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleBasicInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done (Model.toUserExitedState model))
         _ -> Task.ok (Step model)
 
 ## The input handler for the PlatformSelect state.
-handlePlatformSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handlePlatformSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
     action =
         when input is
@@ -188,7 +188,7 @@ handlePlatformSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PackageSelect state.
-handlePackageSelectInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handlePackageSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
     action =
         when input is
@@ -211,7 +211,7 @@ handlePackageSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the Search state.
-handleSearchInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleSearchInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleSearchInput = \model, input ->
     (action, keyPress) =
         when input is
@@ -224,7 +224,7 @@ handleSearchInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the InputAppName state.
-handleInputAppNameInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleInputAppNameInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
     (action, keyPress) =
         when input is
@@ -236,7 +236,7 @@ handleInputAppNameInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the Confirmation state.
-handleConfirmationInput : Model, Core.Input -> Task.Task [Step Model, Done Model] _
+handleConfirmationInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleConfirmationInput = \model, input ->
     action =
         when input is
