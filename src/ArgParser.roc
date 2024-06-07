@@ -21,7 +21,7 @@ cliParser =
     }
     |> Cli.finish {
         name: "roc-start",
-        version: "v0.3.3",
+        version: "v0.3.4",
         authors: ["Ian McLerran <imclerran@protonmail.com>"],
         description: "A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.",
     }
