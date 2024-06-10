@@ -1,2 +1,0 @@
-#!/bin/zsh
-roc build --output roc-start --optimize
