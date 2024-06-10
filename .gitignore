@@ -2,6 +2,7 @@
 !*.*
 !*.roc
 !*.rvn
+!install
 !repos/
 !src/
 !src/install

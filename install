@@ -17,11 +17,11 @@ fi
 
 # Notify user that roc-start build process is starting
 echo -e "Building ${MAGENTA}roc-start${RESET}...\n"
-roc build --output roc-start $OPTIMIZE > /dev/null 2>&1
+roc build src/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
 
 # If build succeeds, copy the executable to $LOCAL_BIN and notify user
 if [ $? -eq 0 ]; then
-    cp ./roc-start $LOCAL_BIN
+    mv ./roc-start $LOCAL_BIN
     echo -e "${MAGENTA}roc-start${RESET} installed to $LOCAL_BIN"
 fi
 
