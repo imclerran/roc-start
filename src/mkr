@@ -1,5 +1,0 @@
-#!/bin/zsh
-roc build --output roc-start --optimize
-if [ $? -eq 0 ]; then
-    ./roc-start tui
-fi

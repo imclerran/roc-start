@@ -2,10 +2,9 @@
 !*.*
 !*.roc
 !*.rvn
+!install
 !repos/
 !src/
-!src/mkr
-!src/mk
 !src/install
 !repository
 !repository/app-stubs
