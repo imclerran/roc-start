@@ -7,6 +7,10 @@ roc='./roc_nightly/roc'
 # roc=$(which roc) # for local use
 
 src_dir='./src'
+ci_dir='./ci'
+
+# validate the repository
+$roc run $ci_dir/check-repo.roc --linker=legacy
 
 # test-stub.roc
 $roc check $src_dir/test-stub.roc
