@@ -24,10 +24,19 @@ Roc-start maintains a repository of package and platform git repos. From this li
 
 ## Updating platform/package urls
 
-The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by appending `-u`/`--update` to your `roc-start` command. IE: `roc-start tui -u`.
+The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by:
 
+- Running with the `-u` / `--update` option (requires other valid args)
+    - IE: `roc-start -u tui`
+    - OR: `roc-start --update main basic-cli`
+
+- If using `roc-start` `v0.3.4` or later, using the update command:
+    - Update all: `roc-start update`
+    - Update only selected, with `--platforms`, `--packages`, `--app-stubs`
+    - IE: `roc-start update --packages`
+    
 > __Important:__
-> Note that roc-start depends on the github cli tool to get the latest releases.
+> Note that roc-start depends on the github cli tool to get the latest releases, and cannot run at all without `gh` installed.
 
 ## Dependencies
 
