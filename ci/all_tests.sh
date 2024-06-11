@@ -15,3 +15,6 @@ $roc test $src_dir/test-stub.roc
 # main.roc
 $roc check $src_dir/main.roc
 $roc build $src_dir/main.roc --linker=legacy
+
+# validate the repository
+$roc run ./ci/check-repo.roc --linker=legacy
