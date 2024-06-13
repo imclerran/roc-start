@@ -92,5 +92,5 @@ Options:
 
 [ci_status_badge]: https://img.shields.io/github/actions/workflow/status/imclerran/roc-start/ci.yaml?logo=github&logoColor=lightgrey
 [ci_status_link]: https://github.com/imclerran/roc-start/actions/workflows/ci.yaml
-[last_commit_badge]: https://img.shields.io/github/last-commit/imclerran/roc-start
+[last_commit_badge]: https://img.shields.io/github/last-commit/imclerran/roc-start?logo=git&logoColor=lightgrey
 [last_commit_link]: https://github.com/imclerran/roc-start/commits/main/
