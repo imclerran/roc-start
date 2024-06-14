@@ -131,6 +131,7 @@ runUiLoop = \prevModel ->
         PackageSelect _ -> handlePackageSelectInput modelWithInput input
         Search _ -> handleSearchInput modelWithInput input
         Confirmation _ -> handleConfirmationInput modelWithInput input
+        Splash _ -> handleSplashInput modelWithInput input
         _ -> handleBasicInput modelWithInput input
 
 ## Get the size of the terminal window.
@@ -154,6 +155,7 @@ render = \model ->
         PackageSelect _ -> View.renderPackageSelect model
         Search _ -> View.renderSearch model
         Confirmation _ -> View.renderConfirmation model
+        Splash _ -> View.renderSplash model
         _ -> []
 
 ## Basic input handler which ensures that the program can always be exited.
@@ -231,6 +233,7 @@ handleInputAppNameInput = \model, input ->
             CtrlC -> (Exit, None)
             KeyPress Enter -> (TextConfirm, None)
             KeyPress Delete -> (TextBackspace, None)
+            KeyPress GraveAccent -> (Secret, None)
             KeyPress key -> (TextInput, KeyPress key)
             _ -> (None, None)
     Task.ok (Controller.applyAction { model, action, keyPress })
@@ -242,6 +245,15 @@ handleConfirmationInput = \model, input ->
         when input is
             CtrlC -> Exit
             KeyPress Enter -> Finish
+            KeyPress Delete -> GoBack
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
+
+handleSplashInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleSplashInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
             KeyPress Delete -> GoBack
             _ -> None
     Task.ok (Controller.applyAction { model, action })

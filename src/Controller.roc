@@ -21,6 +21,7 @@ UserAction : [
     TextInput,
     TextBackspace,
     TextConfirm,
+    Secret,
     None,
 ]
 
@@ -52,19 +53,21 @@ getActions = \model ->
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
 
         Confirmation _ -> [Exit, Finish, GoBack]
-        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace]
+        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace, Secret]
         Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
+        Splash _ -> [Exit, GoBack]
         _ -> [Exit]
 
 applyAction : { model : Model, action : UserAction, keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
 applyAction = \{ model, action, keyPress ? None } ->
     if actionIsAvailable model action then
         when model.state is
-            InputAppName _ -> inputAppName model action { keyPress }
-            PlatformSelect _ -> platformSelect model action
-            PackageSelect _ -> packageSelect model action
-            Confirmation _ -> confirmation model action
-            Search { sender } -> searchActionHandler model action { sender, keyPress }
+            InputAppName _ -> inputAppNameHandler model action { keyPress }
+            PlatformSelect _ -> platformSelectHandler model action
+            PackageSelect _ -> packageSelectHandler model action
+            Confirmation _ -> confirmationHandler model action
+            Search { sender } -> searchHandler model action { sender, keyPress }
+            Splash _ -> splashHandler model action
             _ -> Step model
     else
         Step model
@@ -72,8 +75,8 @@ applyAction = \{ model, action, keyPress ? None } ->
 actionIsAvailable : Model, UserAction -> Bool
 actionIsAvailable = \model, action -> List.contains (getActions model) action
 
-platformSelect : Model, UserAction -> [Step Model, Done Model]
-platformSelect = \model, action ->
+platformSelectHandler : Model, UserAction -> [Step Model, Done Model]
+platformSelectHandler = \model, action ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
         Search -> Step (Model.toSearchState model)
@@ -91,8 +94,8 @@ platformSelect = \model, action ->
         PrevPage -> Step (Model.prevPage model)
         _ -> Step model
 
-packageSelect : Model, UserAction -> [Step Model, Done Model]
-packageSelect = \model, action ->
+packageSelectHandler : Model, UserAction -> [Step Model, Done Model]
+packageSelectHandler = \model, action ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
         Search -> Step (Model.toSearchState model)
@@ -111,8 +114,8 @@ packageSelect = \model, action ->
         PrevPage -> Step (Model.prevPage model)
         _ -> Step model
 
-searchActionHandler : Model, UserAction, { sender : [Platform, Package], keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
-searchActionHandler = \model, action, { sender, keyPress ? None } ->
+searchHandler : Model, UserAction, { sender : [Platform, Package], keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
+searchHandler = \model, action, { sender, keyPress ? None } ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
         SearchGo ->
@@ -133,8 +136,8 @@ searchActionHandler = \model, action, { sender, keyPress ? None } ->
 
         _ -> Step model
 
-inputAppName : Model, UserAction, { keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
-inputAppName = \model, action, { keyPress ? None } ->
+inputAppNameHandler : Model, UserAction, { keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
+inputAppNameHandler = \model, action, { keyPress ? None } ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
         TextConfirm -> Step (Model.toPlatformSelectState model)
@@ -142,14 +145,22 @@ inputAppName = \model, action, { keyPress ? None } ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
                 None -> Step model
+        Secret -> Step (Model.toSplashState model)
 
         TextBackspace -> Step (Model.backspaceBuffer model)
         _ -> Step model
 
-confirmation : Model, UserAction -> [Step Model, Done Model]
-confirmation = \model, action ->
+confirmationHandler : Model, UserAction -> [Step Model, Done Model]
+confirmationHandler = \model, action ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
         Finish -> Done (Model.toFinishedState model)
         GoBack -> Step (Model.toPackageSelectState model)
+        _ -> Step model
+
+splashHandler : Model, UserAction -> [Step Model, Done Model]
+splashHandler = \model, action ->
+    when action is
+        Exit -> Done (Model.toUserExitedState model)
+        GoBack -> Step (Model.toInputAppNameState model)
         _ -> Step model
