@@ -21,6 +21,7 @@ module [
     toSearchState,
     toConfirmationState,
     toUserExitedState,
+    toSplashState,
     clearSearchFilter,
     menuIsFiltered,
 ]
@@ -46,6 +47,7 @@ Model : {
         PackageSelect { config : Configuration },
         Confirmation { config : Configuration },
         Finished { config : Configuration },
+        Splash { config : Configuration },
         UserExited,
     ],
 }
@@ -158,8 +160,25 @@ toInputAppNameState = \model ->
                 cursor: { row: 2, col: 2 },
                 state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
             }
+        
+        Splash { config } ->
+            { model &
+                cursor: { row: 2, col: 2 },
+                state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
+            }
 
         _ -> model
+
+toSplashState : Model -> Model
+toSplashState = \model ->
+    when model.state is
+            InputAppName { config, nameBuffer } ->
+                appName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
+                newConfig = { config & appName }
+                { model & 
+                    state: Splash { config: newConfig },
+                }
+            _ -> model
 
 ## Transition to the PlatformSelect state
 toPlatformSelectState : Model -> Model

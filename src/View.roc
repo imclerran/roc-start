@@ -1,4 +1,4 @@
-module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderBox]
+module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderSplash, renderBox]
 
 import BoxStyle exposing [BoxStyle, border]
 import Controller exposing [UserAction]
@@ -31,6 +31,7 @@ controlPromptsDict =
     |> Dict.insert TextBackspace ""
     |> Dict.insert Exit ""
     |> Dict.insert None ""
+    |> Dict.insert Secret ""
     |> Dict.insert PrevPage "< PREV"
     |> Dict.insert NextPage "> NEXT"
 
@@ -54,6 +55,7 @@ controlPromptsShortDict =
     |> Dict.insert TextBackspace ""
     |> Dict.insert Exit ""
     |> Dict.insert None ""
+    |> Dict.insert Secret ""
     |> Dict.insert PrevPage "<"
     |> Dict.insert NextPage ">"
 
@@ -62,10 +64,13 @@ controlsPromptStr : Model -> Str
 controlsPromptStr = \model ->
     actions = Controller.getActions model
     longStr = buildControlPromptStr actions controlPromptsDict
-    if Num.toI32 (Str.countUtf8Bytes longStr) <= model.screen.width - 6 then
+    promptLen = Num.toI32 (Str.countUtf8Bytes longStr)
+    if promptLen <= model.screen.width - 6 && promptLen > 0 then
         " $(longStr) "
-    else
+    else if promptLen > 0 then
         " $(buildControlPromptStr actions controlPromptsShortDict) "
+    else
+        ""
 
 buildControlPromptStr : List UserAction, Dict UserAction Str -> Str
 buildControlPromptStr = \actions, promptsDict ->
@@ -245,3 +250,25 @@ renderMultipleChoiceMenu = \model ->
         Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
     else
         Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
+
+renderSplash : Model -> List Core.DrawFn
+renderSplash = \model ->
+    splashWidth = 45
+    splashHeight = 6
+    startRow = (model.screen.height - splashHeight) // 2
+    startCol = (model.screen.width - splashWidth) // 2
+    List.join [
+        [
+            renderExitPrompt model.screen,
+            renderControlsPrompt (controlsPromptStr model) model.screen,
+        ],
+        renderOuterBorder model.screen,
+        [
+            Core.drawText "                          _             _   " { r: startRow, c: startCol, fg: Standard Magenta },
+            Core.drawText " _ __ ___   ___      ____| |_ __ _ _ __| |_ " { r: startRow + 1, c: startCol, fg: Standard Magenta },
+            Core.drawText "| '__/ _ \\ / __|____/ ___| __/ _` | '__| __|" { r: startRow + 2, c: startCol, fg: Standard Magenta },
+            Core.drawText "| | | (_) | (_|_____\\___ \\ || (_| | |  | |_ " { r: startRow + 3, c: startCol, fg: Standard Magenta },
+            Core.drawText "|_|  \\___/ \\___|    |____/\\__\\__,_|_|   \\__|" { r: startRow + 4, c: startCol, fg: Standard Magenta },
+            Core.drawText " quick start cli    fast/friendly/functional" { r: startRow + 5, c: startCol, fg: Standard Cyan },
+        ],
+    ]
