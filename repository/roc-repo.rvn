@@ -21,6 +21,7 @@
     { repo: "roc-parser", owner: "lukewilliamboswell", alias: "parser", platform: Bool.false, requires: [] },
     { repo: "roc-pg", owner: "agu-z", alias: "pg", platform: Bool.false, requires: [] },
     { repo: "roc-random", owner: "lukewilliamboswell", alias: "random", platform: Bool.false, requires: [] },
+    { repo: "roc-reduce", owner: "imclerran", alias: "reduce", platform: Bool.false, requires: [] },
     { repo: "roc-semver", owner: "smores56", alias: "semver", platform: Bool.false, requires: [] },
     { repo: "roc-sort", owner: "imclerran", alias: "sort", platform: Bool.false, requires: [] },
     { repo: "roc-svg", owner: "hasnep", alias: "svg", platform: Bool.false, requires: [] },
