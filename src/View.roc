@@ -1,5 +1,6 @@
 module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderSplash, renderBox]
 
+import AsciiArt
 import BoxStyle exposing [BoxStyle, border]
 import Controller exposing [UserAction]
 import Model exposing [Model]
@@ -253,22 +254,57 @@ renderMultipleChoiceMenu = \model ->
 
 renderSplash : Model -> List Core.DrawFn
 renderSplash = \model ->
-    splashWidth = 45
-    splashHeight = 6
-    startRow = (model.screen.height - splashHeight) // 2
-    startCol = (model.screen.width - splashWidth) // 2
     List.join [
         [
             renderExitPrompt model.screen,
             renderControlsPrompt (controlsPromptStr model) model.screen,
         ],
         renderOuterBorder model.screen,
-        [
-            Core.drawText "                          _             _   " { r: startRow, c: startCol, fg: Standard Magenta },
-            Core.drawText " _ __ ___   ___      ____| |_ __ _ _ __| |_ " { r: startRow + 1, c: startCol, fg: Standard Magenta },
-            Core.drawText "| '__/ _ \\ / __|____/ ___| __/ _` | '__| __|" { r: startRow + 2, c: startCol, fg: Standard Magenta },
-            Core.drawText "| | | (_) | (_|_____\\___ \\ || (_| | |  | |_ " { r: startRow + 3, c: startCol, fg: Standard Magenta },
-            Core.drawText "|_|  \\___/ \\___|    |____/\\__\\__,_|_|   \\__|" { r: startRow + 4, c: startCol, fg: Standard Magenta },
-            Core.drawText " quick start cli    fast/friendly/functional" { r: startRow + 5, c: startCol, fg: Standard Cyan },
-        ],
+        
+        renderSplashBySize model.screen,
     ]
+
+renderSplashBySize : Core.ScreenSize -> List Core.DrawFn
+renderSplashBySize = \screen ->
+    art = chooseSplashArt screen
+    startRow = (screen.height - art.height) // 2
+    startCol = (screen.width - art.width) // 2
+    List.join [
+        renderArtAccent art screen,
+        renderAsciiArt art startRow startCol,
+    ]
+
+renderAsciiArt : AsciiArt.Art, I32, I32 -> List Core.DrawFn
+renderAsciiArt = \art, startRow, startCol ->
+    List.map art.art \elem ->
+        Core.drawText elem.text { r: startRow + elem.r, c: startCol + elem.c, fg: elem.color }
+
+chooseSplashArt : Core.ScreenSize -> AsciiArt.Art
+chooseSplashArt = \screen ->
+    if
+        (screen.height >= (AsciiArt.rocLargeColored.height + 2))
+        && (screen.width >= (AsciiArt.rocLargeColored.width + 2))
+    then
+        AsciiArt.rocLargeColored
+    else if
+        (screen.height >= (AsciiArt.rocSmallColored.height + 2))
+        && (screen.width >= (AsciiArt.rocSmallColored.width + 2))
+    then
+        AsciiArt.rocSmallColored
+    else
+        AsciiArt.rocStartColored
+
+renderArtAccent : AsciiArt.Art, Core.ScreenSize -> List Core.DrawFn
+renderArtAccent = \art, screen ->
+    startRow = (screen.height - art.height) // 2
+    startCol = (screen.width - art.width) // 2
+    if art == AsciiArt.rocLargeColored then
+        List.mapWithIndex AsciiArt.rocStart \line, idx ->
+            Core.drawText line { r: startRow + 30 + Num.toI32 idx, c: startCol + 50, fg: Standard Cyan }
+    else if art == AsciiArt.rocSmallColored then
+        [
+            Core.drawText "roc start" { r: startRow + 11, c: startCol + 16, fg: Standard Cyan },
+            Core.drawText "quick start cli" { r: startRow + 12, c: startCol + 16, fg: Standard Cyan },
+        ]
+    else
+        [Core.drawText " quick start cli" { r: startRow + 5, c: startCol, fg: Standard Cyan }]
