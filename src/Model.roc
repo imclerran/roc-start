@@ -53,12 +53,13 @@ Model : {
 }
 
 Configuration : {
-    appName : Str,
+    type: [App, Pkg],
+    fileName : Str,
     platform : Str,
     packages : List Str,
 }
 
-emptyConfig = { appName: "", platform: "", packages: [] }
+emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
 
 ## Initialize the model
 init : List Str, List Str -> Model
@@ -73,7 +74,7 @@ init = \platformList, packageList -> {
     packageList,
     selected: [],
     inputs: List.withCapacity 1000,
-    state: InputAppName { nameBuffer: [], config: emptyConfig },
+    state: InputAppName { nameBuffer: [], config: emptyAppConfig },
 }
 
 ## Split the menu into pages, and adjust the cursor position if necessary
@@ -158,13 +159,13 @@ toInputAppNameState = \model ->
         PlatformSelect { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
-                state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
+                state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
             }
         
         Splash { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
-                state: InputAppName { config, nameBuffer: config.appName |> Str.toUtf8 },
+                state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
             }
 
         _ -> model
@@ -173,8 +174,8 @@ toSplashState : Model -> Model
 toSplashState = \model ->
     when model.state is
             InputAppName { config, nameBuffer } ->
-                appName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
-                newConfig = { config & appName }
+                fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
+                newConfig = { config & fileName }
                 { model & 
                     state: Splash { config: newConfig },
                 }
@@ -185,8 +186,8 @@ toPlatformSelectState : Model -> Model
 toPlatformSelectState = \model ->
     when model.state is
         InputAppName { config, nameBuffer } ->
-            appName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main" |> \name -> if Str.isEmpty name then "main" else name
-            newConfig = { config & appName }
+            fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main" |> \name -> if Str.isEmpty name then "main" else name
+            newConfig = { config & fileName }
             { model &
                 pageFirstItem: 0,
                 fullMenu: model.platformList,
@@ -365,7 +366,15 @@ addSelectedPackagesToConfig = \model ->
     when model.state is
         PackageSelect data ->
             packages = getSelectedItems model
-            { model & state: PackageSelect { data & config: { platform: data.config.platform, appName: data.config.appName, packages } } }
+            { model & state: PackageSelect { data & 
+                    config: { 
+                        platform: data.config.platform, 
+                        fileName: data.config.fileName, 
+                        packages,
+                        type: data.config.type,
+                    } 
+                } 
+            }
 
         _ -> model
 

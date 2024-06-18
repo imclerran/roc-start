@@ -1,4 +1,4 @@
-module [parseOrDisplayMessage, baseUsage]
+module [parseOrDisplayMessage, baseUsage, extendedUsage]
 
 import weaver.Cli
 import weaver.Help
@@ -10,22 +10,54 @@ parseOrDisplayMessage = \args -> Cli.parseOrDisplayMessage cliParser args
 
 baseUsage = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
 
+extendedUsage = 
+    ansiCode = when cliParser.textStyle is
+        Color -> "\u(001b)[1m\u(001b)[4m"
+        Plain -> ""
+    usageHelpStr = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
+    extendedUsageStr = when 
+        Help.helpText cliParser.config ["roc-start"] cliParser.textStyle
+        |> Str.splitFirst "$(ansiCode)Commands:"
+        is
+            Ok { after } -> "$(ansiCode)Commands:$(after)"
+            Err NotFound -> ""
+    Str.joinWith [usageHelpStr, extendedUsageStr] "\n\n"
+
 cliParser =
     Cli.weave {
         update: <- Opt.flag { short: "u", long: "update", help: "Update the platform and package repositories." },
-        subcommand: <- Subcommand.optional [tuiSubcommand, updateSubcommand],
-        appName: <- Param.maybeStr { name: "app-name", help: "Name your new roc app." },
-        platform: <- Param.maybeStr { name: "platform", help: "The platform to use." },
-        packages: <- Param.strList { name: "packages", help: "Any packages to use." },
-
+        subcommand: <- Subcommand.optional [tuiSubcommand, updateSubcommand, appSubcommand, pkgSubcommand],
     }
     |> Cli.finish {
         name: "roc-start",
         version: "v0.3.4",
         authors: ["Ian McLerran <imclerran@protonmail.com>"],
         description: "A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.",
+        textStyle: Color,
     }
     |> Cli.assertValid
+
+appSubcommand = 
+    Cli.weave {
+        appName: <- Param.str { name: "app-name", help: "Name your new roc app." },
+        platform: <- Param.str { name: "platform", help: "The platform to use." },
+        packages: <- Param.strList { name: "packages", help: "Any packages to use." },
+    }
+    |> Subcommand.finish {
+        name: "app",
+        description: "Create a new roc app with the specified name, platform, and packages.",
+        mapper: App,
+    }
+
+pkgSubcommand =
+    Cli.weave {
+        packages: <- Param.strList { name: "packages", help: "Any packages to use." },
+    }
+    |> Subcommand.finish {
+        name: "pkg",
+        description: "Create a new roc package main file with any other specified packages dependencies.",
+        mapper: Pkg,
+    }
 
 tuiSubcommand =
     Cli.weave {}
