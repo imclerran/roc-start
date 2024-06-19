@@ -52,8 +52,16 @@ getActions = \model ->
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
 
+        TypeSelect _ ->
+            [Exit, SingleSelect, CursorUp, CursorDown, Secret]
+            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
+            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+
+        InputAppName { nameBuffer } -> 
+            [Exit, TextConfirm, TextInput]
+            |> \actions -> List.append actions (if List.isEmpty nameBuffer then GoBack else TextBackspace)
+
         Confirmation _ -> [Exit, Finish, GoBack]
-        InputAppName _ -> [Exit, TextConfirm, TextInput, TextBackspace, Secret]
         Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
         Splash _ -> [Exit, GoBack]
         _ -> [Exit]
@@ -62,6 +70,7 @@ applyAction : { model : Model, action : UserAction, keyPress ? [KeyPress Key, No
 applyAction = \{ model, action, keyPress ? None } ->
     if actionIsAvailable model action then
         when model.state is
+            TypeSelect _ -> typeSelectHandler model action
             InputAppName _ -> inputAppNameHandler model action { keyPress }
             PlatformSelect _ -> platformSelectHandler model action
             PackageSelect _ -> packageSelectHandler model action
@@ -74,6 +83,21 @@ applyAction = \{ model, action, keyPress ? None } ->
 
 actionIsAvailable : Model, UserAction -> Bool
 actionIsAvailable = \model, action -> List.contains (getActions model) action
+
+typeSelectHandler : Model, UserAction -> [Step Model, Done Model]
+typeSelectHandler = \model, action ->
+    when action is
+        Exit -> Done (Model.toUserExitedState model)
+        SingleSelect -> 
+            type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+            when type is
+                App -> Step (Model.toInputAppNameState model)
+                Pkg -> Step (Model.toPackageSelectState model)
+
+        CursorUp -> Step (Model.moveCursor model Up)
+        CursorDown -> Step (Model.moveCursor model Down)
+        Secret -> Step (Model.toSplashState model)
+        _ -> Step model
 
 platformSelectHandler : Model, UserAction -> [Step Model, Done Model]
 platformSelectHandler = \model, action ->
@@ -107,7 +131,10 @@ packageSelectHandler = \model, action ->
             if Model.menuIsFiltered model then
                 Step (Model.clearSearchFilter model)
             else
-                Step (Model.toPlatformSelectState model)
+                type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+                when type is
+                    App -> Step (Model.toInputAppNameState model)
+                    Pkg -> Step (Model.toTypeSelectState model)
 
         ClearFilter -> Step (Model.clearSearchFilter model)
         NextPage -> Step (Model.nextPage model)
@@ -145,9 +172,10 @@ inputAppNameHandler = \model, action, { keyPress ? None } ->
             when keyPress is
                 KeyPress key -> Step (Model.appendToBuffer model key)
                 None -> Step model
-        Secret -> Step (Model.toSplashState model)
 
+        Secret -> Step (Model.toSplashState model)
         TextBackspace -> Step (Model.backspaceBuffer model)
+        GoBack -> Step (Model.toTypeSelectState model)
         _ -> Step model
 
 confirmationHandler : Model, UserAction -> [Step Model, Done Model]
@@ -162,5 +190,5 @@ splashHandler : Model, UserAction -> [Step Model, Done Model]
 splashHandler = \model, action ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
-        GoBack -> Step (Model.toInputAppNameState model)
+        GoBack -> Step (Model.toTypeSelectState model)
         _ -> Step model

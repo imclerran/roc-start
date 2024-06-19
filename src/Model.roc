@@ -22,6 +22,7 @@ module [
     toConfirmationState,
     toUserExitedState,
     toSplashState,
+    toTypeSelectState,
     clearSearchFilter,
     menuIsFiltered,
 ]
@@ -41,6 +42,7 @@ Model : {
     packageList : List Str,
     platformList : List Str,
     state : [
+        TypeSelect { config : Configuration },
         InputAppName { nameBuffer : List U8, config : Configuration },
         Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
         PlatformSelect { config : Configuration },
@@ -68,13 +70,14 @@ init = \platformList, packageList -> {
     cursor: { row: 2, col: 2 },
     menuRow: 2,
     pageFirstItem: 0,
-    menu: platformList,
-    fullMenu: platformList,
+    menu: ["App", "Package"],#platformList,
+    fullMenu: ["App", "Package"],#platformList,
     platformList,
     packageList,
     selected: [],
     inputs: List.withCapacity 1000,
-    state: InputAppName { nameBuffer: [], config: emptyAppConfig },
+    state: TypeSelect { config: emptyAppConfig },
+    #state: InputAppName { nameBuffer: [], config: emptyAppConfig },
 }
 
 ## Split the menu into pages, and adjust the cursor position if necessary
@@ -153,9 +156,50 @@ moveCursor = \model, direction ->
 toUserExitedState : Model -> Model
 toUserExitedState = \model -> { model & state: UserExited }
 
+toTypeSelectState : Model -> Model
+toTypeSelectState = \model ->
+    when model.state is
+        InputAppName { config, nameBuffer } ->
+            fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
+            newConfig = { config & fileName }
+            { model &  
+                cursor: { row: 2, col: 2 },
+                fullMenu: ["App", "Package"],
+                state: TypeSelect { config: newConfig } 
+            }
+
+        PackageSelect { config } ->
+            configWithPackages =
+                when (addSelectedPackagesToConfig model).state is
+                    PackageSelect data -> data.config
+                    _ -> config
+            if config.type == Pkg then  
+                { model & 
+                    fullMenu: ["App", "Package"],
+                    cursor: { row: 2, col: 2 },
+                    state: TypeSelect { config: configWithPackages } 
+                } 
+            else 
+                model
+
+        Splash { config } ->
+            { model & 
+                cursor: { row: 2, col: 2 },
+                fullMenu: ["App", "Package"],
+                state: TypeSelect { config } 
+            }
+
+        _ -> model
+
 toInputAppNameState : Model -> Model
 toInputAppNameState = \model ->
     when model.state is
+        TypeSelect { config } ->
+            type = getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+            { model &
+                cursor: { row: 2, col: 2 },
+                state: InputAppName { config: { config & type }, nameBuffer: config.fileName |> Str.toUtf8 },
+            }
         PlatformSelect { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
@@ -173,12 +217,11 @@ toInputAppNameState = \model ->
 toSplashState : Model -> Model
 toSplashState = \model ->
     when model.state is
-            InputAppName { config, nameBuffer } ->
-                fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
-                newConfig = { config & fileName }
+            TypeSelect { config } ->
                 { model & 
-                    state: Splash { config: newConfig },
+                    state: Splash { config },
                 }
+
             _ -> model
 
 ## Transition to the PlatformSelect state
@@ -219,10 +262,22 @@ toPlatformSelectState = \model ->
 
         _ -> model
 
+
+
 ## To the PackageSelect state
 toPackageSelectState : Model -> Model
 toPackageSelectState = \model ->
     when model.state is
+        TypeSelect { config } ->
+            type = getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+            fileName = "main"
+            { model &
+                pageFirstItem: 0,
+                fullMenu: model.packageList,
+                cursor: { row: 2, col: 2 },
+                selected: config.packages,
+                state: PackageSelect { config: { config & type, fileName } },
+            }
         PlatformSelect { config } ->
             platform = getHighlightedItem model
             { model &

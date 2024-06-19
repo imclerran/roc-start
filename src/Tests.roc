@@ -20,7 +20,7 @@ expect
     && model.cursor
     == { row: 2, col: 2 }
     && model.state
-    == InputAppName { nameBuffer: [], config: emptyAppConfig }
+    == TypeSelect { config: emptyAppConfig }
 
 expect
     # TEST: InputAppName to PlatformSelect w/ empty buffer
