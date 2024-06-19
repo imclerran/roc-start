@@ -28,9 +28,10 @@ import json.Json
 import rvn.Rvn
 
 Configuration : {
-    appName : Str,
+    fileName : Str,
     platform : Str,
     packages : List Str,
+    type: [App, Pkg],
 }
 
 ## The main entry point for the program.
@@ -57,28 +58,32 @@ runWith = \args ->
             else
                 runUpdates doPfs doPkgs doStubs
 
-        Err NoSubcommand ->
-            when (args.appName, args.platform) is
-                (Ok appName, Ok platform) ->
-                    runCliApp appName platform args.packages args.update
+        Ok (App { appName, platform, packages }) ->
+            runCliApp App appName platform packages args.update
 
-                _ ->
-                    # Must use backpassing here instead of bang to avoid compiler crash.
-                    {} <- Stdout.line "App name and platform arguments are required.\n" |> Task.await
-                    Stdout.line ArgParser.baseUsage
+        Ok (Pkg { packages }) ->
+            runCliApp Pkg "main" "" packages args.update
+
+        Err NoSubcommand ->
+            Stdout.line ArgParser.extendedUsage
 
 ## Run the CLI application.
 ## Load the repository data, and create the roc file if it doesn't already exist.
-runCliApp : Str, Str, List Str, Bool -> Task {} _
-runCliApp = \appName, platform, packages, forceUpdate ->
+runCliApp : [App, Pkg], Str, Str, List Str, Bool -> Task {} _
+runCliApp = \type, fileName, platform, packages, forceUpdate ->
     repos = loadRepoData! forceUpdate
     getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
-    fileExists = checkForFile! "$(appName).roc"
+    fileExists = checkForFile! "$(fileName).roc"
     if fileExists then
-        Stdout.line! "Error: $(appName).roc already exists. $(redFg)✖$(resetStyle)"
+        Stdout.line! "Error: $(fileName).roc already exists. $(redFg)✖$(resetStyle)"
     else
-        createRocFile! { appName, platform, packages } repos
-        Stdout.line! "Created $(appName).roc $(greenFg)✔$(resetStyle)"
+        when type is
+            App -> 
+                createRocFile! { fileName, platform, packages, type } repos
+                Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
+            Pkg ->
+                createRocFile! { fileName, platform, packages, type } repos
+        
 
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
@@ -93,12 +98,12 @@ runTuiApp = \forceUpdate ->
     when model.state is
         UserExited -> Task.ok {}
         Finished { config } ->
-            fileExists = checkForFile! "$(config.appName).roc"
+            fileExists = checkForFile! "$(config.fileName).roc"
             if fileExists then
-                Stdout.line "Error: $(config.appName).roc already exists. $(redFg)✖$(resetStyle)"
+                Stdout.line "Error: $(config.fileName).roc already exists. $(redFg)✖$(resetStyle)"
             else
                 createRocFile! config repos
-                Stdout.line "Created $(config.appName).roc $(greenFg)✔$(resetStyle)"
+                Stdout.line "Created $(config.fileName).roc $(greenFg)✔$(resetStyle)"
 
         _ -> Stdout.line "Oops! Something went wrong..."
 
@@ -518,15 +523,18 @@ getAndCreateDir = \dirPath ->
         Dir.create! dirPath
         Task.ok dirPath
 
-## Generate a roc file from the given appName, platform, and packageList.
+## Generate a roc file from the given fileName, platform, and packageList.
 createRocFile : Configuration, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
     appStub = getAppStub! config.platform
-    File.writeBytes "$(config.appName).roc" (buildRocFile config.platform config.packages repos appStub)
+    bytes = when config.type is
+        App -> buildRocApp config.platform config.packages repos appStub
+        Pkg -> buildRocPackage config.packages repos.packages
+    File.writeBytes "$(config.fileName).roc" bytes
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.
-buildRocFile : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry }, List U8 -> List U8
-buildRocFile = \platform, packageList, repos, appStub ->
+buildRocApp : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry }, List U8 -> List U8
+buildRocApp = \platform, packageList, repos, appStub ->
     pfStr =
         when Dict.get repos.platforms platform is
             Ok pf -> "    $(pf.alias): platform \"$(pf.url)\",\n"
@@ -551,4 +559,16 @@ getAppStub = \platform ->
     File.readBytes "$(dataDir)/app-stubs/$(platform)"
         |> Task.onErr \_ -> Task.ok []
         |> Task.map! \bytes -> if List.isEmpty bytes then bytes else List.prepend bytes '\n'
+
+buildRocPackage : List Str, Dict Str RepositoryEntry -> List U8
+buildRocPackage = \packageList, packageRepo ->
+    pkgsStr =
+        List.walk packageList "" \str, package ->
+            when Dict.get packageRepo package is
+                Ok pkg -> Str.concat str "    $(pkg.alias): \"$(pkg.url)\",\n"
+                Err KeyNotFound -> ""
+    if Str.isEmpty pkgsStr then
+        "package [] {}\n" |> Str.toUtf8
+    else
+        "package [] {\n$(pkgsStr)}\n" |> Str.toUtf8
 

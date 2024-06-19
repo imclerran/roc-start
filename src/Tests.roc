@@ -4,7 +4,7 @@ import Model
 
 stubForMain = {}
 
-emptyConfig = { appName: "", platform: "", packages: [] }
+emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
 
 # ====================
 # TEST MODEL
@@ -20,14 +20,14 @@ expect
     && model.cursor
     == { row: 2, col: 2 }
     && model.state
-    == InputAppName { nameBuffer: [], config: emptyConfig }
+    == InputAppName { nameBuffer: [], config: emptyAppConfig }
 
 expect
     # TEST: InputAppName to PlatformSelect w/ empty buffer
     model = Model.init [] []
     newModel = Model.toPlatformSelectState model
     newModel.state
-    == PlatformSelect { config: { emptyConfig & appName: "main" } }
+    == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
     && newModel.cursor.row
     == newModel.menuRow
 
@@ -35,11 +35,11 @@ expect
     # TEST: InputAppName to PlatformSelect w/ non-empty buffer
     initModel = Model.init [] []
     model = { initModel &
-        state: InputAppName { nameBuffer: ['h', 'e', 'l', 'l', 'o'], config: emptyConfig },
+        state: InputAppName { nameBuffer: ['h', 'e', 'l', 'l', 'o'], config: emptyAppConfig },
     }
     newModel = Model.toPlatformSelectState model
     newModel.state
-    == PlatformSelect { config: { emptyConfig & appName: "hello" } }
+    == PlatformSelect { config: { emptyAppConfig & fileName: "hello" } }
     && newModel.cursor.row
     == newModel.menuRow
 
@@ -47,23 +47,23 @@ expect
     # TEST: InputAppName to PlatformSelect w/ non-empty config
     initModel = Model.init [] []
     model = { initModel &
-        state: InputAppName { nameBuffer: [], config: { appName: "main", platform: "test", packages: ["test"] } },
+        state: InputAppName { nameBuffer: [], config: { fileName: "main", platform: "test", packages: ["test"], type: App } },
     }
     newModel = Model.toPlatformSelectState model
     newModel.state
-    == PlatformSelect { config: { appName: "main", platform: "test", packages: ["test"] } }
+    == PlatformSelect { config: { fileName: "main", platform: "test", packages: ["test"], type: App } }
     && newModel.cursor.row
     == newModel.menuRow
 
 expect
-    # TEST: InputAppName to PlatformSelect w/ empty buffer & existing appName in config
+    # TEST: InputAppName to PlatformSelect w/ empty buffer & existing fileName in config
     initModel = Model.init [] []
     model = { initModel &
-        state: InputAppName { nameBuffer: [], config: { emptyConfig & appName: "hello" } },
+        state: InputAppName { nameBuffer: [], config: { emptyAppConfig & fileName: "hello" } },
     }
     newModel = Model.toPlatformSelectState model
     newModel.state
-    == PlatformSelect { config: { emptyConfig & appName: "main" } }
+    == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
     && newModel.cursor.row
     == newModel.menuRow
 
@@ -76,7 +76,7 @@ expect
 expect
     # TEST: paginate InputAppName
     initModel = Model.init [] []
-    model = { initModel & state: InputAppName { nameBuffer: ['a'], config: { appName: "b", platform: "c", packages: ["d", "e"] } } }
+    model = { initModel & state: InputAppName { nameBuffer: ['a'], config: { fileName: "b", platform: "c", packages: ["d", "e"], type: App } } }
     newModel = Model.paginate model
     model == newModel
 
@@ -94,7 +94,7 @@ expect
         |> Model.appendToBuffer Underscore
         |> Model.appendToBuffer Number0
         |> Model.appendToBuffer Number9
-    newModel.state == InputAppName { nameBuffer: ['a', 'A', 'z', 'Z', '_', '-', '_', '0', '9'], config: emptyConfig }
+    newModel.state == InputAppName { nameBuffer: ['a', 'A', 'z', 'Z', '_', '-', '_', '0', '9'], config: emptyAppConfig }
 
 expect
     # TEST: InputAppName - appendToBuffer w/ illegal Key
@@ -147,7 +147,7 @@ expect
         model
         |> Model.appendToBuffer LowerA
         |> Model.backspaceBuffer
-    newModel.state == InputAppName { nameBuffer: [], config: emptyConfig }
+    newModel.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
 
 expect
     # TEST: PlatformSelect - moveCursor Up w/ only one item
@@ -207,11 +207,11 @@ expect
         Model.init ["platform1", "platform2", "platform3"] []
         |> Model.toPlatformSelectState
     model = { initModel &
-        state: PlatformSelect { config: { appName: "a", platform: "b", packages: ["c", "d"] } },
+        state: PlatformSelect { config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } },
     }
     newModel = Model.toInputAppNameState model
     newModel.state
-    == InputAppName { nameBuffer: ['a'], config: { appName: "a", platform: "b", packages: ["c", "d"] } }
+    == InputAppName { nameBuffer: ['a'], config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } }
     && newModel.cursor.row
     == newModel.menuRow
 
@@ -221,11 +221,11 @@ expect
         Model.init ["platform1", "platform2", "platform3"] []
         |> Model.toPlatformSelectState
     model = { initModel &
-        state: PlatformSelect { config: { appName: "a", platform: "b", packages: ["c", "d"] } },
+        state: PlatformSelect { config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } },
     }
     newModel = Model.toSearchState model
     newModel.state
-    == Search { searchBuffer: [], sender: Platform, config: { appName: "a", platform: "b", packages: ["c", "d"] } }
+    == Search { searchBuffer: [], sender: Platform, config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } }
     && newModel.cursor.row
     == newModel.menuRow
 
@@ -244,11 +244,11 @@ expect
         |> Model.toPlatformSelectState
     model = { initModel &
         cursor: { row: initModel.menuRow, col: 2 },
-        state: PlatformSelect { config: { appName: "a", platform: "", packages: ["c"] } },
+        state: PlatformSelect { config: { fileName: "a", platform: "", packages: ["c"], type: App } },
     }
     newModel = Model.toPackageSelectState model
     newModel.state
-    == PackageSelect { config: { appName: "a", platform: "b", packages: ["c"] } }
+    == PackageSelect { config: { fileName: "a", platform: "b", packages: ["c"], type: App } }
     && newModel.cursor.row
     == newModel.menuRow
     && newModel.selected

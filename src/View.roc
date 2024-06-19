@@ -200,7 +200,7 @@ renderConfirmation = \model ->
                 [
                     renderScreenPrompt "YOU SELECTED:",
                     Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
-                    Core.drawText config.appName { r: model.menuRow, c: 12, fg: Standard White },
+                    Core.drawText config.fileName { r: model.menuRow, c: 12, fg: Standard White },
                     Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
                     Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
                     Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
