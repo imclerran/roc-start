@@ -20,12 +20,12 @@ expect
     && model.cursor
     == { row: 2, col: 2 }
     && model.state
-    == InputAppName { nameBuffer: [], config: emptyAppConfig }
+    == TypeSelect { config: emptyAppConfig }
 
 expect
     # TEST: InputAppName to PlatformSelect w/ empty buffer
     model = Model.init [] []
-    newModel = Model.toPlatformSelectState model
+    newModel = model |> Model.toInputAppNameState |> Model.toPlatformSelectState
     newModel.state
     == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
     && newModel.cursor.row
@@ -33,7 +33,7 @@ expect
 
 expect
     # TEST: InputAppName to PlatformSelect w/ non-empty buffer
-    initModel = Model.init [] []
+    initModel = Model.init [] [] |> Model.toInputAppNameState
     model = { initModel &
         state: InputAppName { nameBuffer: ['h', 'e', 'l', 'l', 'o'], config: emptyAppConfig },
     }
@@ -45,7 +45,7 @@ expect
 
 expect
     # TEST: InputAppName to PlatformSelect w/ non-empty config
-    initModel = Model.init [] []
+    initModel = Model.init [] [] |> Model.toInputAppNameState
     model = { initModel &
         state: InputAppName { nameBuffer: [], config: { fileName: "main", platform: "test", packages: ["test"], type: App } },
     }
@@ -57,7 +57,7 @@ expect
 
 expect
     # TEST: InputAppName to PlatformSelect w/ empty buffer & existing fileName in config
-    initModel = Model.init [] []
+    initModel = Model.init [] [] |> Model.toInputAppNameState
     model = { initModel &
         state: InputAppName { nameBuffer: [], config: { emptyAppConfig & fileName: "hello" } },
     }
@@ -69,20 +69,20 @@ expect
 
 expect
     # TEST: InputAppName to UserExited
-    model = Model.init [] []
+    model = Model.init [] [] |> Model.toInputAppNameState
     newModel = Model.toUserExitedState model
     newModel.state == UserExited
 
 expect
     # TEST: paginate InputAppName
-    initModel = Model.init [] []
+    initModel = Model.init [] [] |> Model.toInputAppNameState
     model = { initModel & state: InputAppName { nameBuffer: ['a'], config: { fileName: "b", platform: "c", packages: ["d", "e"], type: App } } }
     newModel = Model.paginate model
     model == newModel
 
 expect
     # TEST: InputAppName - appendToBuffer w/ legal Key
-    model = Model.init [] []
+    model = Model.init [] [] |> Model.toInputAppNameState
     newModel =
         model
         |> Model.appendToBuffer LowerA
@@ -98,7 +98,7 @@ expect
 
 expect
     # TEST: InputAppName - appendToBuffer w/ illegal Key
-    model = Model.init [] []
+    model = Model.init [] [] |> Model.toInputAppNameState
     newModel =
         model
         |> Model.appendToBuffer Up
@@ -142,7 +142,7 @@ expect
 
 expect
     # TEST: InputAppName - backspaceBuffer
-    model = Model.init [] []
+    model = Model.init [] [] |> Model.toInputAppNameState
     newModel =
         model
         |> Model.appendToBuffer LowerA
@@ -151,14 +151,14 @@ expect
 
 expect
     # TEST: PlatformSelect - moveCursor Up w/ only one item
-    initModel = Model.init ["platform1"] []
+    initModel = Model.init ["platform1"] [] |> Model.toInputAppNameState
     model = Model.toPlatformSelectState initModel
     newModel = model |> Model.moveCursor Up
     newModel == model
 
 expect
     # TEST: PlatformSelect - moveCursor Down w/ only one item
-    initModel = Model.init ["platform1"] []
+    initModel = Model.init ["platform1"] [] |> Model.toInputAppNameState
     model = Model.toPlatformSelectState initModel
     newModel = model |> Model.moveCursor Down
     newModel == model
@@ -167,6 +167,7 @@ expect
     # TEST: PlatformSelect - moveCursor Up w/ cursor starting at bottom
     initModel =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     model = { initModel &
         cursor: { row: initModel.menuRow + 2, col: 2 },
@@ -178,6 +179,7 @@ expect
     # TEST: PlatformSelect - moveCursor Down w/ cursor starting at top
     model =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     newModel = model |> Model.moveCursor Down
     newModel.cursor.row == model.menuRow + 1
@@ -186,6 +188,7 @@ expect
     # TEST: PlatformSelect - moveCursor Up w/ cursor starting at top
     model =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     newModel = model |> Model.moveCursor Up
     newModel.cursor.row == model.menuRow + 2
@@ -194,6 +197,7 @@ expect
     # TEST: PlatformSelect - moveCursor Down w/ cursor starting at bottom
     initModel =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toPlatformSelectState
         |> Model.toPlatformSelectState
     model = { initModel &
         cursor: { row: initModel.menuRow + 2, col: 2 },
@@ -205,6 +209,7 @@ expect
     # TEST: PlatformSelect to InputAppName
     initModel =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     model = { initModel &
         state: PlatformSelect { config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } },
@@ -219,6 +224,7 @@ expect
     # TEST: PlatformSelect to Search
     initModel =
         Model.init ["platform1", "platform2", "platform3"] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     model = { initModel &
         state: PlatformSelect { config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } },
@@ -233,6 +239,7 @@ expect
     # TEST: PlatformSelect to UserExited
     model =
         Model.init [] []
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     newModel = Model.toUserExitedState model
     newModel.state == UserExited
@@ -241,6 +248,7 @@ expect
     # TEST: PlatformSelect to PackageSelect
     initModel =
         Model.init ["b"] ["c", "d"]
+        |> Model.toInputAppNameState
         |> Model.toPlatformSelectState
     model = { initModel &
         cursor: { row: initModel.menuRow, col: 2 },

@@ -1,4 +1,4 @@
-module [renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderSplash, renderBox]
+module [renderTypeSelect, renderInputAppName, renderPlatformSelect, renderPackageSelect, renderSearch, renderConfirmation, renderSplash, renderBox]
 
 import AsciiArt
 import BoxStyle exposing [BoxStyle, border]
@@ -110,6 +110,21 @@ renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ?
         else
             Core.drawText line { r: startRow + (Num.toI32 idx), c: wrapCol, fg }
 
+renderTypeSelect : Model -> List Core.DrawFn
+renderTypeSelect = \model ->
+    List.join [
+        [
+            renderExitPrompt model.screen,
+            renderControlsPrompt (controlsPromptStr model) model.screen,
+        ],
+        renderOuterBorder model.screen,
+        [
+            renderScreenPrompt "WHAT TO START?",
+            Core.drawCursor { fg: Standard Magenta, char: ">" },
+        ],
+        renderMenu model,
+    ]
+
 ## Generate the list of functions to draw the platform select page.
 renderPlatformSelect : Model -> List Core.DrawFn
 renderPlatformSelect = \model ->
@@ -197,17 +212,25 @@ renderConfirmation = \model ->
                     renderControlsPrompt (controlsPromptStr model) model.screen,
                 ],
                 renderOuterBorder model.screen,
-                [
-                    renderScreenPrompt "YOU SELECTED:",
-                    Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
-                    Core.drawText config.fileName { r: model.menuRow, c: 12, fg: Standard White },
-                    Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
-                    Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
-                    Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
-                ],
+                (
+                    if config.type == App then
+                        [
+                            renderScreenPrompt "APP CONFIGURATION:",
+                            Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                            Core.drawText config.fileName { r: model.menuRow, c: 12, fg: Standard White },
+                            Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
+                            Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
+                            Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
+                        ]
+                    else
+                        [
+                            renderScreenPrompt "PACKAGE CONFIGURATION:",
+                            Core.drawText "Packages:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                        ]
+                ),
                 renderMultiLineText config.packages {
                     startCol: 12,
-                    startRow: (model.menuRow + 2),
+                    startRow: if config.type == App then (model.menuRow + 2) else model.menuRow,
                     maxCol: (model.screen.width - 1),
                     wrapCol: 2,
                     wordDelim: ", ",
@@ -260,7 +283,6 @@ renderSplash = \model ->
             renderControlsPrompt (controlsPromptStr model) model.screen,
         ],
         renderOuterBorder model.screen,
-        
         renderSplashBySize model.screen,
     ]
 

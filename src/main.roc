@@ -77,12 +77,15 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     if fileExists then
         Stdout.line! "Error: $(fileName).roc already exists. $(redFg)✖$(resetStyle)"
     else
-        when type is
-            App -> 
-                createRocFile! { fileName, platform, packages, type } repos
-                Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
-            Pkg ->
-                createRocFile! { fileName, platform, packages, type } repos
+        createRocFile! { fileName, platform, packages, type } repos
+        Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
+        # when type is
+        #     App -> 
+        #         createRocFile! { fileName, platform, packages, type } repos
+        #         Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
+        #     Pkg ->
+        #         createRocFile! { fileName, platform, packages, type } repos
+        #         Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
         
 
 ## Run the TUI application.
@@ -131,6 +134,7 @@ runUiLoop = \prevModel ->
     input = Stdin.bytes |> Task.map! Core.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
     when model.state is
+        TypeSelect _ -> handleTypeSelectInput modelWithInput input
         InputAppName _ -> handleInputAppNameInput modelWithInput input
         PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
         PackageSelect _ -> handlePackageSelectInput modelWithInput input
@@ -155,6 +159,7 @@ getTerminalSize =
 render : Model -> List Core.DrawFn
 render = \model ->
     when model.state is
+        TypeSelect _ -> View.renderTypeSelect model
         InputAppName _ -> View.renderInputAppName model
         PlatformSelect _ -> View.renderPlatformSelect model
         PackageSelect _ -> View.renderPackageSelect model
@@ -171,6 +176,24 @@ handleBasicInput = \model, input ->
     when input is
         CtrlC -> Task.ok (Done (Model.toUserExitedState model))
         _ -> Task.ok (Step model)
+
+handleTypeSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleTypeSelectInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
+            KeyPress Enter -> SingleSelect
+            KeyPress Up -> CursorUp
+            KeyPress Down -> CursorDown
+            KeyPress Right -> NextPage
+            KeyPress GreaterThanSign -> NextPage
+            KeyPress FullStop -> NextPage
+            KeyPress Left -> PrevPage
+            KeyPress LessThanSign -> PrevPage
+            KeyPress Comma -> PrevPage
+            KeyPress GraveAccent -> Secret
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PlatformSelect state.
 handlePlatformSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
@@ -233,12 +256,14 @@ handleSearchInput = \model, input ->
 ## The input handler for the InputAppName state.
 handleInputAppNameInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
+    bufferLen = when model.state is
+        InputAppName { nameBuffer } -> List.len nameBuffer
+        _ -> 0
     (action, keyPress) =
         when input is
             CtrlC -> (Exit, None)
             KeyPress Enter -> (TextConfirm, None)
-            KeyPress Delete -> (TextBackspace, None)
-            KeyPress GraveAccent -> (Secret, None)
+            KeyPress Delete -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
             KeyPress key -> (TextInput, KeyPress key)
             _ -> (None, None)
     Task.ok (Controller.applyAction { model, action, keyPress })
