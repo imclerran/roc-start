@@ -8,6 +8,7 @@
     { repo: "roc-ansi", owner: "lukewilliamboswell", alias: "ansi", platform: Bool.false, requires: [] },
     { repo: "roc-array2d", owner: "mulias", alias: "a2d", platform: Bool.false, requires: [] },
     { repo: "roc-ascii", owner: "hasnep", alias: "ascii", platform: Bool.false, requires: [] },
+    { repo: "roc-asciiart", owner: "imclerran", alias: "art", platform: Bool.false, requires: [] },
     { repo: "roc-aws-lambda", owner: "isaacvando", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "roc-datetimes", owner: "hasnep", alias: "dt", platform: Bool.false, requires: [] },
     { repo: "roc-fuzz", owner: "bhansconnect", alias: "pf", platform: Bool.true, requires: ["main"] },
