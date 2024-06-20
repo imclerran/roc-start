@@ -131,9 +131,11 @@ packageSelectHandler = \model, action ->
             if Model.menuIsFiltered model then
                 Step (Model.clearSearchFilter model)
             else
-                type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+                type = when model.state is
+                    PackageSelect { config } -> config.type
+                    _ -> App
                 when type is
-                    App -> Step (Model.toInputAppNameState model)
+                    App -> Step (Model.toPlatformSelectState model)
                     Pkg -> Step (Model.toTypeSelectState model)
 
         ClearFilter -> Step (Model.clearSearchFilter model)

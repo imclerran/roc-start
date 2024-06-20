@@ -79,15 +79,7 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     else
         createRocFile! { fileName, platform, packages, type } repos
         Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
-        # when type is
-        #     App -> 
-        #         createRocFile! { fileName, platform, packages, type } repos
-        #         Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
-        #     Pkg ->
-        #         createRocFile! { fileName, platform, packages, type } repos
-        #         Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
         
-
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
 runTuiApp : Bool -> Task {} _
