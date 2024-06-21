@@ -176,7 +176,7 @@ handleInput = \model, input ->
 ## in a state that doesn't have an input handler, the program can still be exited.
 handleDefaultInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleDefaultInput = \model, input ->
-    action = 
+    action =
         when input is
             CtrlC -> Exit
             _ -> None
