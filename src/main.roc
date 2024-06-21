@@ -268,7 +268,7 @@ handleInputAppNameInput = \model, input ->
     (action, keyPress) =
         when input is
             CtrlC -> (Exit, None)
-            KeyPress Enter -> (TextConfirm, None)
+            KeyPress Enter -> (TextSubmit, None)
             KeyPress Delete -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
             KeyPress key -> (TextInput, KeyPress key)
             _ -> (None, None)

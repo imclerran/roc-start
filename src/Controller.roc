@@ -20,7 +20,7 @@ UserAction : [
     SingleSelect,
     TextInput,
     TextBackspace,
-    TextConfirm,
+    TextSubmit,
     Secret,
     None,
 ]
@@ -49,7 +49,7 @@ getActions = \model ->
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
 
         InputAppName { nameBuffer } ->
-            [Exit, TextConfirm, TextInput]
+            [Exit, TextSubmit, TextInput]
             |> \actions -> List.append actions (if List.isEmpty nameBuffer then GoBack else TextBackspace)
 
         Confirmation _ -> [Exit, Finish, GoBack]
@@ -175,7 +175,7 @@ inputAppNameHandler : Model, UserAction, { keyPress ? [KeyPress Key, None] } -> 
 inputAppNameHandler = \model, action, { keyPress ? None } ->
     when action is
         Exit -> Done (toUserExitedState model)
-        TextConfirm -> Step (toPlatformSelectState model)
+        TextSubmit -> Step (toPlatformSelectState model)
         TextInput ->
             when keyPress is
                 KeyPress key -> Step (appendToBuffer model key)
