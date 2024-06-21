@@ -287,14 +287,20 @@ toPlatformSelectState = \model ->
             newConfig = { config & fileName }
             { model &
                 pageFirstItem: 0,
+                menu: model.platformList,
                 fullMenu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: newConfig },
             }
 
         Search { config, searchBuffer } ->
+            filteredMenu =
+                model.platformList
+                |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault "")
             { model &
-                fullMenu: model.platformList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                pageFirstItem: 0,
+                menu: filteredMenu,
+                fullMenu: filteredMenu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config },
             }
@@ -306,6 +312,7 @@ toPlatformSelectState = \model ->
                     _ -> config
             { model &
                 pageFirstItem: 0,
+                menu: model.platformList,
                 fullMenu: model.platformList,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect { config: configWithPackages },
@@ -322,6 +329,7 @@ toPackageSelectState = \model ->
             fileName = "main"
             { model &
                 pageFirstItem: 0,
+                menu: model.packageList,
                 fullMenu: model.packageList,
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
@@ -332,6 +340,7 @@ toPackageSelectState = \model ->
             platform = Model.getHighlightedItem model
             { model &
                 pageFirstItem: 0,
+                menu: model.packageList,
                 fullMenu: model.packageList,
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
@@ -339,9 +348,13 @@ toPackageSelectState = \model ->
             }
 
         Search { config, searchBuffer } ->
+            filteredMenu = 
+                model.packageList 
+                |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault "")
             { model &
                 pageFirstItem: 0,
-                fullMenu: model.packageList |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault ""),
+                menu: filteredMenu,
+                fullMenu: filteredMenu,
                 cursor: { row: 2, col: 2 },
                 selected: config.packages,
                 state: PackageSelect { config },
@@ -350,6 +363,7 @@ toPackageSelectState = \model ->
         Confirmation { config } ->
             { model &
                 pageFirstItem: 0,
+                menu: model.packageList,
                 fullMenu: model.packageList,
                 selected: config.packages,
                 cursor: { row: 2, col: 2 },
