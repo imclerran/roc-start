@@ -1,4 +1,4 @@
-module [UserAction, getActions, applyAction, paginate]
+module [UserAction, getActions, applyAction, actionIsAvailable, paginate]
 
 import Keys exposing [Key]
 import Model exposing [Model]
@@ -97,6 +97,8 @@ typeSelectHandler = \model, action ->
 
         CursorUp -> Step (moveCursor model Up)
         CursorDown -> Step (moveCursor model Down)
+        NextPage -> Step (nextPage model)
+        PrevPage -> Step (prevPage model)
         Secret -> Step (toSplashState model)
         _ -> Step model
 

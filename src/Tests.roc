@@ -20,6 +20,7 @@ applyActionWithKey = \model, action, keyPress ->
 ## HELPER OBJECTS
 
 emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
+emptyPkgConfig = { fileName: "main", platform: "", packages: [], type: Pkg }
 
 ## ===============================
 ## MODEL OBJECTS IN VARIOUS STATES
@@ -148,7 +149,7 @@ expect
     model = packageSelectModel |> applyAction Exit
     model.state == UserExited
 
-expect  
+expect
     # TEST: exit from Confirmation
     model = confirmationModel |> applyAction Exit
     model.state == UserExited
@@ -158,7 +159,7 @@ expect
     model = finishedModel |> applyAction Exit
     model.state == UserExited
 
-expect  
+expect
     # TEST: exit from Splash
     model = splashModel |> applyAction Exit
     model.state == UserExited
@@ -197,6 +198,92 @@ expect
     model.cursor == { row: model.menuRow, col: 2 }
 
 ## ===============================
+## Pagination tests
+
+expect
+    # TEST: paginate TypeSelect with no need to paginate
+    model = typeSelectModel |> Controller.paginate
+    (model.menu == ["App", "Package"])
+    && (model.fullMenu == ["App", "Package"])
+    && !(Controller.actionIsAvailable model NextPage)
+    && !(Controller.actionIsAvailable model PrevPage)
+
+expect
+    # TEST: paginate TypeSelect
+    model = { typeSelectModel & screen: { height: 4, width: 0 } } |> Controller.paginate
+    (model.menu == ["App"])
+    && (model.fullMenu == ["App", "Package"])
+    && (Controller.actionIsAvailable model NextPage)
+    && !(Controller.actionIsAvailable model PrevPage)
+
+expect
+    # TEST: prev and next available on middle page
+    model =
+        { packageSelectModel & screen: { height: 4, width: 0 } }
+        |> Controller.paginate
+        |> applyAction NextPage
+    (model.menu == ["pk2"])
+    && (model.fullMenu == ["pk1", "pk2", "pk3"])
+    && (Controller.actionIsAvailable model NextPage)
+    && (Controller.actionIsAvailable model PrevPage)
+
+expect
+    # TEST: paginate - undersized menu fills screen (available rows > remaining menu items)
+    model =
+        { packageSelectModel & screen: { height: 5, width: 0 } }
+        |> Controller.paginate
+    nextModel =
+        model
+        |> applyAction NextPage
+        |> Controller.paginate
+    (model.menu == ["pk1", "pk2"])
+    && (nextModel.menu == ["pk2", "pk3"])
+
+expect
+    # TEST: first item on page does not change when paginating
+    model = 
+        { packageSelectModel & screen: { height: 5, width: 0 } }
+        |> Controller.paginate
+        |> applyAction NextPage
+        |> Controller.paginate
+    smallSizeModel = 
+        { model & screen: { height: 4, width: 0 } }
+        |> Controller.paginate
+    resetSizeModel =
+        { smallSizeModel & screen: { height: 5, width: 0 } }
+        |> Controller.paginate
+    (model.menu == ["pk2", "pk3"])
+    && (smallSizeModel.menu == ["pk2"])
+    && (resetSizeModel == model)
+
+expect
+    # TEST: previous page - available rows exceed previous menu items
+    model = 
+        { packageSelectModel & screen: { height: 5, width: 0 } }
+        |> Controller.paginate
+        |> applyAction NextPage
+        |> Controller.paginate
+    prevModel = 
+        model
+        |> applyAction PrevPage
+        |> Controller.paginate
+    (model.menu == ["pk2", "pk3"]
+    && prevModel.menu == ["pk1", "pk2"])
+
+## ===============================
+## TypeSelect tests
+
+expect
+    # TEST: SingleSelect from TypeSelect (App)
+    model = typeSelectModel |> applyAction SingleSelect
+    model.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
+
+expect
+    # TEST: SingleSelect from TypeSelect (Package)
+    model = { typeSelectModel & cursor: { row: 3, col: 2 } } |> applyAction SingleSelect
+    model.state == PackageSelect { config: emptyPkgConfig }
+
+## ===============================
 ## InputAppName tests
 
 expect
@@ -206,8 +293,8 @@ expect
 
 expect
     # TEST: InuptAppName to PlatformSelect w/ non-empty buffer
-    model = 
-        inputAppNameModel 
+    model =
+        inputAppNameModel
         |> applyActionWithKey TextInput (KeyPress LowerA)
         |> applyAction TextSubmit
     model.state == PlatformSelect { config: { emptyAppConfig & fileName: "a" } }
@@ -216,7 +303,7 @@ expect
     # TEST: InputAppName to PlatformSelect w/ non-empty config
     config = { fileName: "main", platform: "test", packages: ["test"], type: App }
     state = InputAppName { nameBuffer: [], config }
-    model = 
+    model =
         { inputAppNameModel & state }
         |> applyAction TextSubmit
     model.state == PlatformSelect { config }
