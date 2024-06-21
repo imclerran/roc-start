@@ -67,7 +67,8 @@ runWith = \args ->
             runCliApp Pkg "main" "" packages args.update
 
         Err NoSubcommand ->
-            Stdout.line ArgParser.extendedUsage
+            Stdout.line! ArgParser.extendedUsage
+            Task.err (Exit 1 "")
 
 ## Run the CLI application.
 ## Load the repository data, and create the roc file if it doesn't already exist.
@@ -78,6 +79,7 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     fileExists = checkForFile! "$(fileName).roc"
     if fileExists then
         Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
+        Task.err (Exit 1 "")
     else
         createRocFile! { fileName, platform, packages, type } repos
         Stdout.line! "Created $(fileName).roc $(greenCheck)"
@@ -97,7 +99,8 @@ runTuiApp = \forceUpdate ->
         Finished { config } ->
             fileExists = checkForFile! "$(config.fileName).roc"
             if fileExists then
-                Stdout.line "Error: $(config.fileName).roc already exists. $(redCross)"
+                Stdout.line! "Error: $(config.fileName).roc already exists. $(redCross)"
+                Task.err (Exit 1 "")
             else
                 createRocFile! config repos
                 Stdout.line "Created $(config.fileName).roc $(greenCheck)"
