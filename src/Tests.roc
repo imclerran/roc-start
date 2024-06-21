@@ -3,15 +3,20 @@ module []
 import Model
 import Controller
 
-## ==============================
+## ===============================
 ## HELPER FUNCTIONS
 
 applyAction = \model, action ->
-    when Controller.applyAction { model: model, action: action } is
+    when Controller.applyAction { model, action } is
         Step newModel -> newModel
         Done newModel -> newModel
 
-## ==============================
+applyActionWithKey = \model, action, keyPress ->
+    when Controller.applyAction { model, action, keyPress } is
+        Step newModel -> newModel
+        Done newModel -> newModel
+
+## ===============================
 ## HELPER OBJECTS
 
 emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
@@ -26,9 +31,8 @@ packageSelectModel = platformSelectModel |> applyAction SingleSelect
 confirmationModel = packageSelectModel |> applyAction MultiConfirm
 finishedModel = confirmationModel |> applyAction Finish
 
-## =========================
-## TEST STATE TRANSITIONS
-## =========================
+## ===============================
+## model object tests
 
 expect
     # TEST: init model
@@ -57,7 +61,7 @@ expect
     && (model.menuRow == 2)
 
 expect
-    # TEST: transition from InputAppName to PlatformSelect
+    # TEST: transition from InputAppName to PlatformSelect (empty buffer)
     model = platformSelectModel
     (model.state == PlatformSelect { config: { emptyAppConfig & fileName: "main" } })
     && (model.platformList == ["pf1", "pf2"])
@@ -108,6 +112,9 @@ expect
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
+## ===============================
+## TypeSelect tests
+
 expect
     # TEST: move cursor down from top of menu
     model = typeSelectModel |> applyAction CursorDown
@@ -128,140 +135,115 @@ expect
     model = typeSelectModel |> applyAction CursorDown |> applyAction CursorDown
     model.cursor == { row: model.menuRow, col: 2 }
 
-# expect
-#     # TEST: Model.init
-#     model = Model.init [] []
-#     (model.menuRow == 2)
-#     && (model.pageFirstItem == 0)
-#     && (model.cursor == { row: 2, col: 2 })
-#     && (model.state == TypeSelect { config: emptyAppConfig })
+## ===============================
+## InputAppName tests
 
-# expect
-#     # TEST: InputAppName to PlatformSelect w/ empty buffer
-#     model = Model.init [] []
-#     newModel = model |> Model.toInputAppNameState |> Model.toPlatformSelectState
-#     newModel.state
-#     == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
-#     && newModel.cursor.row
-#     == newModel.menuRow
+expect
+    # TEST: InuptAppName to PlatformSelect w/ non-empty buffer
+    model = 
+        inputAppNameModel 
+        |> applyActionWithKey TextInput (KeyPress LowerA)
+        |> applyAction TextSubmit
+    model.state == PlatformSelect { config: { emptyAppConfig & fileName: "a" } }
 
-# expect
-#     # TEST: InputAppName to PlatformSelect w/ non-empty buffer
-#     initModel = Model.init [] [] |> Model.toInputAppNameState
-#     model = { initModel &
-#         state: InputAppName { nameBuffer: ['h', 'e', 'l', 'l', 'o'], config: emptyAppConfig },
-#     }
-#     newModel = Model.toPlatformSelectState model
-#     newModel.state
-#     == PlatformSelect { config: { emptyAppConfig & fileName: "hello" } }
-#     && newModel.cursor.row
-#     == newModel.menuRow
+expect
+    # TEST: InputAppName to PlatformSelect w/ non-empty config
+    config = { fileName: "main", platform: "test", packages: ["test"], type: App }
+    state = InputAppName { nameBuffer: [], config }
+    model = 
+        { inputAppNameModel & state }
+        |> applyAction TextSubmit
+    model.state == PlatformSelect { config }
 
-# expect
-#     # TEST: InputAppName to PlatformSelect w/ non-empty config
-#     initModel = Model.init [] [] |> Model.toInputAppNameState
-#     model = { initModel &
-#         state: InputAppName { nameBuffer: [], config: { fileName: "main", platform: "test", packages: ["test"], type: App } },
-#     }
-#     newModel = Model.toPlatformSelectState model
-#     newModel.state
-#     == PlatformSelect { config: { fileName: "main", platform: "test", packages: ["test"], type: App } }
-#     && newModel.cursor.row
-#     == newModel.menuRow
+expect
+    # TEST: InputAppName to PlatformSelect w/ empty buffer & different fileName in config
+    config = { emptyAppConfig & fileName: "hello" }
+    state = InputAppName { nameBuffer: [], config }
+    model = { inputAppNameModel & state } |> applyAction TextSubmit
+    model.state == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
 
-# expect
-#     # TEST: InputAppName to PlatformSelect w/ empty buffer & existing fileName in config
-#     initModel = Model.init [] [] |> Model.toInputAppNameState
-#     model = { initModel &
-#         state: InputAppName { nameBuffer: [], config: { emptyAppConfig & fileName: "hello" } },
-#     }
-#     newModel = Model.toPlatformSelectState model
-#     newModel.state
-#     == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
-#     && newModel.cursor.row
-#     == newModel.menuRow
+expect
+    # TEST: exit from InputAppName
+    model = inputAppNameModel |> applyAction Exit
+    model.state == UserExited
 
-# expect
-#     # TEST: InputAppName to UserExited
-#     model = Model.init [] [] |> Model.toInputAppNameState
-#     newModel = Model.toUserExitedState model
-#     newModel.state == UserExited
+expect
+    # TEST: paginate InputAppName
+    model = inputAppNameModel |> Controller.paginate
+    model == inputAppNameModel
 
-# expect
-#     # TEST: paginate InputAppName
-#     initModel = Model.init [] [] |> Model.toInputAppNameState
-#     model = { initModel & state: InputAppName { nameBuffer: ['a'], config: { fileName: "b", platform: "c", packages: ["d", "e"], type: App } } }
-#     newModel = Model.paginate model
-#     model == newModel
+expect
+    # TEST: valid text input to InputAppName
+    model =
+        inputAppNameModel
+        |> applyActionWithKey TextInput (KeyPress LowerA)
+        |> applyActionWithKey TextInput (KeyPress UpperA)
+        |> applyActionWithKey TextInput (KeyPress LowerZ)
+        |> applyActionWithKey TextInput (KeyPress UpperZ)
+        |> applyActionWithKey TextInput (KeyPress Space)
+        |> applyActionWithKey TextInput (KeyPress Hyphen)
+        |> applyActionWithKey TextInput (KeyPress Underscore)
+        |> applyActionWithKey TextInput (KeyPress Number0)
+        |> applyActionWithKey TextInput (KeyPress Number9)
+    model.state == InputAppName { nameBuffer: ['a', 'A', 'z', 'Z', '_', '-', '_', '0', '9'], config: emptyAppConfig }
 
-# expect
-#     # TEST: InputAppName - appendToBuffer w/ legal Key
-#     model = Model.init [] [] |> Model.toInputAppNameState
-#     newModel =
-#         model
-#         |> Model.appendToBuffer LowerA
-#         |> Model.appendToBuffer UpperA
-#         |> Model.appendToBuffer LowerZ
-#         |> Model.appendToBuffer UpperZ
-#         |> Model.appendToBuffer Space
-#         |> Model.appendToBuffer Hyphen
-#         |> Model.appendToBuffer Underscore
-#         |> Model.appendToBuffer Number0
-#         |> Model.appendToBuffer Number9
-#     newModel.state == InputAppName { nameBuffer: ['a', 'A', 'z', 'Z', '_', '-', '_', '0', '9'], config: emptyAppConfig }
+expect
+    # TEST: invalid text input to InputAppName
+    model =
+        inputAppNameModel
+        |> applyActionWithKey TextInput (KeyPress Up)
+        |> applyActionWithKey TextInput (KeyPress Down)
+        |> applyActionWithKey TextInput (KeyPress Left)
+        |> applyActionWithKey TextInput (KeyPress Right)
+        |> applyActionWithKey TextInput (KeyPress Escape)
+        |> applyActionWithKey TextInput (KeyPress Enter)
+        |> applyActionWithKey TextInput (KeyPress ExclamationMark)
+        |> applyActionWithKey TextInput (KeyPress QuotationMark)
+        |> applyActionWithKey TextInput (KeyPress NumberSign)
+        |> applyActionWithKey TextInput (KeyPress DollarSign)
+        |> applyActionWithKey TextInput (KeyPress PercentSign)
+        |> applyActionWithKey TextInput (KeyPress Ampersand)
+        |> applyActionWithKey TextInput (KeyPress Apostrophe)
+        |> applyActionWithKey TextInput (KeyPress RoundOpenBracket)
+        |> applyActionWithKey TextInput (KeyPress RoundCloseBracket)
+        |> applyActionWithKey TextInput (KeyPress Asterisk)
+        |> applyActionWithKey TextInput (KeyPress PlusSign)
+        |> applyActionWithKey TextInput (KeyPress Comma)
+        |> applyActionWithKey TextInput (KeyPress FullStop)
+        |> applyActionWithKey TextInput (KeyPress ForwardSlash)
+        |> applyActionWithKey TextInput (KeyPress Colon)
+        |> applyActionWithKey TextInput (KeyPress SemiColon)
+        |> applyActionWithKey TextInput (KeyPress LessThanSign)
+        |> applyActionWithKey TextInput (KeyPress EqualsSign)
+        |> applyActionWithKey TextInput (KeyPress GreaterThanSign)
+        |> applyActionWithKey TextInput (KeyPress QuestionMark)
+        |> applyActionWithKey TextInput (KeyPress AtSign)
+        |> applyActionWithKey TextInput (KeyPress SquareOpenBracket)
+        |> applyActionWithKey TextInput (KeyPress Backslash)
+        |> applyActionWithKey TextInput (KeyPress SquareCloseBracket)
+        |> applyActionWithKey TextInput (KeyPress Caret)
+        |> applyActionWithKey TextInput (KeyPress GraveAccent)
+        |> applyActionWithKey TextInput (KeyPress CurlyOpenBrace)
+        |> applyActionWithKey TextInput (KeyPress VerticalBar)
+        |> applyActionWithKey TextInput (KeyPress CurlyCloseBrace)
+        |> applyActionWithKey TextInput (KeyPress Tilde)
+        |> applyActionWithKey TextInput (KeyPress Delete)
+    model.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
 
-# expect
-#     # TEST: InputAppName - appendToBuffer w/ illegal Key
-#     model = Model.init [] [] |> Model.toInputAppNameState
-#     newModel =
-#         model
-#         |> Model.appendToBuffer Up
-#         |> Model.appendToBuffer Down
-#         |> Model.appendToBuffer Left
-#         |> Model.appendToBuffer Right
-#         |> Model.appendToBuffer Escape
-#         |> Model.appendToBuffer Enter
-#         |> Model.appendToBuffer ExclamationMark
-#         |> Model.appendToBuffer QuotationMark
-#         |> Model.appendToBuffer NumberSign
-#         |> Model.appendToBuffer DollarSign
-#         |> Model.appendToBuffer PercentSign
-#         |> Model.appendToBuffer Ampersand
-#         |> Model.appendToBuffer Apostrophe
-#         |> Model.appendToBuffer RoundOpenBracket
-#         |> Model.appendToBuffer RoundCloseBracket
-#         |> Model.appendToBuffer Asterisk
-#         |> Model.appendToBuffer PlusSign
-#         |> Model.appendToBuffer Comma
-#         |> Model.appendToBuffer FullStop
-#         |> Model.appendToBuffer ForwardSlash
-#         |> Model.appendToBuffer Colon
-#         |> Model.appendToBuffer SemiColon
-#         |> Model.appendToBuffer LessThanSign
-#         |> Model.appendToBuffer EqualsSign
-#         |> Model.appendToBuffer GreaterThanSign
-#         |> Model.appendToBuffer QuestionMark
-#         |> Model.appendToBuffer AtSign
-#         |> Model.appendToBuffer SquareOpenBracket
-#         |> Model.appendToBuffer Backslash
-#         |> Model.appendToBuffer SquareCloseBracket
-#         |> Model.appendToBuffer Caret
-#         |> Model.appendToBuffer GraveAccent
-#         |> Model.appendToBuffer CurlyOpenBrace
-#         |> Model.appendToBuffer VerticalBar
-#         |> Model.appendToBuffer CurlyCloseBrace
-#         |> Model.appendToBuffer Tilde
-#         |> Model.appendToBuffer Delete
-#     newModel == model
+expect
+    # TEST: backspace with InputAppName
+    model =
+        inputAppNameModel
+        |> applyActionWithKey TextInput (KeyPress LowerA)
+        |> applyActionWithKey TextInput (KeyPress LowerB)
+        |> applyActionWithKey TextInput (KeyPress LowerC)
+        |> applyAction TextBackspace
+    model.state == InputAppName { nameBuffer: ['a', 'b'], config: emptyAppConfig }
 
-# expect
-#     # TEST: InputAppName - backspaceBuffer
-#     model = Model.init [] [] |> Model.toInputAppNameState
-#     newModel =
-#         model
-#         |> Model.appendToBuffer LowerA
-#         |> Model.backspaceBuffer
-#     newModel.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
+expect
+    # TEST backspace with empty buffer in InputAppName
+    model = inputAppNameModel |> applyAction TextBackspace
+    model == inputAppNameModel
 
 # expect
 #     # TEST: PlatformSelect - moveCursor Up w/ only one item
