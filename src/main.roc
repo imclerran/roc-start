@@ -6,7 +6,6 @@ app [main] {
     weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
 }
 
-import AnsiStrs exposing [greenFg, redFg, resetStyle]
 import ArgParser
 import Controller
 import Model exposing [Model]
@@ -33,6 +32,9 @@ Configuration : {
     packages : List Str,
     type: [App, Pkg],
 }
+
+greenCheck = "✔" |> Core.withFg (Standard Green)
+redCross = "✖" |> Core.withFg (Standard Red)
 
 ## The main entry point for the program.
 main : Task {} _
@@ -75,10 +77,10 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
     fileExists = checkForFile! "$(fileName).roc"
     if fileExists then
-        Stdout.line! "Error: $(fileName).roc already exists. $(redFg)✖$(resetStyle)"
+        Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
     else
         createRocFile! { fileName, platform, packages, type } repos
-        Stdout.line! "Created $(fileName).roc $(greenFg)✔$(resetStyle)"
+        Stdout.line! "Created $(fileName).roc $(greenCheck)"
         
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
@@ -95,10 +97,10 @@ runTuiApp = \forceUpdate ->
         Finished { config } ->
             fileExists = checkForFile! "$(config.fileName).roc"
             if fileExists then
-                Stdout.line "Error: $(config.fileName).roc already exists. $(redFg)✖$(resetStyle)"
+                Stdout.line "Error: $(config.fileName).roc already exists. $(redCross)"
             else
                 createRocFile! config repos
-                Stdout.line "Created $(config.fileName).roc $(greenFg)✔$(resetStyle)"
+                Stdout.line "Created $(config.fileName).roc $(greenCheck)"
 
         _ -> Stdout.line "Oops! Something went wrong..."
 
@@ -361,10 +363,10 @@ doRepoUpdate =
     repoLists = getRemoteRepoData!
     Stdout.write! "Updating platform repository..."
     updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! " $(greenFg)✔$(resetStyle)"
+    Stdout.line! " $(greenCheck)"
     Stdout.write! "Updating package repository..."
     updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line " $(greenFg)✔$(resetStyle)"
+    Stdout.line " $(greenCheck)"
 
 ## Update the local package repository cache with the latest data from the remote repository.
 doPackageUpdate : Task {} _
@@ -372,7 +374,7 @@ doPackageUpdate =
     repoLists = getRemoteRepoData!
     Stdout.write! "Updating package repository..."
     updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line " $(greenFg)✔$(resetStyle)"
+    Stdout.line " $(greenCheck)"
 
 ## Update the local platform repository cache with the latest data from the remote repository.
 doPlatformUpdate : Task {} _
@@ -380,7 +382,7 @@ doPlatformUpdate =
     repoLists = getRemoteRepoData!
     Stdout.write! "Updating platform repository..."
     updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! " $(greenFg)✔$(resetStyle)"
+    Stdout.line! " $(greenCheck)"
 
 ## Download the app stubs for the currently cached platforms.
 doAppStubUpdate : Task {} _
@@ -511,7 +513,7 @@ getAppStubs = \platforms ->
     appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
     Stdout.write! "Updating app-stubs..."
     Task.loop! { platforms, dir: appStubsDir } getAppStubsLoop
-    Stdout.line " $(greenFg)✔$(resetStyle)"
+    Stdout.line " $(greenCheck)"
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
