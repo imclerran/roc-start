@@ -30,7 +30,7 @@ Configuration : {
     fileName : Str,
     platform : Str,
     packages : List Str,
-    type: [App, Pkg],
+    type : [App, Pkg],
 }
 
 greenCheck = "✔" |> Core.withFg (Standard Green)
@@ -83,7 +83,7 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     else
         createRocFile! { fileName, platform, packages, type } repos
         Stdout.line! "Created $(fileName).roc $(greenCheck)"
-        
+
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
 runTuiApp : Bool -> Task {} _
@@ -118,6 +118,7 @@ runUpdates = \doPfs, doPkgs, doStubs ->
                     Task.ok (Step (List.dropFirst updateList 1))
                 else
                     Task.ok (Step (List.dropFirst updateList 1))
+
             _ -> Task.ok (Done {})
 
 ## The main loop for running the TUI.
@@ -125,20 +126,12 @@ runUpdates = \doPfs, doPkgs, doStubs ->
 runUiLoop : Model -> Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
-    model = Model.paginate { prevModel & screen: terminalSize }
+    model = Controller.paginate { prevModel & screen: terminalSize }
     Core.drawScreen model (render model) |> Stdout.write!
 
     input = Stdin.bytes |> Task.map! Core.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
-    when model.state is
-        TypeSelect _ -> handleTypeSelectInput modelWithInput input
-        InputAppName _ -> handleInputAppNameInput modelWithInput input
-        PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
-        PackageSelect _ -> handlePackageSelectInput modelWithInput input
-        Search _ -> handleSearchInput modelWithInput input
-        Confirmation _ -> handleConfirmationInput modelWithInput input
-        Splash _ -> handleSplashInput modelWithInput input
-        _ -> handleBasicInput modelWithInput input
+    handleInput modelWithInput input
 
 ## Get the size of the terminal window.
 ## Author: Luke Boswell
@@ -165,14 +158,29 @@ render = \model ->
         Splash _ -> View.renderSplash model
         _ -> []
 
-## Basic input handler which ensures that the program can always be exited.
-## This ensures that even if forget to handle input for a state, or end up
+## Dispatch the input to the input handler for the current state.
+handleInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleInput = \model, input ->
+    when model.state is
+        TypeSelect _ -> handleTypeSelectInput model input
+        InputAppName _ -> handleInputAppNameInput model input
+        PlatformSelect _ -> handlePlatformSelectInput model input
+        PackageSelect _ -> handlePackageSelectInput model input
+        Search _ -> handleSearchInput model input
+        Confirmation _ -> handleConfirmationInput model input
+        Splash _ -> handleSplashInput model input
+        _ -> handleDefaultInput model input
+
+## Default input handler which ensures that the program can always be exited.
+## This ensures that even if you forget to handle input for a state, or end up
 ## in a state that doesn't have an input handler, the program can still be exited.
-handleBasicInput : Model, Core.Input -> Task [Step Model, Done Model] _
-handleBasicInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        _ -> Task.ok (Step model)
+handleDefaultInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleDefaultInput = \model, input ->
+    action =
+        when input is
+            CtrlC -> Exit
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
 
 handleTypeSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleTypeSelectInput = \model, input ->
@@ -253,13 +261,14 @@ handleSearchInput = \model, input ->
 ## The input handler for the InputAppName state.
 handleInputAppNameInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
-    bufferLen = when model.state is
-        InputAppName { nameBuffer } -> List.len nameBuffer
-        _ -> 0
+    bufferLen =
+        when model.state is
+            InputAppName { nameBuffer } -> List.len nameBuffer
+            _ -> 0
     (action, keyPress) =
         when input is
             CtrlC -> (Exit, None)
-            KeyPress Enter -> (TextConfirm, None)
+            KeyPress Enter -> (TextSubmit, None)
             KeyPress Delete -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
             KeyPress key -> (TextInput, KeyPress key)
             _ -> (None, None)
@@ -549,9 +558,10 @@ getAndCreateDir = \dirPath ->
 createRocFile : Configuration, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
     appStub = getAppStub! config.platform
-    bytes = when config.type is
-        App -> buildRocApp config.platform config.packages repos appStub
-        Pkg -> buildRocPackage config.packages repos.packages
+    bytes =
+        when config.type is
+            App -> buildRocApp config.platform config.packages repos appStub
+            Pkg -> buildRocPackage config.packages repos.packages
     File.writeBytes "$(config.fileName).roc" bytes
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.

@@ -10,14 +10,16 @@ parseOrDisplayMessage = \args -> Cli.parseOrDisplayMessage cliParser args
 
 baseUsage = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
 
-extendedUsage = 
-    ansiCode = when cliParser.textStyle is
-        Color -> "\u(001b)[1m\u(001b)[4m"
-        Plain -> ""
+extendedUsage =
+    ansiCode =
+        when cliParser.textStyle is
+            Color -> "\u(001b)[1m\u(001b)[4m"
+            Plain -> ""
     usageHelpStr = Help.usageHelp cliParser.config ["roc-start"] cliParser.textStyle
-    extendedUsageStr = when 
-        Help.helpText cliParser.config ["roc-start"] cliParser.textStyle
-        |> Str.splitFirst "$(ansiCode)Commands:"
+    extendedUsageStr =
+        when
+            Help.helpText cliParser.config ["roc-start"] cliParser.textStyle
+            |> Str.splitFirst "$(ansiCode)Commands:"
         is
             Ok { after } -> "$(ansiCode)Commands:$(after)"
             Err NotFound -> ""
@@ -37,7 +39,7 @@ cliParser =
     }
     |> Cli.assertValid
 
-appSubcommand = 
+appSubcommand =
     Cli.weave {
         appName: <- Param.str { name: "app-name", help: "Name your new roc app." },
         platform: <- Param.str { name: "platform", help: "The platform to use." },
