@@ -30,24 +30,14 @@ getActions = \model ->
     when model.state is
         PlatformSelect _ ->
             [Exit, SingleSelect, CursorUp, CursorDown]
-            |> \actions -> if
-                    Model.menuIsFiltered model
-                then
-                    List.append actions ClearFilter
-                else
-                    List.append actions Search
+            |> \actions -> List.append actions (if Model.menuIsFiltered model then ClearFilter else Search)
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
 
         PackageSelect _ ->
             [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
-            |> \actions -> if
-                    Model.menuIsFiltered model
-                then
-                    List.append actions ClearFilter
-                else
-                    List.append actions Search
+            |> \actions -> List.append actions (if Model.menuIsFiltered model then ClearFilter else Search)
             |> List.append GoBack
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
@@ -57,7 +47,7 @@ getActions = \model ->
             |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
             |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
 
-        InputAppName { nameBuffer } -> 
+        InputAppName { nameBuffer } ->
             [Exit, TextConfirm, TextInput]
             |> \actions -> List.append actions (if List.isEmpty nameBuffer then GoBack else TextBackspace)
 
@@ -88,7 +78,7 @@ typeSelectHandler : Model, UserAction -> [Step Model, Done Model]
 typeSelectHandler = \model, action ->
     when action is
         Exit -> Done (Model.toUserExitedState model)
-        SingleSelect -> 
+        SingleSelect ->
             type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
             when type is
                 App -> Step (Model.toInputAppNameState model)
@@ -131,9 +121,10 @@ packageSelectHandler = \model, action ->
             if Model.menuIsFiltered model then
                 Step (Model.clearSearchFilter model)
             else
-                type = when model.state is
-                    PackageSelect { config } -> config.type
-                    _ -> App
+                type =
+                    when model.state is
+                        PackageSelect { config } -> config.type
+                        _ -> App
                 when type is
                     App -> Step (Model.toPlatformSelectState model)
                     Pkg -> Step (Model.toTypeSelectState model)
