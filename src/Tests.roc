@@ -113,7 +113,7 @@ expect
     && (model.menuRow == 2)
 
 ## ===============================
-## TypeSelect tests
+## Cursor movement tests
 
 expect
     # TEST: move cursor down from top of menu
@@ -133,6 +133,16 @@ expect
 expect
     # TEST: move cursor down from bottom of menu
     model = typeSelectModel |> applyAction CursorDown |> applyAction CursorDown
+    model.cursor == { row: model.menuRow, col: 2 }
+
+expect
+    # TEST: move cursor down with only one item in menu
+    model = { typeSelectModel & menu: ["App"] } |> applyAction CursorDown
+    model.cursor == { row: model.menuRow, col: 2 }
+
+expect
+    # TEST: move cursor up with only one item in menu
+    model = { typeSelectModel & menu: ["App"] } |> applyAction CursorUp
     model.cursor == { row: model.menuRow, col: 2 }
 
 ## ===============================
@@ -244,62 +254,6 @@ expect
     # TEST backspace with empty buffer in InputAppName
     model = inputAppNameModel |> applyAction TextBackspace
     model == inputAppNameModel
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Up w/ only one item
-#     initModel = Model.init ["platform1"] [] |> Model.toInputAppNameState
-#     model = Model.toPlatformSelectState initModel
-#     newModel = model |> Model.moveCursor Up
-#     newModel == model
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Down w/ only one item
-#     initModel = Model.init ["platform1"] [] |> Model.toInputAppNameState
-#     model = Model.toPlatformSelectState initModel
-#     newModel = model |> Model.moveCursor Down
-#     newModel == model
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Up w/ cursor starting at bottom
-#     initModel =
-#         Model.init ["platform1", "platform2", "platform3"] []
-#         |> Model.toInputAppNameState
-#         |> Model.toPlatformSelectState
-#     model = { initModel &
-#         cursor: { row: initModel.menuRow + 2, col: 2 },
-#     }
-#     newModel = model |> Model.moveCursor Up
-#     newModel.cursor.row == model.menuRow + 1
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Down w/ cursor starting at top
-#     model =
-#         Model.init ["platform1", "platform2", "platform3"] []
-#         |> Model.toInputAppNameState
-#         |> Model.toPlatformSelectState
-#     newModel = model |> Model.moveCursor Down
-#     newModel.cursor.row == model.menuRow + 1
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Up w/ cursor starting at top
-#     model =
-#         Model.init ["platform1", "platform2", "platform3"] []
-#         |> Model.toInputAppNameState
-#         |> Model.toPlatformSelectState
-#     newModel = model |> Model.moveCursor Up
-#     newModel.cursor.row == model.menuRow + 2
-
-# expect
-#     # TEST: PlatformSelect - moveCursor Down w/ cursor starting at bottom
-#     initModel =
-#         Model.init ["platform1", "platform2", "platform3"] []
-#         |> Model.toPlatformSelectState
-#         |> Model.toPlatformSelectState
-#     model = { initModel &
-#         cursor: { row: initModel.menuRow + 2, col: 2 },
-#     }
-#     newModel = model |> Model.moveCursor Down
-#     newModel.cursor.row == model.menuRow
 
 # expect
 #     # TEST: PlatformSelect to InputAppName
