@@ -1,115 +1,132 @@
-module [stubForMain]
+module []
 
 import Model
 import Controller
 
-stubForMain = {}
+## ==============================
+## HELPER FUNCTIONS
+
+applyAction = \model, action ->
+    when Controller.applyAction { model: model, action: action } is
+        Step newModel -> newModel
+        Done newModel -> newModel
+
+## ==============================
+## HELPER OBJECTS
 
 emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
 
+## ===============================
+## MODEL OBJECTS IN VARIOUS STATES
+
 typeSelectModel = Model.init ["pf1", "pf2"] ["pk1", "pk2", "pk3"]
-
-inputAppNameModel =
-    when Controller.applyAction { model: typeSelectModel, action: SingleSelect } is
-        Step model -> model
-        Done model -> model
-
-platformSelectModel =
-    when Controller.applyAction { model: inputAppNameModel, action: TextSubmit } is
-        Step model -> model
-        Done model -> model
-
-packageSelectModel =
-    when Controller.applyAction { model: platformSelectModel, action: SingleSelect } is
-        Step model -> model
-        Done model -> model
-
-confirmationModel =
-    when Controller.applyAction { model: packageSelectModel, action: MultiConfirm } is
-        Step model -> model
-        Done model -> model
-
-finishedModel =
-    when Controller.applyAction { model: confirmationModel, action: Finish } is
-        Step model -> model
-        Done model -> model
+inputAppNameModel = typeSelectModel |> applyAction SingleSelect
+platformSelectModel = inputAppNameModel |> applyAction TextSubmit
+packageSelectModel = platformSelectModel |> applyAction SingleSelect
+confirmationModel = packageSelectModel |> applyAction MultiConfirm
+finishedModel = confirmationModel |> applyAction Finish
 
 ## =========================
 ## TEST STATE TRANSITIONS
 ## =========================
 
 expect
+    # TEST: init model
     model = typeSelectModel
     (model.state == TypeSelect { config: emptyAppConfig })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
     && (model.menu == ["App", "Package"])
     && (model.fullMenu == ["App", "Package"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
 expect
+    # TEST: transition from TypeSelect to InputAppName
     model = inputAppNameModel
     (model.state == InputAppName { nameBuffer: [], config: emptyAppConfig })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
 expect
+    # TEST: transition from InputAppName to PlatformSelect
     model = platformSelectModel
     (model.state == PlatformSelect { config: { emptyAppConfig & fileName: "main" } })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
     && (model.menu == ["pf1", "pf2"])
     && (model.fullMenu == ["pf1", "pf2"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
 expect
+    # TEST: transition from PlatformSelect to PackageSelect
     model = packageSelectModel
     (model.state == PackageSelect { config: { emptyAppConfig & fileName: "main", platform: "pf1" } })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
     && (model.menu == ["pk1", "pk2", "pk3"])
     && (model.fullMenu == ["pk1", "pk2", "pk3"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
 expect
+    # TEST: transition from PackageSelect to Confirmation
     model = confirmationModel
     (model.state == Confirmation { config: { emptyAppConfig & fileName: "main", platform: "pf1", packages: [] } })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
 expect
+    # TEST: transition from Confirmation to Finished
     model = finishedModel
     (model.state == Finished { config: { emptyAppConfig & fileName: "main", platform: "pf1", packages: [] } })
     && (model.platformList == ["pf1", "pf2"])
     && (model.packageList == ["pk1", "pk2", "pk3"])
-    && (model.cursor == { row: 2, col: 2 })
+    && (model.cursor == { row: model.menuRow, col: 2 })
     && (model.screen == { height: 0, width: 0 })
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
+expect
+    # TEST: move cursor down from top of menu
+    model = typeSelectModel |> applyAction CursorDown
+    model.cursor == { row: model.menuRow + 1, col: 2 }
+
+expect
+    # TEST: move cursor up from bottom of menu
+    model = typeSelectModel |> applyAction CursorDown |> applyAction CursorUp
+    model.cursor == { row: model.menuRow, col: 2 }
+
+expect
+    # TEST: move cursor up from top of menu
+    model = typeSelectModel |> applyAction CursorUp
+    model.cursor == { row: model.menuRow + 1, col: 2 }
+
+expect
+    # TEST: move cursor down from bottom of menu
+    model = typeSelectModel |> applyAction CursorDown |> applyAction CursorDown
+    model.cursor == { row: model.menuRow, col: 2 }
 
 # expect
 #     # TEST: Model.init
