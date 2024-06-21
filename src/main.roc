@@ -130,15 +130,7 @@ runUiLoop = \prevModel ->
 
     input = Stdin.bytes |> Task.map! Core.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
-    when model.state is
-        TypeSelect _ -> handleTypeSelectInput modelWithInput input
-        InputAppName _ -> handleInputAppNameInput modelWithInput input
-        PlatformSelect _ -> handlePlatformSelectInput modelWithInput input
-        PackageSelect _ -> handlePackageSelectInput modelWithInput input
-        Search _ -> handleSearchInput modelWithInput input
-        Confirmation _ -> handleConfirmationInput modelWithInput input
-        Splash _ -> handleSplashInput modelWithInput input
-        _ -> handleBasicInput modelWithInput input
+    handleInput modelWithInput input
 
 ## Get the size of the terminal window.
 ## Author: Luke Boswell
@@ -164,6 +156,19 @@ render = \model ->
         Confirmation _ -> View.renderConfirmation model
         Splash _ -> View.renderSplash model
         _ -> []
+
+## Dispatch the input to the input handler for the current state.
+handleInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleInput = \model, input ->
+    when model.state is
+        TypeSelect _ -> handleTypeSelectInput model input
+        InputAppName _ -> handleInputAppNameInput model input
+        PlatformSelect _ -> handlePlatformSelectInput model input
+        PackageSelect _ -> handlePackageSelectInput model input
+        Search _ -> handleSearchInput model input
+        Confirmation _ -> handleConfirmationInput model input
+        Splash _ -> handleSplashInput model input
+        _ -> handleBasicInput model input
 
 ## Basic input handler which ensures that the program can always be exited.
 ## This ensures that even if forget to handle input for a state, or end up
