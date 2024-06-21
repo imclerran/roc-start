@@ -13,8 +13,8 @@ ci_dir='./ci'
 $roc run $ci_dir/check-repo.roc --linker=legacy
 
 # test-stub.roc
-$roc check $src_dir/test-stub.roc
-$roc test $src_dir/test-stub.roc
+$roc check $src_dir/Tests.roc
+$roc test $src_dir/Tests.roc
 
 # main.roc
 $roc check $src_dir/main.roc
