@@ -30,6 +30,7 @@ platformSelectModel = inputAppNameModel |> applyAction TextSubmit
 packageSelectModel = platformSelectModel |> applyAction SingleSelect
 confirmationModel = packageSelectModel |> applyAction MultiConfirm
 finishedModel = confirmationModel |> applyAction Finish
+splashModel = typeSelectModel |> applyAction Secret
 
 ## ===============================
 ## model object tests
@@ -112,6 +113,56 @@ expect
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
 
+expect
+    # Test: transition from TypeSelect to Splash
+    model = splashModel
+    (model.state == Splash { config: emptyAppConfig })
+    && (model.platformList == ["pf1", "pf2"])
+    && (model.packageList == ["pk1", "pk2", "pk3"])
+    && (model.cursor == { row: model.menuRow, col: 2 })
+    && (model.screen == { height: 0, width: 0 })
+    && (model.selected == [])
+    && (model.pageFirstItem == 0)
+    && (model.menuRow == 2)
+
+## ===============================
+## Exit tests
+
+expect
+    # TEST: exit from TypeSelect
+    model = typeSelectModel |> applyAction Exit
+    model.state == UserExited
+
+expect
+    # TEST: exit from InputAppName
+    model = inputAppNameModel |> applyAction Exit
+    model.state == UserExited
+
+expect
+    # TEST: exit from PlatformSelect
+    model = platformSelectModel |> applyAction Exit
+    model.state == UserExited
+
+expect
+    # TEST: exit from PackageSelect
+    model = packageSelectModel |> applyAction Exit
+    model.state == UserExited
+
+expect  
+    # TEST: exit from Confirmation
+    model = confirmationModel |> applyAction Exit
+    model.state == UserExited
+
+expect
+    # TEST: exit from Finished
+    model = finishedModel |> applyAction Exit
+    model.state == UserExited
+
+expect  
+    # TEST: exit from Splash
+    model = splashModel |> applyAction Exit
+    model.state == UserExited
+
 ## ===============================
 ## Cursor movement tests
 
@@ -149,6 +200,11 @@ expect
 ## InputAppName tests
 
 expect
+    # TEST: InputAppName back to TypeSelect
+    model = inputAppNameModel |> applyAction GoBack
+    model.state == TypeSelect { config: emptyAppConfig }
+
+expect
     # TEST: InuptAppName to PlatformSelect w/ non-empty buffer
     model = 
         inputAppNameModel 
@@ -173,12 +229,7 @@ expect
     model.state == PlatformSelect { config: { emptyAppConfig & fileName: "main" } }
 
 expect
-    # TEST: exit from InputAppName
-    model = inputAppNameModel |> applyAction Exit
-    model.state == UserExited
-
-expect
-    # TEST: paginate InputAppName
+    # TEST: paginate InputAppName (should not change model)
     model = inputAppNameModel |> Controller.paginate
     model == inputAppNameModel
 
@@ -284,30 +335,3 @@ expect
 #     == Search { searchBuffer: [], sender: Platform, config: { fileName: "a", platform: "b", packages: ["c", "d"], type: App } }
 #     && newModel.cursor.row
 #     == newModel.menuRow
-
-# expect
-#     # TEST: PlatformSelect to UserExited
-#     model =
-#         Model.init [] []
-#         |> Model.toInputAppNameState
-#         |> Model.toPlatformSelectState
-#     newModel = Model.toUserExitedState model
-#     newModel.state == UserExited
-
-# expect
-#     # TEST: PlatformSelect to PackageSelect
-#     initModel =
-#         Model.init ["b"] ["c", "d"]
-#         |> Model.toInputAppNameState
-#         |> Model.toPlatformSelectState
-#     model = { initModel &
-#         cursor: { row: initModel.menuRow, col: 2 },
-#         state: PlatformSelect { config: { fileName: "a", platform: "", packages: ["c"], type: App } },
-#     }
-#     newModel = Model.toPackageSelectState model
-#     newModel.state
-#     == PackageSelect { config: { fileName: "a", platform: "b", packages: ["c"], type: App } }
-#     && newModel.cursor.row
-#     == newModel.menuRow
-#     && newModel.selected
-#     == ["c"]
