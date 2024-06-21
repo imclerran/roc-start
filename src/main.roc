@@ -30,7 +30,7 @@ Configuration : {
     fileName : Str,
     platform : Str,
     packages : List Str,
-    type: [App, Pkg],
+    type : [App, Pkg],
 }
 
 greenCheck = "✔" |> Core.withFg (Standard Green)
@@ -83,7 +83,7 @@ runCliApp = \type, fileName, platform, packages, forceUpdate ->
     else
         createRocFile! { fileName, platform, packages, type } repos
         Stdout.line! "Created $(fileName).roc $(greenCheck)"
-        
+
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
 runTuiApp : Bool -> Task {} _
@@ -118,6 +118,7 @@ runUpdates = \doPfs, doPkgs, doStubs ->
                     Task.ok (Step (List.dropFirst updateList 1))
                 else
                     Task.ok (Step (List.dropFirst updateList 1))
+
             _ -> Task.ok (Done {})
 
 ## The main loop for running the TUI.
@@ -258,9 +259,10 @@ handleSearchInput = \model, input ->
 ## The input handler for the InputAppName state.
 handleInputAppNameInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
-    bufferLen = when model.state is
-        InputAppName { nameBuffer } -> List.len nameBuffer
-        _ -> 0
+    bufferLen =
+        when model.state is
+            InputAppName { nameBuffer } -> List.len nameBuffer
+            _ -> 0
     (action, keyPress) =
         when input is
             CtrlC -> (Exit, None)
@@ -554,9 +556,10 @@ getAndCreateDir = \dirPath ->
 createRocFile : Configuration, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task {} _
 createRocFile = \config, repos ->
     appStub = getAppStub! config.platform
-    bytes = when config.type is
-        App -> buildRocApp config.platform config.packages repos appStub
-        Pkg -> buildRocPackage config.packages repos.packages
+    bytes =
+        when config.type is
+            App -> buildRocApp config.platform config.packages repos appStub
+            Pkg -> buildRocPackage config.packages repos.packages
     File.writeBytes "$(config.fileName).roc" bytes
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.

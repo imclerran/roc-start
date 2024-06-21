@@ -55,7 +55,7 @@ Model : {
 }
 
 Configuration : {
-    type: [App, Pkg],
+    type : [App, Pkg],
     fileName : Str,
     platform : Str,
     packages : List Str,
@@ -70,14 +70,16 @@ init = \platformList, packageList -> {
     cursor: { row: 2, col: 2 },
     menuRow: 2,
     pageFirstItem: 0,
-    menu: ["App", "Package"],#platformList,
-    fullMenu: ["App", "Package"],#platformList,
+    menu: ["App", "Package"],
+    # platformList,
+    fullMenu: ["App", "Package"],
+    # platformList,
     platformList,
     packageList,
     selected: [],
     inputs: List.withCapacity 1000,
     state: TypeSelect { config: emptyAppConfig },
-    #state: InputAppName { nameBuffer: [], config: emptyAppConfig },
+    # state: InputAppName { nameBuffer: [], config: emptyAppConfig },
 }
 
 ## Split the menu into pages, and adjust the cursor position if necessary
@@ -162,10 +164,10 @@ toTypeSelectState = \model ->
         InputAppName { config, nameBuffer } ->
             fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
             newConfig = { config & fileName }
-            { model &  
+            { model &
                 cursor: { row: 2, col: 2 },
                 fullMenu: ["App", "Package"],
-                state: TypeSelect { config: newConfig } 
+                state: TypeSelect { config: newConfig },
             }
 
         PackageSelect { config } ->
@@ -173,20 +175,20 @@ toTypeSelectState = \model ->
                 when (addSelectedPackagesToConfig model).state is
                     PackageSelect data -> data.config
                     _ -> config
-            if config.type == Pkg then  
-                { model & 
+            if config.type == Pkg then
+                { model &
                     fullMenu: ["App", "Package"],
                     cursor: { row: 2, col: 2 },
-                    state: TypeSelect { config: configWithPackages } 
-                } 
-            else 
+                    state: TypeSelect { config: configWithPackages },
+                }
+            else
                 model
 
         Splash { config } ->
-            { model & 
+            { model &
                 cursor: { row: 2, col: 2 },
                 fullMenu: ["App", "Package"],
-                state: TypeSelect { config } 
+                state: TypeSelect { config },
             }
 
         _ -> model
@@ -200,12 +202,13 @@ toInputAppNameState = \model ->
                 cursor: { row: 2, col: 2 },
                 state: InputAppName { config: { config & type }, nameBuffer: config.fileName |> Str.toUtf8 },
             }
+
         PlatformSelect { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
                 state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
             }
-        
+
         Splash { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
@@ -217,12 +220,12 @@ toInputAppNameState = \model ->
 toSplashState : Model -> Model
 toSplashState = \model ->
     when model.state is
-            TypeSelect { config } ->
-                { model & 
-                    state: Splash { config },
-                }
+        TypeSelect { config } ->
+            { model &
+                state: Splash { config },
+            }
 
-            _ -> model
+        _ -> model
 
 ## Transition to the PlatformSelect state
 toPlatformSelectState : Model -> Model
@@ -262,8 +265,6 @@ toPlatformSelectState = \model ->
 
         _ -> model
 
-
-
 ## To the PackageSelect state
 toPackageSelectState : Model -> Model
 toPackageSelectState = \model ->
@@ -278,6 +279,7 @@ toPackageSelectState = \model ->
                 selected: config.packages,
                 state: PackageSelect { config: { config & type, fileName } },
             }
+
         PlatformSelect { config } ->
             platform = getHighlightedItem model
             { model &
@@ -421,14 +423,16 @@ addSelectedPackagesToConfig = \model ->
     when model.state is
         PackageSelect data ->
             packages = getSelectedItems model
-            { model & state: PackageSelect { data & 
-                    config: { 
-                        platform: data.config.platform, 
-                        fileName: data.config.fileName, 
-                        packages,
-                        type: data.config.type,
-                    } 
-                } 
+            { model &
+                state: PackageSelect
+                    { data &
+                        config: {
+                            platform: data.config.platform,
+                            fileName: data.config.fileName,
+                            packages,
+                            type: data.config.type,
+                        },
+                    },
             }
 
         _ -> model
