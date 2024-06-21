@@ -126,7 +126,7 @@ runUpdates = \doPfs, doPkgs, doStubs ->
 runUiLoop : Model -> Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
-    model = Model.paginate { prevModel & screen: terminalSize }
+    model = Controller.paginate { prevModel & screen: terminalSize }
     Core.drawScreen model (render model) |> Stdout.write!
 
     input = Stdin.bytes |> Task.map! Core.parseRawStdin
@@ -169,16 +169,18 @@ handleInput = \model, input ->
         Search _ -> handleSearchInput model input
         Confirmation _ -> handleConfirmationInput model input
         Splash _ -> handleSplashInput model input
-        _ -> handleBasicInput model input
+        _ -> handleDefaultInput model input
 
-## Basic input handler which ensures that the program can always be exited.
-## This ensures that even if forget to handle input for a state, or end up
+## Default input handler which ensures that the program can always be exited.
+## This ensures that even if you forget to handle input for a state, or end up
 ## in a state that doesn't have an input handler, the program can still be exited.
-handleBasicInput : Model, Core.Input -> Task [Step Model, Done Model] _
-handleBasicInput = \model, input ->
-    when input is
-        CtrlC -> Task.ok (Done (Model.toUserExitedState model))
-        _ -> Task.ok (Step model)
+handleDefaultInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleDefaultInput = \model, input ->
+    action = 
+        when input is
+            CtrlC -> Exit
+            _ -> None
+    Task.ok (Controller.applyAction { model, action })
 
 handleTypeSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleTypeSelectInput = \model, input ->
