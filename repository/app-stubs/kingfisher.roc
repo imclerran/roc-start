@@ -24,7 +24,7 @@ encodeModel : Model -> List U8
 encodeModel = \model -> crash "TODO: Implement encodeModel"
 
 handleReadRequest : Request, Model -> Response
-handleReadRequest = \_request, model -> crash "TODO: Implement handleReadRequest"
+handleReadRequest = \request, model -> crash "TODO: Implement handleReadRequest"
 
 handleWriteRequest : Request, Model -> (Response, Model)
-handleWriteRequest = \request, _model -> crash "TODO: Implement handleWriteRequest"
+handleWriteRequest = \request, model -> crash "TODO: Implement handleWriteRequest"
