@@ -21,6 +21,7 @@
     { repo: "roc-openrouter", owner: "imclerran", alias: "ai", platform: Bool.false, requires: [] },
     { repo: "roc-parser", owner: "lukewilliamboswell", alias: "parser", platform: Bool.false, requires: [] },
     { repo: "roc-pg", owner: "agu-z", alias: "pg", platform: Bool.false, requires: [] },
+    { repo: "roc-query", owner: "smores56", alias: "qry", platform: Bool.false, requires: [] },
     { repo: "roc-random", owner: "lukewilliamboswell", alias: "random", platform: Bool.false, requires: [] },
     { repo: "roc-reduce", owner: "imclerran", alias: "reduce", platform: Bool.false, requires: [] },
     { repo: "roc-semver", owner: "smores56", alias: "semver", platform: Bool.false, requires: [] },
