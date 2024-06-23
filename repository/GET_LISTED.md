@@ -6,7 +6,7 @@ In order to get your package or platform listed, you must meet a few basic requi
 2) Your release must include among its assets a Blake-3 hashed tar.br zip of your repo.
     - Using the github action [hasnep/bundle-roc-library](https://github.com/hasnep/bundle-roc-library) is recommended.
 
-> __Note__
+> __Note:__
 > Some packages and platforms are already included in the repository, but do not currently appear in the TUI app, and cannot be imported via the CLI due to not meeting the requirements above.
 
 ## For platform authors
@@ -26,6 +26,9 @@ main = \req ->
 
 ## Make that pull request!
 That's it! Once you have released your package with the required tarball, simply make a PR against this repo, adding your package to the `roc-repo.rvn` file. The format should be as follows:
+
+> __Note:__
+> The `repository/check-repo.sh` script is provided to double check your check your changes before making the pull request.
 
 ```roc
 { repo: "your-repo-name", owner: "your-git-username", alias: "sn", platform: <Bool.true/Bool.false>, requires: [] },
