@@ -361,40 +361,85 @@ loadRepoData = \forceUpdate ->
 ## Load the latest repository data from the remote repository.
 loadLatestRepoData : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
 loadLatestRepoData =
-    doRepoUpdate!
-    dataDir = getAndCreateDataDir!
-    packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
-    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
-    packages = getRepoDict packageBytes
-    platforms = getRepoDict platformBytes
-    Task.ok { packages, platforms }
+    updateRes <- doRepoUpdate |> Task.attempt
+    when updateRes is
+        Ok _ ->
+            dataDir = getAndCreateDataDir!
+            packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
+            platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
+            packages = getRepoDict packageBytes
+            platforms = getRepoDict platformBytes
+            Task.ok { packages, platforms }
+        
+        Err e -> Task.err e
 
 ## Update the local repository cache with the latest data from the remote repository.
 doRepoUpdate : Task {} _
 doRepoUpdate =
-    repoLists = getRemoteRepoData!
-    Stdout.write! "Updating platform repository..."
-    updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! " $(greenCheck)"
-    Stdout.write! "Updating package repository..."
-    updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line " $(greenCheck)"
+    pfRes <- doPlatformUpdate |> Task.attempt
+    when pfRes is
+        Ok _ ->
+            pkgRes <- doPackageUpdate |> Task.attempt
+            when pkgRes is
+                Ok _ -> Task.ok {}
+                Err e -> Task.err e
+
+        Err e -> Task.err e
+    #doPackageUpdate!
 
 ## Update the local package repository cache with the latest data from the remote repository.
 doPackageUpdate : Task {} _
 doPackageUpdate =
-    repoLists = getRemoteRepoData!
-    Stdout.write! "Updating package repository..."
-    updateRepoCache! repoLists.packageRepos "pkg-data.rvn"
-    Stdout.line " $(greenCheck)"
+    repoListRes <- getRemoteRepoData Packages |> Task.attempt
+    when repoListRes is
+        Ok repoList ->
+            Stdout.write! "Updating package repository..."
+            res <- updateRepoCache repoList "pkg-data.rvn" |> Task.attempt
+            when res is
+                Ok _ ->
+                    Stdout.line! " $(greenCheck)"
+                Err GhAuthError ->
+                    Stdout.line! " $(redCross) "
+                    Stdout.line! ("Error: `gh` not authenticated" |> Core.withFg (Standard Yellow))
+                    Task.err GhAuthError
+                Err GhNotInstalled ->
+                    Stdout.line! " $(redCross)"
+                    Stdout.line! ("Error: `gh` not installed" |> Core.withFg (Standard Yellow))
+                    Task.err GhNotInstalled
+                Err e ->
+                    Stdout.line! " $(redCross)"
+                    Task.err e
+
+        Err e -> 
+            Stdout.line! "Package update failed. $(redCross)"
+            Task.err e
 
 ## Update the local platform repository cache with the latest data from the remote repository.
 doPlatformUpdate : Task {} _
 doPlatformUpdate =
-    repoLists = getRemoteRepoData!
-    Stdout.write! "Updating platform repository..."
-    updateRepoCache! repoLists.platformRepos "pf-data.rvn"
-    Stdout.line! " $(greenCheck)"
+    repoListRes <- getRemoteRepoData Platforms |> Task.attempt
+    when repoListRes is
+        Ok repoList ->
+            Stdout.write! "Updating platform repository..."
+            res <- updateRepoCache repoList "pf-data.rvn" |> Task.attempt
+            when res is
+                Ok _ ->
+                    Stdout.line! " $(greenCheck)"
+                Err GhAuthError ->
+                    Stdout.line! " $(redCross) "
+                    Stdout.line! ("Error: `gh` not authenticated" |> Core.withFg (Standard Yellow))
+                    Task.err GhAuthError
+                Err GhNotInstalled ->
+                    Stdout.line! " $(redCross)"
+                    Stdout.line! ("Error: `gh` not installed" |> Core.withFg (Standard Yellow))
+                    Task.err GhNotInstalled
+                Err e ->
+                    Stdout.line! " $(redCross)"
+                    Task.err e
+
+        Err e -> 
+            Stdout.line! "Platform update failed. $(redCross)"
+            Task.err e
 
 ## Download the app stubs for the currently cached platforms.
 doAppStubUpdate : Task {} _
@@ -404,21 +449,19 @@ doAppStubUpdate =
     platforms = getRepoDict platformBytes
     getAppStubsIfNeeded! (Dict.keys platforms) Bool.true
 
-## Get the remote repository data, decode it, and split it into a list of package and platform repos.
-getRemoteRepoData : Task { packageRepos : List RemoteRepoEntry, platformRepos : List RemoteRepoEntry } _
-getRemoteRepoData =
+getRemoteRepoData : [Packages, Platforms] -> Task (List RemoteRepoEntry) _
+getRemoteRepoData = \type ->
     request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn"
-    resp = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
-    when Decode.fromBytes resp.body Rvn.pretty is
-        Ok repos ->
-            repoLists = List.walk repos { packageRepos: [], platformRepos: [] } \state, repoItem ->
-                if repoItem.platform then
-                    { state & platformRepos: List.append state.platformRepos repoItem }
-                else
-                    { state & packageRepos: List.append state.packageRepos repoItem }
-            Task.ok repoLists
+    respRes <- Http.send request |> Task.attempt
+    when respRes is
+        Ok resp ->
+            when Decode.fromBytes resp.body Rvn.pretty is
+                Ok repos ->
+                    Task.ok (List.keepIf repos \repo -> repo.platform == (type == Platforms))
 
-        Err _ -> Task.ok { packageRepos: [], platformRepos: [] }
+                Err e -> Task.err (DecodingErr e)
+        
+        Err e -> Task.err (NetworkErr e)
 
 ## Create an Http.Request object with the given url.
 getRequest : Str -> Http.Request
@@ -438,28 +481,39 @@ updateRepoCache = \repositoryList, filename ->
         Task.ok {}
     else
         dataDir = getAndCreateDataDir!
-        pkgRvnStr = Task.loop! { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop
-        File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
+        pkgRvnStrRes <- Task.loop { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop |> Task.attempt
+        when pkgRvnStrRes is
+            Ok pkgRvnStr ->
+                File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
+
+            Err e -> 
+                Task.err e
 
 RepositoryLoopState : { repositoryList : List RemoteRepoEntry, rvnDataStr : Str }
 
 ## Loop function which processes each git repo in the platform or package list, gets the latest release for each,
 ## and creates a string in rvn format containing the data for each package or platform. Used with `Task.loop`.
-reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] _
+reposToRvnStrLoop : RepositoryLoopState -> Task [Step RepositoryLoopState, Done Str] [GhAuthError, GhNotInstalled]
 reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
-    when List.get repositoryList 0 is
+    when List.first repositoryList is
         Ok { owner, repo, alias, platform, requires } ->
             updatedList = List.dropFirst repositoryList 1
-            response = getLatestRelease! owner repo
-            releaseData = responseToReleaseData response
-            when releaseData is
-                Ok { tagName, browserDownloadUrl } ->
-                    updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform, requires })
-                    Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
+            responseRes <- getLatestRelease owner repo |> Task.attempt
+            when responseRes is
+                Ok response ->
+                    releaseData = responseToReleaseData response
+                    when releaseData is
+                        Ok { tagName, browserDownloadUrl } ->
+                            updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform, requires })
+                            Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
 
+                        Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
+                
+                Err (CmdOutputError (_, ExitCode 4)) -> Task.err GhAuthError
+                Err (CmdOutputError (_, IOError _)) -> Task.err GhNotInstalled
                 Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
 
-        Err OutOfBounds -> Task.ok (Done (Str.concat rvnDataStr "]"))
+        Err ListWasEmpty -> Task.ok (Done (Str.concat rvnDataStr "]"))
 
 ## Use the github cli to get the latest release for a given repository.
 getLatestRelease : Str, Str -> Task { stdout : List U8, stderr : List U8 } _
@@ -472,7 +526,6 @@ getLatestRelease = \owner, repo ->
         |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
         |> Cmd.arg "/repos/$(owner)/$(repo)/releases/latest"
         |> Cmd.output
-        |> Task.onErr! \_ -> Task.ok { stdout: [], stderr: [] }
 
 ## Parse the response from the github cli to get the tagName and browserDownloadUrl for the tar.br file for a given release.
 responseToReleaseData : { stdout : List U8 }* -> Result { tagName : Str, browserDownloadUrl : Str } [NoAssetsFound, ParsingError]
