@@ -14,6 +14,7 @@
     { repo: "roc-fuzz", owner: "bhansconnect", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "roc-glue-code-gen", owner: "lukewilliamboswell", alias: "glue", platform: Bool.false, requires: [] },
     { repo: "roc-html", owner: "hasnep", alias: "html", platform: Bool.false, requires: [] },
+    { repo: "roc-iced", owner: "tarkah", alias: "iced", platform: Bool.true, requires: ["program", "Model", "Message"] },
     { repo: "roc-image", owner: "shritesh", alias: "img", platform: Bool.false, requires: [] },
     { repo: "roc-isodate", owner: "imclerran", alias: "iso", platform: Bool.false, requires: [] },
     { repo: "roc-json", owner: "lukewilliamboswell", alias: "json", platform: Bool.false, requires: [] },
