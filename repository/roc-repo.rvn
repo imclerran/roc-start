@@ -17,6 +17,7 @@
     { repo: "roc-image", owner: "shritesh", alias: "img", platform: Bool.false, requires: [] },
     { repo: "roc-isodate", owner: "imclerran", alias: "iso", platform: Bool.false, requires: [] },
     { repo: "roc-json", owner: "lukewilliamboswell", alias: "json", platform: Bool.false, requires: [] },
+    { repo: "roc-linear-algebra", owner: "hasnep", alias: "linalg", platform: Bool.false, requires: [] },
     { repo: "roc-math", owner: "hasnep", alias: "math", platform: Bool.false, requires: [] },
     { repo: "roc-openrouter", owner: "imclerran", alias: "ai", platform: Bool.false, requires: [] },
     { repo: "roc-parser", owner: "lukewilliamboswell", alias: "parser", platform: Bool.false, requires: [] },
