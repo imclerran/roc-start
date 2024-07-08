@@ -53,18 +53,23 @@ runWith = \args ->
     when args.subcommand is
         Ok (Tui {}) ->
             runTuiApp args.update
+            |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Ok (Update { doPfs, doPkgs, doStubs }) ->
             if doPfs == doPkgs && doPkgs == doStubs then
                 runUpdates Bool.true Bool.true Bool.true
+                |> Task.onErr \_ -> Task.err (Exit 1 "")
             else
                 runUpdates doPfs doPkgs doStubs
+                |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Ok (App { appName, platform, packages }) ->
-            runCliApp App appName platform packages args.update
+            runCliApp App appName platform packages args.update 
+            |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Ok (Pkg { packages }) ->
             runCliApp Pkg "main" "" packages args.update
+            |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Err NoSubcommand ->
             Stdout.line! ArgParser.extendedUsage
@@ -74,15 +79,18 @@ runWith = \args ->
 ## Load the repository data, and create the roc file if it doesn't already exist.
 runCliApp : [App, Pkg], Str, Str, List Str, Bool -> Task {} _
 runCliApp = \type, fileName, platform, packages, forceUpdate ->
-    repos = loadRepoData! forceUpdate
-    getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
-    fileExists = checkForFile! "$(fileName).roc"
-    if fileExists then
-        Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
-        Task.err (Exit 1 "")
-    else
-        createRocFile! { fileName, platform, packages, type } repos
-        Stdout.line! "Created $(fileName).roc $(greenCheck)"
+    reposRes <- loadRepoData forceUpdate |> Task.attempt
+    when reposRes is
+        Ok repos ->
+            getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
+            fileExists = checkForFile! "$(fileName).roc"
+            if fileExists then
+                Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
+                Task.err (Exit 1 "")
+            else
+                createRocFile! { fileName, platform, packages, type } repos
+                Stdout.line! "Created $(fileName).roc $(greenCheck)"
+        Err e -> Task.err e
 
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
@@ -105,7 +113,7 @@ runTuiApp = \forceUpdate ->
                 createRocFile! config repos
                 Stdout.line "Created $(config.fileName).roc $(greenCheck)"
 
-        _ -> Stdout.line "Oops! Something went wrong..."
+        _ -> Stdout.line ("Oops! Something went wrong..." |> Core.withFg (Standard Yellow))
 
 ## Run the update tasks for the platform, package, and app-stub repositories.
 runUpdates : Bool, Bool, Bool -> Task {} _
@@ -114,7 +122,7 @@ runUpdates = \doPfs, doPkgs, doStubs ->
         when List.first updateList is
             Ok (doUpdate, updater) ->
                 if doUpdate then
-                    updater!
+                    _ <- updater |> Task.attempt
                     Task.ok (Step (List.dropFirst updateList 1))
                 else
                     Task.ok (Step (List.dropFirst updateList 1))
@@ -385,7 +393,6 @@ doRepoUpdate =
                 Err e -> Task.err e
 
         Err e -> Task.err e
-    #doPackageUpdate!
 
 ## Update the local package repository cache with the latest data from the remote repository.
 doPackageUpdate : Task {} _
@@ -393,26 +400,32 @@ doPackageUpdate =
     repoListRes <- getRemoteRepoData Packages |> Task.attempt
     when repoListRes is
         Ok repoList ->
-            Stdout.write! "Updating package repository..."
+            Stdout.write! "Updating package repository... "
             res <- updateRepoCache repoList "pkg-data.rvn" |> Task.attempt
             when res is
                 Ok _ ->
-                    Stdout.line! " $(greenCheck)"
+                    Stdout.line! greenCheck
                 Err GhAuthError ->
-                    Stdout.line! " $(redCross) "
-                    Stdout.line! ("Error: `gh` not authenticated" |> Core.withFg (Standard Yellow))
+                    Stdout.line! redCross
+                    Stdout.line! ("Error: `gh` not authenticated." |> Core.withFg (Standard Yellow))
                     Task.err GhAuthError
                 Err GhNotInstalled ->
-                    Stdout.line! " $(redCross)"
-                    Stdout.line! ("Error: `gh` not installed" |> Core.withFg (Standard Yellow))
+                    Stdout.line! redCross
+                    Stdout.line! ("Error: `gh` not installed." |> Core.withFg (Standard Yellow))
                     Task.err GhNotInstalled
                 Err e ->
-                    Stdout.line! " $(redCross)"
+                    Stdout.line! redCross
                     Task.err e
 
         Err e -> 
             Stdout.line! "Package update failed. $(redCross)"
-            Task.err e
+            when e is
+                NetworkErr _ -> 
+                    Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
+                    Task.err e
+                _ -> 
+                    Task.err e
+
 
 ## Update the local platform repository cache with the latest data from the remote repository.
 doPlatformUpdate : Task {} _
@@ -420,34 +433,45 @@ doPlatformUpdate =
     repoListRes <- getRemoteRepoData Platforms |> Task.attempt
     when repoListRes is
         Ok repoList ->
-            Stdout.write! "Updating platform repository..."
+            Stdout.write! "Updating platform repository... "
             res <- updateRepoCache repoList "pf-data.rvn" |> Task.attempt
             when res is
                 Ok _ ->
-                    Stdout.line! " $(greenCheck)"
+                    Stdout.line! greenCheck
                 Err GhAuthError ->
-                    Stdout.line! " $(redCross) "
+                    Stdout.line! redCross
                     Stdout.line! ("Error: `gh` not authenticated" |> Core.withFg (Standard Yellow))
                     Task.err GhAuthError
                 Err GhNotInstalled ->
-                    Stdout.line! " $(redCross)"
+                    Stdout.line! redCross
                     Stdout.line! ("Error: `gh` not installed" |> Core.withFg (Standard Yellow))
                     Task.err GhNotInstalled
                 Err e ->
-                    Stdout.line! " $(redCross)"
+                    Stdout.line! redCross
                     Task.err e
 
         Err e -> 
             Stdout.line! "Platform update failed. $(redCross)"
-            Task.err e
+            when e is
+                NetworkErr _ -> 
+                    Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
+                    Task.err e
+                _ -> 
+                    Task.err e
 
 ## Download the app stubs for the currently cached platforms.
 doAppStubUpdate : Task {} _
 doAppStubUpdate =
     dataDir = getAndCreateDataDir!
-    platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn"
-    platforms = getRepoDict platformBytes
-    getAppStubsIfNeeded! (Dict.keys platforms) Bool.true
+    platformBytesRes <- File.readBytes "$(dataDir)/pf-data.rvn" |> Task.attempt
+    when platformBytesRes is
+        Ok platformBytes ->
+            platforms = getRepoDict platformBytes
+            getAppStubs! (Dict.keys platforms)
+        Err _ -> 
+            Stdout.line! "App-stub update failed. $(redCross)"
+            Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.withFg (Standard Yellow))
+            Task.err ErrReadingPlatforms
 
 getRemoteRepoData : [Packages, Platforms] -> Task (List RemoteRepoEntry) _
 getRemoteRepoData = \type ->
@@ -576,9 +600,22 @@ getAppStubs : List Str -> Task {} _
 getAppStubs = \platforms ->
     dataDir = getAndCreateDataDir!
     appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
-    Stdout.write! "Updating app-stubs..."
-    Task.loop! { platforms, dir: appStubsDir } getAppStubsLoop
-    Stdout.line " $(greenCheck)"
+    Stdout.write! "Updating app-stubs... "
+    if List.len platforms > 0 then
+        res <- Task.loop { platforms, dir: appStubsDir } getAppStubsLoop |> Task.attempt
+        when res is
+            Err (NetworkErr _) -> 
+                Stdout.line! redCross
+                Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
+
+            Err _ ->
+                Stdout.line! redCross
+
+            Ok {} -> 
+                Stdout.line! greenCheck
+    else
+        Stdout.line! redCross
+        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.withFg (Standard Yellow))
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
@@ -589,12 +626,16 @@ getAppStubsLoop = \{ platforms, dir } ->
         Ok platform ->
             updatedList = List.dropFirst platforms 1
             request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/app-stubs/$(platform).roc"
-            response = Http.send request |> Task.onErr! \_ -> Task.ok { body: [], headers: [], statusCode: 0, statusText: "", url: "" }
-            if response.statusCode == 200 && !(List.isEmpty response.body) then
-                File.writeBytes! "$(dir)/$(platform)" response.body
-                Task.ok (Step { platforms: updatedList, dir })
-            else
-                Task.ok (Step { platforms: updatedList, dir })
+            responseRes <- Http.send request |> Task.attempt
+            when responseRes is   
+                Err e ->
+                    when e is
+                        HttpErr (BadStatus code ) if code == 404 -> Task.ok (Step { platforms: updatedList, dir })
+                        _ -> Task.err (NetworkErr e)
+
+                Ok response ->
+                    File.writeBytes! "$(dir)/$(platform)" response.body
+                    Task.ok (Step { platforms: updatedList, dir })
 
         Err OutOfBounds -> Task.ok (Done {})
 
