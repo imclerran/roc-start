@@ -10,6 +10,7 @@
     { repo: "roc-ascii", owner: "hasnep", alias: "ascii", platform: Bool.false, requires: [] },
     { repo: "roc-asciiart", owner: "imclerran", alias: "art", platform: Bool.false, requires: [] },
     { repo: "roc-aws-lambda", owner: "isaacvando", alias: "pf", platform: Bool.true, requires: ["main"] },
+    { repo: "roc-base64", owner: "adomurad", alias: "base64", platform: Bool.false, requires: [] },
     { repo: "roc-datetimes", owner: "hasnep", alias: "dt", platform: Bool.false, requires: [] },
     { repo: "roc-fuzz", owner: "bhansconnect", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "roc-glue-code-gen", owner: "lukewilliamboswell", alias: "glue", platform: Bool.false, requires: [] },
