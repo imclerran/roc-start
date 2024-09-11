@@ -1,65 +1,17 @@
 module [Key, keyToStr, keyToSlugStr]
 
+import Utils
+
 Key : [
-    Up,
-    Down,
-    Left,
-    Right,
-    Escape,
-    Enter,
-    LowerA,
-    UpperA,
-    UpperB,
-    LowerB,
-    UpperC,
-    LowerC,
-    UpperD,
-    LowerD,
-    UpperE,
-    LowerE,
-    UpperF,
-    LowerF,
-    UpperG,
-    LowerG,
-    UpperH,
-    LowerH,
-    UpperI,
-    LowerI,
-    UpperJ,
-    LowerJ,
-    UpperK,
-    LowerK,
-    UpperL,
-    LowerL,
-    UpperM,
-    LowerM,
-    UpperN,
-    LowerN,
-    UpperO,
-    LowerO,
-    UpperP,
-    LowerP,
-    UpperQ,
-    LowerQ,
-    UpperR,
-    LowerR,
-    UpperS,
-    LowerS,
-    UpperT,
-    LowerT,
-    UpperU,
-    LowerU,
-    UpperV,
-    LowerV,
-    UpperW,
-    LowerW,
-    UpperX,
-    LowerX,
-    UpperY,
-    LowerY,
-    UpperZ,
-    LowerZ,
-    Space,
+    Action [Space],
+    Symbol Symbol,
+    Number Number,
+    Upper Letter,
+    Lower Letter,
+    None,
+]
+
+Symbol : [
     ExclamationMark,
     QuotationMark,
     NumberSign,
@@ -92,75 +44,13 @@ Key : [
     VerticalBar,
     CurlyCloseBrace,
     Tilde,
-    Number0,
-    Number1,
-    Number2,
-    Number3,
-    Number4,
-    Number5,
-    Number6,
-    Number7,
-    Number8,
-    Number9,
-    Delete,
 ]
+Number : [N0, N1, N2, N3, N4, N5, N6, N7, N8, N9]
+Letter : [A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z]
 
-keyToStr : Key -> Str
-keyToStr = \key ->
-    when key is
-        LowerA -> "a"
-        UpperA -> "A"
-        LowerB -> "b"
-        UpperB -> "B"
-        LowerC -> "c"
-        UpperC -> "C"
-        LowerD -> "d"
-        UpperD -> "D"
-        LowerE -> "e"
-        UpperE -> "E"
-        LowerF -> "f"
-        UpperF -> "F"
-        LowerG -> "g"
-        UpperG -> "G"
-        LowerH -> "h"
-        UpperH -> "H"
-        LowerI -> "i"
-        UpperI -> "I"
-        LowerJ -> "j"
-        UpperJ -> "J"
-        LowerK -> "k"
-        UpperK -> "K"
-        LowerL -> "l"
-        UpperL -> "L"
-        LowerM -> "m"
-        UpperM -> "M"
-        LowerN -> "n"
-        UpperN -> "N"
-        LowerO -> "o"
-        UpperO -> "O"
-        LowerP -> "p"
-        UpperP -> "P"
-        LowerQ -> "q"
-        UpperQ -> "Q"
-        LowerR -> "r"
-        UpperR -> "R"
-        LowerS -> "s"
-        UpperS -> "S"
-        LowerT -> "t"
-        UpperT -> "T"
-        LowerU -> "u"
-        UpperU -> "U"
-        LowerV -> "v"
-        UpperV -> "V"
-        LowerW -> "w"
-        UpperW -> "W"
-        LowerX -> "x"
-        UpperX -> "X"
-        LowerY -> "y"
-        UpperY -> "Y"
-        LowerZ -> "z"
-        UpperZ -> "Z"
-        Space -> " "
+symbolToStr : Symbol -> Str
+symbolToStr = \symbol ->
+    when symbol is
         ExclamationMark -> "!"
         QuotationMark -> "\""
         NumberSign -> "#"
@@ -193,84 +83,91 @@ keyToStr = \key ->
         VerticalBar -> "|"
         CurlyCloseBrace -> "}"
         Tilde -> "~"
-        Number0 -> "0"
-        Number1 -> "1"
-        Number2 -> "2"
-        Number3 -> "3"
-        Number4 -> "4"
-        Number5 -> "5"
-        Number6 -> "6"
-        Number7 -> "7"
-        Number8 -> "8"
-        Number9 -> "9"
+
+numberToStr : Number -> Str
+numberToStr = \number ->
+    when number is
+        N0 -> "0"
+        N1 -> "1"
+        N2 -> "2"
+        N3 -> "3"
+        N4 -> "4"
+        N5 -> "5"
+        N6 -> "6"
+        N7 -> "7"
+        N8 -> "8"
+        N9 -> "9"
+
+letterToStr : Letter -> Str
+letterToStr = \letter ->
+    when letter is
+        A -> "A"
+        B -> "B"
+        C -> "C"
+        D -> "D"
+        E -> "E"
+        F -> "F"
+        G -> "G"
+        H -> "H"
+        I -> "I"
+        J -> "J"
+        K -> "K"
+        L -> "L"
+        M -> "M"
+        N -> "N"
+        O -> "O"
+        P -> "P"
+        Q -> "Q"
+        R -> "R"
+        S -> "S"
+        T -> "T"
+        U -> "U"
+        V -> "V"
+        W -> "W"
+        X -> "X"
+        Y -> "Y"
+        Z -> "Z"
+
+keyToStr : Key -> Str
+keyToStr = \key ->
+    when key is
+        Action Space -> " "
+        Symbol symbol ->
+            symbol
+            |> symbolToStr
+
+        Number number ->
+            number
+            |> numberToStr
+
+        Lower letter ->
+            letter
+            |> letterToStr
+            |> Utils.strToLower
+
+        Upper letter ->
+            letter
+            |> letterToStr
+
         _ -> ""
 
 keyToSlugStr : Key -> Str
 keyToSlugStr = \key ->
     when key is
-        LowerA -> "a"
-        UpperA -> "A"
-        LowerB -> "b"
-        UpperB -> "B"
-        LowerC -> "c"
-        UpperC -> "C"
-        LowerD -> "d"
-        UpperD -> "D"
-        LowerE -> "e"
-        UpperE -> "E"
-        LowerF -> "f"
-        UpperF -> "F"
-        LowerG -> "g"
-        UpperG -> "G"
-        LowerH -> "h"
-        UpperH -> "H"
-        LowerI -> "i"
-        UpperI -> "I"
-        LowerJ -> "j"
-        UpperJ -> "J"
-        LowerK -> "k"
-        UpperK -> "K"
-        LowerL -> "l"
-        UpperL -> "L"
-        LowerM -> "m"
-        UpperM -> "M"
-        LowerN -> "n"
-        UpperN -> "N"
-        LowerO -> "o"
-        UpperO -> "O"
-        LowerP -> "p"
-        UpperP -> "P"
-        LowerQ -> "q"
-        UpperQ -> "Q"
-        LowerR -> "r"
-        UpperR -> "R"
-        LowerS -> "s"
-        UpperS -> "S"
-        LowerT -> "t"
-        UpperT -> "T"
-        LowerU -> "u"
-        UpperU -> "U"
-        LowerV -> "v"
-        UpperV -> "V"
-        LowerW -> "w"
-        UpperW -> "W"
-        LowerX -> "x"
-        UpperX -> "X"
-        LowerY -> "y"
-        UpperY -> "Y"
-        LowerZ -> "z"
-        UpperZ -> "Z"
-        Space -> "_"
-        Hyphen -> "-"
-        Underscore -> "_"
-        Number0 -> "0"
-        Number1 -> "1"
-        Number2 -> "2"
-        Number3 -> "3"
-        Number4 -> "4"
-        Number5 -> "5"
-        Number6 -> "6"
-        Number7 -> "7"
-        Number8 -> "8"
-        Number9 -> "9"
+        Action Space -> "_"
+        Symbol Hyphen -> "-"
+        Symbol Underscore -> "_"
+        Number number ->
+            number
+            |> numberToStr
+
+        Lower letter ->
+            letter
+            |> letterToStr
+            |> Utils.strToLower
+
+        Upper letter ->
+            letter
+            |> letterToStr
+
         _ -> ""

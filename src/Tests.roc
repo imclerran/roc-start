@@ -241,12 +241,12 @@ expect
 
 expect
     # TEST: first item on page does not change when paginating
-    model = 
+    model =
         { packageSelectModel & screen: { height: 5, width: 0 } }
         |> Controller.paginate
         |> applyAction NextPage
         |> Controller.paginate
-    smallSizeModel = 
+    smallSizeModel =
         { model & screen: { height: 4, width: 0 } }
         |> Controller.paginate
     resetSizeModel =
@@ -258,17 +258,21 @@ expect
 
 expect
     # TEST: previous page - available rows exceed previous menu items
-    model = 
+    model =
         { packageSelectModel & screen: { height: 5, width: 0 } }
         |> Controller.paginate
         |> applyAction NextPage
         |> Controller.paginate
-    prevModel = 
+    prevModel =
         model
         |> applyAction PrevPage
         |> Controller.paginate
-    (model.menu == ["pk2", "pk3"]
-    && prevModel.menu == ["pk1", "pk2"])
+    (
+        model.menu
+        == ["pk2", "pk3"]
+        && prevModel.menu
+        == ["pk1", "pk2"]
+    )
 
 ## ===============================
 ## TypeSelect tests

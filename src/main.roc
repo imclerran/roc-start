@@ -1,7 +1,7 @@
 app [main] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.11.0/SY4WWMhWQ9NvQgvIthcv15AUeA7rAIJHAHgiaSHGhdY.tar.br",
-    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.5/1JOFFXrqOrdoINq6C4OJ8k3UK0TJhgITLbcOb-6WMwY.tar.br",
-    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.0/KbIfTNbxShRX1A1FgXei1SpO5Jn8sgP6HP6PXbi-xyA.tar.br",
+    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.15.0/SlwdbJ-3GR7uBWQo6zlmYWNYOxnvo8r6YABXD-45UOw.tar.br",
+    ansi: "./roc-ansi/main.roc",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.2/FH4N0Sw-JSFXJfG3j54VEDPtXOoN-6I9v_IA8S18IGk.tar.br",
     rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.2.0/omuMnR9ZyK4n5MaBqi7Gg73-KS50UMs-1nTu165yxvM.tar.br",
     weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
 }
@@ -21,7 +21,6 @@ import cli.Http
 import cli.Path
 import cli.Stdin
 import cli.Stdout
-import cli.Task exposing [Task]
 import cli.Tty
 import json.Json
 import rvn.Rvn
@@ -33,13 +32,13 @@ Configuration : {
     type : [App, Pkg],
 }
 
-greenCheck = "✔" |> Core.withFg (Standard Green)
-redCross = "✖" |> Core.withFg (Standard Red)
+greenCheck = "✔" |> Core.color { fg: Standard Green }
+redCross = "✖" |> Core.color { fg: Standard Red }
 
 ## The main entry point for the program.
 main : Task {} _
 main =
-    when ArgParser.parseOrDisplayMessage Arg.list! is
+    when ArgParser.parseOrDisplayMessage (Arg.list! {}) is
         Ok args ->
             runWith args
 
@@ -51,8 +50,8 @@ main =
 runWith : _ -> Task {} _
 runWith = \args ->
     when args.subcommand is
-        Ok (Tui {}) ->
-            runTuiApp args.update
+        Ok (Tui s) ->
+            runTuiApp args.update s
             |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Ok (Update { doPfs, doPkgs, doStubs }) ->
@@ -64,10 +63,10 @@ runWith = \args ->
                 |> Task.onErr \_ -> Task.err (Exit 1 "")
 
         Ok (App { appName, platform, packages }) ->
-            runCliApp App appName platform packages args.update 
+            runCliApp App appName platform packages args.update
             |> Task.onErr \_ -> Task.err (Exit 1 "")
 
-        Ok (Pkg { packages }) ->
+        Ok (Pkg packages) ->
             runCliApp Pkg "main" "" packages args.update
             |> Task.onErr \_ -> Task.err (Exit 1 "")
 
@@ -79,29 +78,36 @@ runWith = \args ->
 ## Load the repository data, and create the roc file if it doesn't already exist.
 runCliApp : [App, Pkg], Str, Str, List Str, Bool -> Task {} _
 runCliApp = \type, fileName, platform, packages, forceUpdate ->
-    reposRes <- loadRepoData forceUpdate |> Task.attempt
-    when reposRes is
-        Ok repos ->
-            getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
-            fileExists = checkForFile! "$(fileName).roc"
-            if fileExists then
-                Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
-                Task.err (Exit 1 "")
-            else
-                createRocFile! { fileName, platform, packages, type } repos
-                Stdout.line! "Created $(fileName).roc $(greenCheck)"
-        Err e -> Task.err e
+    loadRepoData forceUpdate
+        |> Task.attempt \reposRes ->
+            when reposRes is
+                Ok repos ->
+                    getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
+                    fileExists = checkForFile! "$(fileName).roc"
+                    if fileExists then
+                        Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
+                        Task.err (Exit 1 "")
+                    else
+                        createRocFile! { fileName, platform, packages, type } repos
+                        Stdout.line! "Created $(fileName).roc $(greenCheck)"
+
+                Err e -> Task.err e
 
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
-runTuiApp : Bool -> Task {} _
-runTuiApp = \forceUpdate ->
+runTuiApp : Bool, Bool -> Task {} _
+runTuiApp = \forceUpdate, showSplash ->
     repos = loadRepoData! forceUpdate
     getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
-    Tty.enableRawMode!
-    model = Task.loop! (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages)) runUiLoop
+    Tty.enableRawMode! {}
+    initialModel =
+        if showSplash then
+            Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) { state: Splash { config: Model.emptyAppConfig } }
+        else
+            Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}
+    model = Task.loop! initialModel runUiLoop #(Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}) runUiLoop
     Stdout.write! (Core.toStr Reset)
-    Tty.disableRawMode!
+    Tty.disableRawMode! {}
     when model.state is
         UserExited -> Task.ok {}
         Finished { config } ->
@@ -113,7 +119,7 @@ runTuiApp = \forceUpdate ->
                 createRocFile! config repos
                 Stdout.line "Created $(config.fileName).roc $(greenCheck)"
 
-        _ -> Stdout.line ("Oops! Something went wrong..." |> Core.withFg (Standard Yellow))
+        _ -> Stdout.line ("Oops! Something went wrong..." |> Core.color { fg: Standard Yellow })
 
 ## Run the update tasks for the platform, package, and app-stub repositories.
 runUpdates : Bool, Bool, Bool -> Task {} _
@@ -122,8 +128,8 @@ runUpdates = \doPfs, doPkgs, doStubs ->
         when List.first updateList is
             Ok (doUpdate, updater) ->
                 if doUpdate then
-                    _ <- updater |> Task.attempt
-                    Task.ok (Step (List.dropFirst updateList 1))
+                    Task.attempt updater \_ ->
+                        Task.ok (Step (List.dropFirst updateList 1))
                 else
                     Task.ok (Step (List.dropFirst updateList 1))
 
@@ -137,7 +143,7 @@ runUiLoop = \prevModel ->
     model = Controller.paginate { prevModel & screen: terminalSize }
     Core.drawScreen model (render model) |> Stdout.write!
 
-    input = Stdin.bytes |> Task.map! Core.parseRawStdin
+    input = Stdin.bytes {} |> Task.map! Core.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
     handleInput modelWithInput input
 
@@ -146,10 +152,10 @@ runUiLoop = \prevModel ->
 getTerminalSize : Task Core.ScreenSize _
 getTerminalSize =
     # Move the cursor to bottom right corner of terminal
-    cmd = [MoveCursor (To { row: 999, col: 999 }), GetCursor] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
+    cmd = [Cursor (Abs { row: 999, col: 999 }), Cursor (Position (Get))] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
     Stdout.write! cmd
     # Read the cursor position
-    Stdin.bytes
+    Stdin.bytes {}
         |> Task.map Core.parseCursor
         |> Task.map! \{ row, col } -> { width: col, height: row }
 
@@ -186,7 +192,7 @@ handleDefaultInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleDefaultInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
+            Ctrl C -> Exit
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -194,17 +200,16 @@ handleTypeSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleTypeSelectInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
-            KeyPress Enter -> SingleSelect
-            KeyPress Up -> CursorUp
-            KeyPress Down -> CursorDown
-            KeyPress Right -> NextPage
-            KeyPress GreaterThanSign -> NextPage
-            KeyPress FullStop -> NextPage
-            KeyPress Left -> PrevPage
-            KeyPress LessThanSign -> PrevPage
-            KeyPress Comma -> PrevPage
-            KeyPress GraveAccent -> Secret
+            Ctrl C -> Exit
+            Action Enter -> SingleSelect
+            Arrow Up -> CursorUp
+            Arrow Down -> CursorDown
+            Arrow Right -> NextPage
+            Symbol GreaterThanSign -> NextPage
+            Symbol FullStop -> NextPage
+            Arrow Left -> PrevPage
+            Symbol LessThanSign -> PrevPage
+            Symbol Comma -> PrevPage
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -213,20 +218,20 @@ handlePlatformSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
-            KeyPress LowerS -> Search
-            KeyPress UpperS -> Search
-            KeyPress Enter -> SingleSelect
-            KeyPress Up -> CursorUp
-            KeyPress Down -> CursorDown
-            KeyPress Delete -> GoBack
-            KeyPress Escape -> ClearFilter
-            KeyPress Right -> NextPage
-            KeyPress GreaterThanSign -> NextPage
-            KeyPress FullStop -> NextPage
-            KeyPress Left -> PrevPage
-            KeyPress LessThanSign -> PrevPage
-            KeyPress Comma -> PrevPage
+            Ctrl C -> Exit
+            Lower S -> Search
+            Upper S -> Search
+            Action Enter -> SingleSelect
+            Arrow Up -> CursorUp
+            Arrow Down -> CursorDown
+            Action Delete -> GoBack
+            Action Escape -> ClearFilter
+            Arrow Right -> NextPage
+            Symbol GreaterThanSign -> NextPage
+            Symbol FullStop -> NextPage
+            Arrow Left -> PrevPage
+            Symbol LessThanSign -> PrevPage
+            Symbol Comma -> PrevPage
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -235,21 +240,21 @@ handlePackageSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
-            KeyPress LowerS -> Search
-            KeyPress UpperS -> Search
-            KeyPress Enter -> MultiConfirm
-            KeyPress Space -> MultiSelect
-            KeyPress Up -> CursorUp
-            KeyPress Down -> CursorDown
-            KeyPress Delete -> GoBack
-            KeyPress Escape -> ClearFilter
-            KeyPress Right -> NextPage
-            KeyPress GreaterThanSign -> NextPage
-            KeyPress FullStop -> NextPage
-            KeyPress Left -> PrevPage
-            KeyPress LessThanSign -> PrevPage
-            KeyPress Comma -> PrevPage
+            Ctrl C -> Exit
+            Lower S -> Search
+            Upper S -> Search
+            Action Enter -> MultiConfirm
+            Action Space -> MultiSelect
+            Arrow Up -> CursorUp
+            Arrow Down -> CursorDown
+            Action Delete -> GoBack
+            Action Escape -> ClearFilter
+            Arrow Right -> NextPage
+            Symbol GreaterThanSign -> NextPage
+            Symbol FullStop -> NextPage
+            Arrow Left -> PrevPage
+            Symbol LessThanSign -> PrevPage
+            Symbol Comma -> PrevPage
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -258,11 +263,16 @@ handleSearchInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleSearchInput = \model, input ->
     (action, keyPress) =
         when input is
-            CtrlC -> (Exit, None)
-            KeyPress Enter -> (SearchGo, None)
-            KeyPress Escape -> (Cancel, None)
-            KeyPress Delete -> (TextBackspace, None)
-            KeyPress key -> (TextInput, KeyPress key)
+            Ctrl C -> (Exit, None)
+            Action Enter -> (SearchGo, None)
+            Action Escape -> (Cancel, None)
+            Ctrl H -> (TextBackspace, None)
+            Action Delete -> (TextBackspace, None)
+            Action Space -> (TextInput, Action Space)
+            Symbol symbol -> (TextInput, Symbol symbol)
+            Number number -> (TextInput, Number number)
+            Lower letter -> (TextInput, Lower letter)
+            Upper letter -> (TextInput, Upper letter)
             _ -> (None, None)
     Task.ok (Controller.applyAction { model, action, keyPress })
 
@@ -275,10 +285,15 @@ handleInputAppNameInput = \model, input ->
             _ -> 0
     (action, keyPress) =
         when input is
-            CtrlC -> (Exit, None)
-            KeyPress Enter -> (TextSubmit, None)
-            KeyPress Delete -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
-            KeyPress key -> (TextInput, KeyPress key)
+            Ctrl C -> (Exit, None)
+            Action Enter -> (TextSubmit, None)
+            Ctrl H -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
+            Action Delete -> if bufferLen == 0 then (GoBack, None) else (TextBackspace, None)
+            Action Space -> (TextInput, Action Space)
+            Symbol symbol -> (TextInput, Symbol symbol)
+            Number number -> (TextInput, Number number)
+            Lower letter -> (TextInput, Lower letter)
+            Upper letter -> (TextInput, Lower letter)
             _ -> (None, None)
     Task.ok (Controller.applyAction { model, action, keyPress })
 
@@ -287,9 +302,9 @@ handleConfirmationInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleConfirmationInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
-            KeyPress Enter -> Finish
-            KeyPress Delete -> GoBack
+            Ctrl C -> Exit
+            Action Enter -> Finish
+            Action Delete -> GoBack
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -297,8 +312,8 @@ handleSplashInput : Model, Core.Input -> Task [Step Model, Done Model] _
 handleSplashInput = \model, input ->
     action =
         when input is
-            CtrlC -> Exit
-            KeyPress Delete -> GoBack
+            Ctrl C -> Exit
+            Action Delete -> GoBack
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
@@ -352,14 +367,15 @@ loadRepoData = \forceUpdate ->
 ## DO NOT DELETE ME!
 ## This is the perfered version of loadRepoData, but putting the logic to read the files inside the if statement
 ## causes the compiler to hang indefinitely. If this bug is fixed, the above version should be replaced with this one.
+# loadRepoData : Bool -> Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
 # loadRepoData = \forceUpdate ->
 #     if forceUpdate then
 #         loadLatestRepoData
 #     else
-# >         dataDir = getAndCreateDataDir!
+#         dataDir = getAndCreateDataDir! # <--
 #         packageBytes = File.readBytes "$(dataDir)/pkg-data.rvn" |> Task.onErr! \_ -> Task.ok []
 #         platformBytes = File.readBytes "$(dataDir)/pf-data.rvn" |> Task.onErr! \_ -> Task.ok []
-# >        packages = getRepoDict packageBytes
+#         packages = getRepoDict packageBytes # <--
 #         platforms = getRepoDict platformBytes
 #         if Dict.isEmpty platforms || Dict.isEmpty packages then
 #             loadLatestRepoData # this will migrate tuples to records from old roc-start installs
@@ -369,123 +385,131 @@ loadRepoData = \forceUpdate ->
 ## Load the latest repository data from the remote repository.
 loadLatestRepoData : Task { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } _
 loadLatestRepoData =
-    updateRes <- doRepoUpdate |> Task.attempt
-    when updateRes is
-        Ok _ ->
-            dataDir = getAndCreateDataDir!
-            packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
-            platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
-            packages = getRepoDict packageBytes
-            platforms = getRepoDict platformBytes
-            Task.ok { packages, platforms }
-        
-        Err e -> Task.err e
+    Task.attempt doRepoUpdate \updateRes ->
+        when updateRes is
+            Ok _ ->
+                dataDir = getAndCreateDataDir!
+                packageBytes = File.readBytes! "$(dataDir)/pkg-data.rvn" # consider using in-memory data structure
+                platformBytes = File.readBytes! "$(dataDir)/pf-data.rvn" # if the repo was loaded from remote
+                packages = getRepoDict packageBytes
+                platforms = getRepoDict platformBytes
+                Task.ok { packages, platforms }
+
+            Err e -> Task.err e
 
 ## Update the local repository cache with the latest data from the remote repository.
 doRepoUpdate : Task {} _
 doRepoUpdate =
-    pfRes <- doPlatformUpdate |> Task.attempt
-    when pfRes is
-        Ok _ ->
-            pkgRes <- doPackageUpdate |> Task.attempt
-            when pkgRes is
-                Ok _ -> Task.ok {}
-                Err e -> Task.err e
+    Task.attempt doPlatformUpdate \pfRes ->
+        when pfRes is
+            Ok _ ->
+                Task.attempt doPackageUpdate \pkgRes ->
+                    when pkgRes is
+                        Ok _ -> Task.ok {}
+                        Err e -> Task.err e
 
-        Err e -> Task.err e
+            Err e -> Task.err e
 
 ## Update the local package repository cache with the latest data from the remote repository.
 doPackageUpdate : Task {} _
 doPackageUpdate =
-    repoListRes <- getRemoteRepoData Packages |> Task.attempt
-    when repoListRes is
-        Ok repoList ->
-            Stdout.write! "Updating package repository... "
-            res <- updateRepoCache repoList "pkg-data.rvn" |> Task.attempt
-            when res is
-                Ok _ ->
-                    Stdout.line! greenCheck
-                Err GhAuthError ->
-                    Stdout.line! redCross
-                    Stdout.line! ("Error: `gh` not authenticated." |> Core.withFg (Standard Yellow))
-                    Task.err GhAuthError
-                Err GhNotInstalled ->
-                    Stdout.line! redCross
-                    Stdout.line! ("Error: `gh` not installed." |> Core.withFg (Standard Yellow))
-                    Task.err GhNotInstalled
-                Err e ->
-                    Stdout.line! redCross
-                    Task.err e
+    Task.attempt (getRemoteRepoData Packages) \repoListRes ->
+        when repoListRes is
+            Ok repoList ->
+                Stdout.write! "Updating package repository... "
+                Task.attempt (updateRepoCache repoList "pkg-data.rvn") \res ->
+                    when res is
+                        Ok _ ->
+                            Stdout.line! greenCheck
 
-        Err e -> 
-            Stdout.line! "Package update failed. $(redCross)"
-            when e is
-                NetworkErr _ -> 
-                    Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
-                    Task.err e
-                _ -> 
-                    Task.err e
+                        Err GhAuthError ->
+                            Stdout.line! redCross
+                            Stdout.line! ("Error: `gh` not authenticated." |> Core.color { fg: Standard Yellow })
+                            Task.err GhAuthError
 
+                        Err GhNotInstalled ->
+                            Stdout.line! redCross
+                            Stdout.line! ("Error: `gh` not installed." |> Core.color { fg: Standard Yellow })
+                            Task.err GhNotInstalled
+
+                        Err e ->
+                            Stdout.line! redCross
+                            Task.err e
+
+            Err e ->
+                Stdout.line! "Package update failed. $(redCross)"
+                when e is
+                    NetworkErr _ ->
+                        Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
+                        Task.err e
+
+                    _ ->
+                        Task.err e
 
 ## Update the local platform repository cache with the latest data from the remote repository.
 doPlatformUpdate : Task {} _
 doPlatformUpdate =
-    repoListRes <- getRemoteRepoData Platforms |> Task.attempt
-    when repoListRes is
-        Ok repoList ->
-            Stdout.write! "Updating platform repository... "
-            res <- updateRepoCache repoList "pf-data.rvn" |> Task.attempt
-            when res is
-                Ok _ ->
-                    Stdout.line! greenCheck
-                Err GhAuthError ->
-                    Stdout.line! redCross
-                    Stdout.line! ("Error: `gh` not authenticated" |> Core.withFg (Standard Yellow))
-                    Task.err GhAuthError
-                Err GhNotInstalled ->
-                    Stdout.line! redCross
-                    Stdout.line! ("Error: `gh` not installed" |> Core.withFg (Standard Yellow))
-                    Task.err GhNotInstalled
-                Err e ->
-                    Stdout.line! redCross
-                    Task.err e
+    Task.attempt (getRemoteRepoData Platforms) \repoListRes ->
+        when repoListRes is
+            Ok repoList ->
+                Stdout.write! "Updating platform repository... "
+                Task.attempt (updateRepoCache repoList "pf-data.rvn") \res ->
+                    when res is
+                        Ok _ ->
+                            Stdout.line! greenCheck
 
-        Err e -> 
-            Stdout.line! "Platform update failed. $(redCross)"
-            when e is
-                NetworkErr _ -> 
-                    Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
-                    Task.err e
-                _ -> 
-                    Task.err e
+                        Err GhAuthError ->
+                            Stdout.line! redCross
+                            Stdout.line! ("Error: `gh` not authenticated" |> Core.color { fg: Standard Yellow })
+                            Task.err GhAuthError
+
+                        Err GhNotInstalled ->
+                            Stdout.line! redCross
+                            Stdout.line! ("Error: `gh` not installed" |> Core.color { fg: Standard Yellow })
+                            Task.err GhNotInstalled
+
+                        Err e ->
+                            Stdout.line! redCross
+                            Task.err e
+
+            Err e ->
+                Stdout.line! "Platform update failed. $(redCross)"
+                when e is
+                    NetworkErr _ ->
+                        Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
+                        Task.err e
+
+                    _ ->
+                        Task.err e
 
 ## Download the app stubs for the currently cached platforms.
 doAppStubUpdate : Task {} _
 doAppStubUpdate =
     dataDir = getAndCreateDataDir!
-    platformBytesRes <- File.readBytes "$(dataDir)/pf-data.rvn" |> Task.attempt
-    when platformBytesRes is
-        Ok platformBytes ->
-            platforms = getRepoDict platformBytes
-            getAppStubs! (Dict.keys platforms)
-        Err _ -> 
-            Stdout.line! "App-stub update failed. $(redCross)"
-            Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.withFg (Standard Yellow))
-            Task.err ErrReadingPlatforms
+    Task.attempt (File.readBytes "$(dataDir)/pf-data.rvn") \platformBytesRes ->
+        when platformBytesRes is
+            Ok platformBytes ->
+                platforms = getRepoDict platformBytes
+                getAppStubs! (Dict.keys platforms)
+
+            Err _ ->
+                Stdout.line! "App-stub update failed. $(redCross)"
+                Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.color { fg: Standard Yellow })
+                Task.err ErrReadingPlatforms
 
 getRemoteRepoData : [Packages, Platforms] -> Task (List RemoteRepoEntry) _
 getRemoteRepoData = \type ->
     request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/roc-repo.rvn"
-    respRes <- Http.send request |> Task.attempt
-    when respRes is
-        Ok resp ->
-            when Decode.fromBytes resp.body Rvn.pretty is
-                Ok repos ->
-                    Task.ok (List.keepIf repos \repo -> repo.platform == (type == Platforms))
+    Task.attempt (Http.send request) \respRes ->
+        when respRes is
+            Ok resp ->
+                when Decode.fromBytes resp.body Rvn.pretty is
+                    Ok repos ->
+                        Task.ok (List.keepIf repos \repo -> repo.platform == (type == Platforms))
 
-                Err e -> Task.err (DecodingErr e)
-        
-        Err e -> Task.err (NetworkErr e)
+                    Err e -> Task.err (DecodingErr e)
+
+            Err e -> Task.err (NetworkErr e)
 
 ## Create an Http.Request object with the given url.
 getRequest : Str -> Http.Request
@@ -505,13 +529,13 @@ updateRepoCache = \repositoryList, filename ->
         Task.ok {}
     else
         dataDir = getAndCreateDataDir!
-        pkgRvnStrRes <- Task.loop { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop |> Task.attempt
-        when pkgRvnStrRes is
-            Ok pkgRvnStr ->
-                File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
+        Task.attempt (Task.loop { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop) \pkgRvnStrRes ->
+            when pkgRvnStrRes is
+                Ok pkgRvnStr ->
+                    File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
 
-            Err e -> 
-                Task.err e
+                Err e ->
+                    Task.err e
 
 RepositoryLoopState : { repositoryList : List RemoteRepoEntry, rvnDataStr : Str }
 
@@ -522,20 +546,20 @@ reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
     when List.first repositoryList is
         Ok { owner, repo, alias, platform, requires } ->
             updatedList = List.dropFirst repositoryList 1
-            responseRes <- getLatestRelease owner repo |> Task.attempt
-            when responseRes is
-                Ok response ->
-                    releaseData = responseToReleaseData response
-                    when releaseData is
-                        Ok { tagName, browserDownloadUrl } ->
-                            updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform, requires })
-                            Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
+            Task.attempt (getLatestRelease owner repo) \responseRes ->
+                when responseRes is
+                    Ok response ->
+                        releaseData = responseToReleaseData response
+                        when releaseData is
+                            Ok { tagName, browserDownloadUrl } ->
+                                updatedStr = Str.concat rvnDataStr (repoDataToRvnEntry { repo, owner, alias, version: tagName, url: browserDownloadUrl, platform, requires })
+                                Task.ok (Step { repositoryList: updatedList, rvnDataStr: updatedStr })
 
-                        Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
-                
-                Err (CmdOutputError (_, ExitCode 4)) -> Task.err GhAuthError
-                Err (CmdOutputError (_, IOError _)) -> Task.err GhNotInstalled
-                Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
+                            Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
+
+                    Err (CmdOutputError (_, ExitCode 4)) -> Task.err GhAuthError
+                    Err (CmdOutputError (_, IOError _)) -> Task.err GhNotInstalled
+                    Err _ -> Task.ok (Step { repositoryList: updatedList, rvnDataStr })
 
         Err ListWasEmpty -> Task.ok (Done (Str.concat rvnDataStr "]"))
 
@@ -543,13 +567,13 @@ reposToRvnStrLoop = \{ repositoryList, rvnDataStr } ->
 getLatestRelease : Str, Str -> Task { stdout : List U8, stderr : List U8 } _
 getLatestRelease = \owner, repo ->
     Cmd.new "gh"
-        |> Cmd.arg "api"
-        |> Cmd.arg "-H"
-        |> Cmd.arg "Accept: application/vnd.github+json"
-        |> Cmd.arg "-H"
-        |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
-        |> Cmd.arg "/repos/$(owner)/$(repo)/releases/latest"
-        |> Cmd.output
+    |> Cmd.arg "api"
+    |> Cmd.arg "-H"
+    |> Cmd.arg "Accept: application/vnd.github+json"
+    |> Cmd.arg "-H"
+    |> Cmd.arg "X-GitHub-Api-Version: 2022-11-28"
+    |> Cmd.arg "/repos/$(owner)/$(repo)/releases/latest"
+    |> Cmd.output
 
 ## Parse the response from the github cli to get the tagName and browserDownloadUrl for the tar.br file for a given release.
 responseToReleaseData : { stdout : List U8 }* -> Result { tagName : Str, browserDownloadUrl : Str } [NoAssetsFound, ParsingError]
@@ -602,20 +626,20 @@ getAppStubs = \platforms ->
     appStubsDir = getAndCreateDir! "$(dataDir)/app-stubs"
     Stdout.write! "Updating app-stubs... "
     if List.len platforms > 0 then
-        res <- Task.loop { platforms, dir: appStubsDir } getAppStubsLoop |> Task.attempt
-        when res is
-            Err (NetworkErr _) -> 
-                Stdout.line! redCross
-                Stdout.line! ("Error: network error." |> Core.withFg (Standard Yellow))
+        Task.attempt (Task.loop { platforms, dir: appStubsDir } getAppStubsLoop) \res ->
+            when res is
+                Err (NetworkErr _) ->
+                    Stdout.line! redCross
+                    Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
 
-            Err _ ->
-                Stdout.line! redCross
+                Err _ ->
+                    Stdout.line! redCross
 
-            Ok {} -> 
-                Stdout.line! greenCheck
+                Ok {} ->
+                    Stdout.line! greenCheck
     else
         Stdout.line! redCross
-        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.withFg (Standard Yellow))
+        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.color { fg: Standard Yellow })
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
@@ -626,16 +650,16 @@ getAppStubsLoop = \{ platforms, dir } ->
         Ok platform ->
             updatedList = List.dropFirst platforms 1
             request = getRequest "https://raw.githubusercontent.com/imclerran/roc-start/main/repository/app-stubs/$(platform).roc"
-            responseRes <- Http.send request |> Task.attempt
-            when responseRes is   
-                Err e ->
-                    when e is
-                        HttpErr (BadStatus code ) if code == 404 -> Task.ok (Step { platforms: updatedList, dir })
-                        _ -> Task.err (NetworkErr e)
+            Task.attempt (Http.send request) \responseRes ->
+                when responseRes is
+                    Err e ->
+                        when e is
+                            HttpErr (BadStatus { code }) if code == 404 -> Task.ok (Step { platforms: updatedList, dir })
+                            _ -> Task.err (NetworkErr e)
 
-                Ok response ->
-                    File.writeBytes! "$(dir)/$(platform)" response.body
-                    Task.ok (Step { platforms: updatedList, dir })
+                    Ok response ->
+                        File.writeBytes! "$(dir)/$(platform)" response.body
+                        Task.ok (Step { platforms: updatedList, dir })
 
         Err OutOfBounds -> Task.ok (Done {})
 

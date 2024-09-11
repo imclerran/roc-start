@@ -65,7 +65,7 @@ controlsPromptStr : Model -> Str
 controlsPromptStr = \model ->
     actions = Controller.getActions model
     longStr = buildControlPromptStr actions controlPromptsDict
-    promptLen = Num.toI32 (Str.countUtf8Bytes longStr)
+    promptLen = Num.toU16 (Str.countUtf8Bytes longStr)
     if promptLen <= model.screen.width - 6 && promptLen > 0 then
         " $(longStr) "
     else if promptLen > 0 then
@@ -82,7 +82,7 @@ buildControlPromptStr = \actions, promptsDict ->
     |> Str.joinWith " | "
 
 ## Render a multi-line text with word wrapping
-renderMultiLineText : List Str, { startCol : I32, startRow : I32, maxCol : I32, wrapCol : I32, wordDelim ? Str, fg ? Core.Color } -> List Core.DrawFn
+renderMultiLineText : List Str, { startCol : U16, startRow : U16, maxCol : U16, wrapCol : U16, wordDelim ? Str, fg ? Core.Color } -> List Core.DrawFn
 renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ? " ", fg ? Standard White } ->
     firstLineWidth = maxCol - startCol
     consecutiveWidths = maxCol - wrapCol
@@ -92,13 +92,13 @@ renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ?
         List.walk wordsWithDelims [] \lines, word ->
             when lines is
                 [line] ->
-                    if Num.toI32 (Str.countUtf8Bytes line + Str.countUtf8Bytes word) <= firstLineWidth then
+                    if Num.toU16 (Str.countUtf8Bytes line + Str.countUtf8Bytes word) <= firstLineWidth then
                         [Str.concat line word]
                     else
                         [line, word]
 
                 [.. as prevLines, line] ->
-                    if Num.toI32 (Str.countUtf8Bytes line + Str.countUtf8Bytes word) <= consecutiveWidths then
+                    if Num.toU16 (Str.countUtf8Bytes line + Str.countUtf8Bytes word) <= consecutiveWidths then
                         List.concat prevLines [Str.concat line word]
                     else
                         List.concat prevLines [line, word]
@@ -108,7 +108,7 @@ renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ?
         if idx == 0 then
             Core.drawText line { r: startRow, c: startCol, fg }
         else
-            Core.drawText line { r: startRow + (Num.toI32 idx), c: wrapCol, fg }
+            Core.drawText line { r: startRow + (Num.toU16 idx), c: wrapCol, fg }
 
 renderTypeSelect : Model -> List Core.DrawFn
 renderTypeSelect = \model ->
@@ -241,7 +241,7 @@ renderConfirmation = \model ->
         _ -> []
 
 ## Generate the list of functions to draw a box.
-renderBox : I32, I32, I32, I32, BoxStyle, Core.Color -> List Core.DrawFn
+renderBox : U16, U16, U16, U16, BoxStyle, Core.Color -> List Core.DrawFn
 renderBox = \col, row, width, height, style, color -> [
     Core.drawHLine { r: row, c: col, len: 1, char: border TopLeft style, fg: color },
     Core.drawHLine { r: row, c: col + 1, len: width - 2, char: border Top style, fg: color },
@@ -256,24 +256,24 @@ renderBox = \col, row, width, height, style, color -> [
 ## Generate the list of functions to draw a single select menu.
 renderMenu : Model -> List Core.DrawFn
 renderMenu = \model ->
-    item, idx <- List.mapWithIndex model.menu
-    row = Num.toI32 idx + model.menuRow
-    if model.cursor.row == row then
-        Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
-    else
-        Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
+    List.mapWithIndex model.menu \item, idx ->
+        row = Num.toU16 idx + model.menuRow
+        if model.cursor.row == row then
+            Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
+        else
+            Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
 ## Generate the list of functions to draw a multiple choice menu.
 renderMultipleChoiceMenu : Model -> List Core.DrawFn
 renderMultipleChoiceMenu = \model ->
     isSelected = \item -> List.contains model.selected item
     checkedItems = List.map model.menu \item -> if isSelected item then "[X] $(item)" else "[ ] $(item)"
-    item, idx <- List.mapWithIndex checkedItems
-    row = Num.toI32 idx + model.menuRow
-    if model.cursor.row == row then
-        Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
-    else
-        Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
+    List.mapWithIndex checkedItems \item, idx ->
+        row = Num.toU16 idx + model.menuRow
+        if model.cursor.row == row then
+            Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
+        else
+            Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
 renderSplash : Model -> List Core.DrawFn
 renderSplash = \model ->
@@ -296,7 +296,7 @@ renderSplashBySize = \screen ->
         renderAsciiArt art startRow startCol,
     ]
 
-renderAsciiArt : AsciiArt.Art, I32, I32 -> List Core.DrawFn
+renderAsciiArt : AsciiArt.Art, U16, U16 -> List Core.DrawFn
 renderAsciiArt = \art, startRow, startCol ->
     List.map art.art \elem ->
         Core.drawText elem.text { r: startRow + elem.r, c: startCol + elem.c, fg: elem.color }
@@ -322,7 +322,7 @@ renderArtAccent = \art, screen ->
     startCol = (screen.width - art.width) // 2
     if art == AsciiArt.rocLargeColored then
         List.mapWithIndex AsciiArt.rocStart \line, idx ->
-            Core.drawText line { r: startRow + 30 + Num.toI32 idx, c: startCol + 50, fg: Standard Cyan }
+            Core.drawText line { r: startRow + 30 + Num.toU16 idx, c: startCol + 50, fg: Standard Cyan }
     else if art == AsciiArt.rocSmallColored then
         [
             Core.drawText "roc start" { r: startRow + 11, c: startCol + 16, fg: Standard Cyan },
