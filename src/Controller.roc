@@ -254,12 +254,16 @@ toInputAppNameState = \model ->
             type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
             { model &
                 cursor: { row: 2, col: 2 },
+                menu: [],
+                fullMenu: [],
                 state: InputAppName { config: { config & type }, nameBuffer: config.fileName |> Str.toUtf8 },
             }
 
         PlatformSelect { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
+                menu: [],
+                fullMenu: [],
                 state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
             }
 
@@ -504,7 +508,10 @@ addSelectedPackagesToConfig = \model ->
 ## Split the menu into pages, and adjust the cursor position if necessary
 paginate : Model -> Model
 paginate = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
+    maxItems = 
+        Num.subChecked (model.screen.height) (model.menuRow + 1)
+        |> Result.withDefault 0
+        |> Num.toU64
     pageFirstItem =
         if List.len model.menu < maxItems && model.pageFirstItem > 0 then
             idx = Num.toI64 (List.len model.fullMenu) - Num.toI64 maxItems
@@ -512,12 +519,12 @@ paginate = \model ->
         else
             model.pageFirstItem
     menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
-    curRow =
+    cursorRow =
         if model.cursor.row >= model.menuRow + Num.toU16 (List.len menu) && List.len menu > 0 then
             model.menuRow + Num.toU16 (List.len menu) - 1
         else
             model.cursor.row
-    cursor = { row: curRow, col: model.cursor.col }
+    cursor = { row: cursorRow, col: model.cursor.col }
     { model & menu, pageFirstItem, cursor }
 
 ## Move to the next page if possible
