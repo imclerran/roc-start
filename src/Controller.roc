@@ -2,6 +2,7 @@ module [UserAction, getActions, applyAction, actionIsAvailable, paginate]
 
 import Keys exposing [Key]
 import Model exposing [Model]
+import Utils
 
 UserAction : [
     Cancel,
@@ -62,16 +63,17 @@ actionIsAvailable : Model, UserAction -> Bool
 actionIsAvailable = \model, action -> List.contains (getActions model) action
 
 ## Translate the user action into a state transition by dispatching to the appropriate handler
-applyAction : { model : Model, action : UserAction, keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
+applyAction : { model : Model, action : UserAction, keyPress ? Key } -> [Step Model, Done Model]
 applyAction = \{ model, action, keyPress ? None } ->
+    char = keyPress |> Keys.keyToStr |> \str -> if Str.isEmpty str then None else Char str
     if actionIsAvailable model action then
         when model.state is
             TypeSelect _ -> typeSelectHandler model action
-            InputAppName _ -> inputAppNameHandler model action { keyPress }
+            InputAppName _ -> inputAppNameHandler model action { char }
             PlatformSelect _ -> platformSelectHandler model action
             PackageSelect _ -> packageSelectHandler model action
             Confirmation _ -> confirmationHandler model action
-            Search { sender } -> searchHandler model action { sender, keyPress }
+            Search { sender } -> searchHandler model action { sender, char }
             Splash _ -> splashHandler model action
             _ -> defaultHandler model action
     else
@@ -150,8 +152,8 @@ packageSelectHandler = \model, action ->
         _ -> Step model
 
 ## Map the user action to the appropriate state transition from the Search state
-searchHandler : Model, UserAction, { sender : [Platform, Package], keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
-searchHandler = \model, action, { sender, keyPress ? None } ->
+searchHandler : Model, UserAction, { sender : [Platform, Package], char ? [Char Str, None] } -> [Step Model, Done Model]
+searchHandler = \model, action, { sender, char ? None } ->
     when action is
         Exit -> Done (toUserExitedState model)
         SearchGo ->
@@ -161,8 +163,8 @@ searchHandler = \model, action, { sender, keyPress ? None } ->
 
         TextBackspace -> Step (backspaceBuffer model)
         TextInput ->
-            when keyPress is
-                KeyPress key -> Step (appendToBuffer model key)
+            when char is
+                Char c -> Step (appendToBuffer model c)
                 None -> Step model
 
         Cancel ->
@@ -173,14 +175,14 @@ searchHandler = \model, action, { sender, keyPress ? None } ->
         _ -> Step model
 
 ## Map the user action to the appropriate state transition from the InputAppName state
-inputAppNameHandler : Model, UserAction, { keyPress ? [KeyPress Key, None] } -> [Step Model, Done Model]
-inputAppNameHandler = \model, action, { keyPress ? None } ->
+inputAppNameHandler : Model, UserAction, { char ? [Char Str, None] } -> [Step Model, Done Model]
+inputAppNameHandler = \model, action, { char ? None } ->
     when action is
         Exit -> Done (toUserExitedState model)
         TextSubmit -> Step (toPlatformSelectState model)
         TextInput ->
-            when keyPress is
-                KeyPress key -> Step (appendToBuffer model key)
+            when char is
+                Char c -> Step (appendToBuffer model c)
                 None -> Step model
 
         TextBackspace -> Step (backspaceBuffer model)
@@ -252,12 +254,16 @@ toInputAppNameState = \model ->
             type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
             { model &
                 cursor: { row: 2, col: 2 },
+                menu: [],
+                fullMenu: [],
                 state: InputAppName { config: { config & type }, nameBuffer: config.fileName |> Str.toUtf8 },
             }
 
         PlatformSelect { config } ->
             { model &
                 cursor: { row: 2, col: 2 },
+                menu: [],
+                fullMenu: [],
                 state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
             }
 
@@ -350,8 +356,8 @@ toPackageSelectState = \model ->
             }
 
         Search { config, searchBuffer } ->
-            filteredMenu = 
-                model.packageList 
+            filteredMenu =
+                model.packageList
                 |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault "")
             { model &
                 pageFirstItem: 0,
@@ -431,15 +437,15 @@ clearSearchFilter = \model ->
         _ -> model
 
 ## Append a key to the name or search buffer
-appendToBuffer : Model, Key -> Model
-appendToBuffer = \model, key ->
+appendToBuffer : Model, Str -> Model
+appendToBuffer = \model, str ->
     when model.state is
         Search { searchBuffer, config, sender } ->
-            newBuffer = List.concat searchBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
+            newBuffer = List.concat searchBuffer (Utils.strToSlug str |> Str.toUtf8)
             { model & state: Search { config, sender, searchBuffer: newBuffer } }
 
         InputAppName { nameBuffer, config } ->
-            newBuffer = List.concat nameBuffer (Keys.keyToSlugStr key |> Str.toUtf8)
+            newBuffer = List.concat nameBuffer (Utils.strToSlug str |> Str.toUtf8)
             { model & state: InputAppName { config, nameBuffer: newBuffer } }
 
         _ -> model
@@ -502,7 +508,10 @@ addSelectedPackagesToConfig = \model ->
 ## Split the menu into pages, and adjust the cursor position if necessary
 paginate : Model -> Model
 paginate = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
+    maxItems = 
+        Num.subChecked (model.screen.height) (model.menuRow + 1)
+        |> Result.withDefault 0
+        |> Num.toU64
     pageFirstItem =
         if List.len model.menu < maxItems && model.pageFirstItem > 0 then
             idx = Num.toI64 (List.len model.fullMenu) - Num.toI64 maxItems
@@ -510,12 +519,12 @@ paginate = \model ->
         else
             model.pageFirstItem
     menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
-    curRow =
-        if model.cursor.row >= model.menuRow + Num.toI32 (List.len menu) && List.len menu > 0 then
-            model.menuRow + Num.toI32 (List.len menu) - 1
+    cursorRow =
+        if model.cursor.row >= model.menuRow + Num.toU16 (List.len menu) && List.len menu > 0 then
+            model.menuRow + Num.toU16 (List.len menu) - 1
         else
             model.cursor.row
-    cursor = { row: curRow, col: model.cursor.col }
+    cursor = { row: cursorRow, col: model.cursor.col }
     { model & menu, pageFirstItem, cursor }
 
 ## Move to the next page if possible
@@ -548,14 +557,14 @@ moveCursor = \model, direction ->
     if List.len model.menu > 0 then
         when direction is
             Up ->
-                if model.cursor.row <= Num.toI32 (model.menuRow) then
-                    { model & cursor: { row: Num.toI32 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
+                if model.cursor.row <= Num.toU16 (model.menuRow) then
+                    { model & cursor: { row: Num.toU16 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
                 else
                     { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
 
             Down ->
-                if model.cursor.row >= Num.toI32 (List.len model.menu - 1) + Num.toI32 (model.menuRow) then
-                    { model & cursor: { row: Num.toI32 (model.menuRow), col: model.cursor.col } }
+                if model.cursor.row >= Num.toU16 (List.len model.menu - 1) + Num.toU16 (model.menuRow) then
+                    { model & cursor: { row: Num.toU16 (model.menuRow), col: model.cursor.col } }
                 else
                     { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
     else

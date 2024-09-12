@@ -2,10 +2,9 @@
 !*.*
 !*.roc
 !*.rvn
-!install
 !repos/
 !src/
-!src/install
+!src/roc-ansi/
 !repository
 !repository/app-stubs
 !repository/app-stubs/*
