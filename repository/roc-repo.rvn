@@ -30,6 +30,7 @@
     { repo: "roc-semver", owner: "smores56", alias: "semver", platform: Bool.false, requires: [] },
     { repo: "roc-sort", owner: "imclerran", alias: "sort", platform: Bool.false, requires: [] },
     { repo: "roc-svg", owner: "hasnep", alias: "svg", platform: Bool.false, requires: [] },
+    { repo: "roc-turtle", owner: "ostcar", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "roc-units", owner: "hasnep", alias: "units", platform: Bool.false, requires: [] },
     { repo: "roc-wasm4", owner: "lukewilliamboswell", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "rvn", owner: "jwoudenberg", alias: "rvn", platform: Bool.false, requires: [] },
