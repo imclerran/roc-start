@@ -71,7 +71,10 @@ isNotFirstPage = \model -> model.pageFirstItem > 0
 ## Check if the current page is not the last page
 isNotLastPage : Model -> Bool
 isNotLastPage = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
+    maxItems = 
+        Num.subChecked (model.screen.height) (model.menuRow + 1)
+        |> Result.withDefault 0
+        |> Num.toU64
     model.pageFirstItem + maxItems < List.len model.fullMenu
 
 ## Get the index of the highlighted item
