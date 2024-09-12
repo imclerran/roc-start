@@ -1,5 +1,6 @@
 module [
     Model,
+    emptyAppConfig,
     init,
     isNotFirstPage,
     isNotLastPage,
@@ -8,13 +9,14 @@ module [
     getSelectedItems,
     menuIsFiltered,
 ]
+    
 
 import ansi.Core
 
 Model : {
     screen : Core.ScreenSize,
-    cursor : Core.Position,
-    menuRow : I32,
+    cursor : Core.CursorPosition,
+    menuRow : U16,
     pageFirstItem : U64,
     menu : List Str,
     fullMenu : List Str,
@@ -22,18 +24,20 @@ Model : {
     inputs : List Core.Input,
     packageList : List Str,
     platformList : List Str,
-    state : [
-        TypeSelect { config : Configuration },
-        InputAppName { nameBuffer : List U8, config : Configuration },
-        Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
-        PlatformSelect { config : Configuration },
-        PackageSelect { config : Configuration },
-        Confirmation { config : Configuration },
-        Finished { config : Configuration },
-        Splash { config : Configuration },
-        UserExited,
-    ],
+    state : State,
 }
+
+State: [
+    TypeSelect { config : Configuration },
+    InputAppName { nameBuffer : List U8, config : Configuration },
+    Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
+    PlatformSelect { config : Configuration },
+    PackageSelect { config : Configuration },
+    Confirmation { config : Configuration },
+    Finished { config : Configuration },
+    Splash { config : Configuration },
+    UserExited,
+]
 
 Configuration : {
     type : [App, Pkg],
@@ -45,8 +49,8 @@ Configuration : {
 emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
 
 ## Initialize the model
-init : List Str, List Str -> Model
-init = \platformList, packageList -> {
+init : List Str, List Str, { state ? State }  -> Model
+init = \platformList, packageList, { state ? TypeSelect { config: emptyAppConfig } } -> {
     screen: { width: 0, height: 0 },
     cursor: { row: 2, col: 2 },
     menuRow: 2,
@@ -57,7 +61,7 @@ init = \platformList, packageList -> {
     packageList,
     selected: [],
     inputs: List.withCapacity 1000,
-    state: TypeSelect { config: emptyAppConfig },
+    state,
 }
 
 ## Check if the current page is not the first page
@@ -67,7 +71,10 @@ isNotFirstPage = \model -> model.pageFirstItem > 0
 ## Check if the current page is not the last page
 isNotLastPage : Model -> Bool
 isNotLastPage = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
+    maxItems = 
+        Num.subChecked (model.screen.height) (model.menuRow + 1)
+        |> Result.withDefault 0
+        |> Num.toU64
     model.pageFirstItem + maxItems < List.len model.fullMenu
 
 ## Get the index of the highlighted item

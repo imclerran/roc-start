@@ -25,7 +25,7 @@ emptyPkgConfig = { fileName: "main", platform: "", packages: [], type: Pkg }
 ## ===============================
 ## MODEL OBJECTS IN VARIOUS STATES
 
-typeSelectModel = Model.init ["pf1", "pf2"] ["pk1", "pk2", "pk3"]
+typeSelectModel = Model.init ["pf1", "pf2"] ["pk1", "pk2", "pk3"] {}
 inputAppNameModel = typeSelectModel |> applyAction SingleSelect
 platformSelectModel = inputAppNameModel |> applyAction TextSubmit
 packageSelectModel = platformSelectModel |> applyAction SingleSelect
@@ -49,6 +49,7 @@ expect
     && (model.selected == [])
     && (model.pageFirstItem == 0)
     && (model.menuRow == 2)
+    && (Model.getHighlightedItem model == "App")
 
 expect
     # TEST: transition from TypeSelect to InputAppName
@@ -202,7 +203,8 @@ expect
 
 expect
     # TEST: paginate TypeSelect with no need to paginate
-    model = typeSelectModel |> Controller.paginate
+    screen = { height: 5, width: 0 }
+    model = { typeSelectModel & screen } |> Controller.paginate
     (model.menu == ["App", "Package"])
     && (model.fullMenu == ["App", "Package"])
     && !(Controller.actionIsAvailable model NextPage)
@@ -241,12 +243,12 @@ expect
 
 expect
     # TEST: first item on page does not change when paginating
-    model = 
+    model =
         { packageSelectModel & screen: { height: 5, width: 0 } }
         |> Controller.paginate
         |> applyAction NextPage
         |> Controller.paginate
-    smallSizeModel = 
+    smallSizeModel =
         { model & screen: { height: 4, width: 0 } }
         |> Controller.paginate
     resetSizeModel =
@@ -258,17 +260,21 @@ expect
 
 expect
     # TEST: previous page - available rows exceed previous menu items
-    model = 
+    model =
         { packageSelectModel & screen: { height: 5, width: 0 } }
         |> Controller.paginate
         |> applyAction NextPage
         |> Controller.paginate
-    prevModel = 
+    prevModel =
         model
         |> applyAction PrevPage
         |> Controller.paginate
-    (model.menu == ["pk2", "pk3"]
-    && prevModel.menu == ["pk1", "pk2"])
+    (
+        model.menu
+        == ["pk2", "pk3"]
+        && prevModel.menu
+        == ["pk1", "pk2"]
+    )
 
 ## ===============================
 ## TypeSelect tests
@@ -295,7 +301,7 @@ expect
     # TEST: InuptAppName to PlatformSelect w/ non-empty buffer
     model =
         inputAppNameModel
-        |> applyActionWithKey TextInput (KeyPress LowerA)
+        |> applyActionWithKey TextInput (Lower A)
         |> applyAction TextSubmit
     model.state == PlatformSelect { config: { emptyAppConfig & fileName: "a" } }
 
@@ -324,74 +330,72 @@ expect
     # TEST: valid text input to InputAppName
     model =
         inputAppNameModel
-        |> applyActionWithKey TextInput (KeyPress LowerA)
-        |> applyActionWithKey TextInput (KeyPress UpperA)
-        |> applyActionWithKey TextInput (KeyPress LowerZ)
-        |> applyActionWithKey TextInput (KeyPress UpperZ)
-        |> applyActionWithKey TextInput (KeyPress Space)
-        |> applyActionWithKey TextInput (KeyPress Hyphen)
-        |> applyActionWithKey TextInput (KeyPress Underscore)
-        |> applyActionWithKey TextInput (KeyPress Number0)
-        |> applyActionWithKey TextInput (KeyPress Number9)
+        |> applyActionWithKey TextInput (Lower A)
+        |> applyActionWithKey TextInput (Upper A)
+        |> applyActionWithKey TextInput (Lower Z)
+        |> applyActionWithKey TextInput (Upper Z)
+        |> applyActionWithKey TextInput (Action Space)
+        |> applyActionWithKey TextInput (Symbol Hyphen)
+        |> applyActionWithKey TextInput (Symbol Underscore)
+        |> applyActionWithKey TextInput (Number N0)
+        |> applyActionWithKey TextInput (Number N9)
     model.state == InputAppName { nameBuffer: ['a', 'A', 'z', 'Z', '_', '-', '_', '0', '9'], config: emptyAppConfig }
 
 expect
     # TEST: invalid text input to InputAppName
     model =
         inputAppNameModel
-        |> applyActionWithKey TextInput (KeyPress Up)
-        |> applyActionWithKey TextInput (KeyPress Down)
-        |> applyActionWithKey TextInput (KeyPress Left)
-        |> applyActionWithKey TextInput (KeyPress Right)
-        |> applyActionWithKey TextInput (KeyPress Escape)
-        |> applyActionWithKey TextInput (KeyPress Enter)
-        |> applyActionWithKey TextInput (KeyPress ExclamationMark)
-        |> applyActionWithKey TextInput (KeyPress QuotationMark)
-        |> applyActionWithKey TextInput (KeyPress NumberSign)
-        |> applyActionWithKey TextInput (KeyPress DollarSign)
-        |> applyActionWithKey TextInput (KeyPress PercentSign)
-        |> applyActionWithKey TextInput (KeyPress Ampersand)
-        |> applyActionWithKey TextInput (KeyPress Apostrophe)
-        |> applyActionWithKey TextInput (KeyPress RoundOpenBracket)
-        |> applyActionWithKey TextInput (KeyPress RoundCloseBracket)
-        |> applyActionWithKey TextInput (KeyPress Asterisk)
-        |> applyActionWithKey TextInput (KeyPress PlusSign)
-        |> applyActionWithKey TextInput (KeyPress Comma)
-        |> applyActionWithKey TextInput (KeyPress FullStop)
-        |> applyActionWithKey TextInput (KeyPress ForwardSlash)
-        |> applyActionWithKey TextInput (KeyPress Colon)
-        |> applyActionWithKey TextInput (KeyPress SemiColon)
-        |> applyActionWithKey TextInput (KeyPress LessThanSign)
-        |> applyActionWithKey TextInput (KeyPress EqualsSign)
-        |> applyActionWithKey TextInput (KeyPress GreaterThanSign)
-        |> applyActionWithKey TextInput (KeyPress QuestionMark)
-        |> applyActionWithKey TextInput (KeyPress AtSign)
-        |> applyActionWithKey TextInput (KeyPress SquareOpenBracket)
-        |> applyActionWithKey TextInput (KeyPress Backslash)
-        |> applyActionWithKey TextInput (KeyPress SquareCloseBracket)
-        |> applyActionWithKey TextInput (KeyPress Caret)
-        |> applyActionWithKey TextInput (KeyPress GraveAccent)
-        |> applyActionWithKey TextInput (KeyPress CurlyOpenBrace)
-        |> applyActionWithKey TextInput (KeyPress VerticalBar)
-        |> applyActionWithKey TextInput (KeyPress CurlyCloseBrace)
-        |> applyActionWithKey TextInput (KeyPress Tilde)
-        |> applyActionWithKey TextInput (KeyPress Delete)
+        |> applyActionWithKey TextInput (Symbol ExclamationMark)
+        |> applyActionWithKey TextInput (Symbol QuotationMark)
+        |> applyActionWithKey TextInput (Symbol NumberSign)
+        |> applyActionWithKey TextInput (Symbol DollarSign)
+        |> applyActionWithKey TextInput (Symbol PercentSign)
+        |> applyActionWithKey TextInput (Symbol Ampersand)
+        |> applyActionWithKey TextInput (Symbol Apostrophe)
+        |> applyActionWithKey TextInput (Symbol RoundOpenBracket)
+        |> applyActionWithKey TextInput (Symbol RoundCloseBracket)
+        |> applyActionWithKey TextInput (Symbol Asterisk)
+        |> applyActionWithKey TextInput (Symbol PlusSign)
+        |> applyActionWithKey TextInput (Symbol Comma)
+        |> applyActionWithKey TextInput (Symbol FullStop)
+        |> applyActionWithKey TextInput (Symbol ForwardSlash)
+        |> applyActionWithKey TextInput (Symbol Colon)
+        |> applyActionWithKey TextInput (Symbol SemiColon)
+        |> applyActionWithKey TextInput (Symbol LessThanSign)
+        |> applyActionWithKey TextInput (Symbol EqualsSign)
+        |> applyActionWithKey TextInput (Symbol GreaterThanSign)
+        |> applyActionWithKey TextInput (Symbol QuestionMark)
+        |> applyActionWithKey TextInput (Symbol AtSign)
+        |> applyActionWithKey TextInput (Symbol SquareOpenBracket)
+        |> applyActionWithKey TextInput (Symbol Backslash)
+        |> applyActionWithKey TextInput (Symbol SquareCloseBracket)
+        |> applyActionWithKey TextInput (Symbol Caret)
+        |> applyActionWithKey TextInput (Symbol GraveAccent)
+        |> applyActionWithKey TextInput (Symbol CurlyOpenBrace)
+        |> applyActionWithKey TextInput (Symbol VerticalBar)
+        |> applyActionWithKey TextInput (Symbol CurlyCloseBrace)
+        |> applyActionWithKey TextInput (Symbol Tilde)
     model.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
 
 expect
     # TEST: backspace with InputAppName
     model =
         inputAppNameModel
-        |> applyActionWithKey TextInput (KeyPress LowerA)
-        |> applyActionWithKey TextInput (KeyPress LowerB)
-        |> applyActionWithKey TextInput (KeyPress LowerC)
+        |> applyActionWithKey TextInput (Lower A)
+        |> applyActionWithKey TextInput (Lower B)
+        |> applyActionWithKey TextInput (Lower C)
         |> applyAction TextBackspace
     model.state == InputAppName { nameBuffer: ['a', 'b'], config: emptyAppConfig }
 
 expect
-    # TEST backspace with empty buffer in InputAppName
+    # TEST: backspace with empty buffer in InputAppName
     model = inputAppNameModel |> applyAction TextBackspace
     model == inputAppNameModel
+
+expect
+    # TEST: transition from TypeSelect to InputAppName state
+    model = typeSelectModel |> applyAction SingleSelect
+    model.state == InputAppName { nameBuffer: [], config: emptyAppConfig }
 
 # expect
 #     # TEST: PlatformSelect to InputAppName
