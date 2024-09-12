@@ -140,16 +140,16 @@ keyToStr = \key ->
             number
             |> numberToStr
 
+        Upper letter ->
+            letter
+            |> letterToStr
+
         Lower letter ->
             letter
             |> letterToStr
             |> Utils.strToLower
 
-        Upper letter ->
-            letter
-            |> letterToStr
-
-        _ -> ""
+        None -> ""
 
 keyToSlugStr : Key -> Str
 keyToSlugStr = \key ->
