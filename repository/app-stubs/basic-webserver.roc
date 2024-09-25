@@ -1,4 +1,3 @@
-import pf.Task exposing [Task]
 import pf.Http exposing [Request, Response]
 
 main : Request -> Task Response []
