@@ -4,12 +4,12 @@ import AsciiArt
 import BoxStyle exposing [BoxStyle, border]
 import Controller exposing [UserAction]
 import Model exposing [Model]
-import ansi.Core
+import ansi.Ansi
 
 ## Render functions for each page
-renderScreenPrompt = \text -> Core.drawText text { r: 1, c: 2, fg: Standard Cyan }
-renderExitPrompt = \screen -> Core.drawText " Ctrl+C : QUIT " { r: 0, c: screen.width - 17, fg: Standard Red }
-renderControlsPrompt = \text, screen -> Core.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
+renderScreenPrompt = \text -> Ansi.drawText text { r: 1, c: 2, fg: Standard Cyan }
+renderExitPrompt = \screen -> Ansi.drawText " Ctrl+C : QUIT " { r: 0, c: screen.width - 17, fg: Standard Red }
+renderControlsPrompt = \text, screen -> Ansi.drawText text { r: screen.height - 1, c: 2, fg: Standard Cyan }
 renderOuterBorder = \screen -> renderBox 0 0 screen.width screen.height (CustomBorder { tl: "╒", t: "═", tr: "╕" }) (Standard Cyan)
 
 ## Control prompts for each user action
@@ -82,7 +82,7 @@ buildControlPromptStr = \actions, promptsDict ->
     |> Str.joinWith " | "
 
 ## Render a multi-line text with word wrapping
-renderMultiLineText : List Str, { startCol : U16, startRow : U16, maxCol : U16, wrapCol : U16, wordDelim ? Str, fg ? Core.Color } -> List Core.DrawFn
+renderMultiLineText : List Str, { startCol : U16, startRow : U16, maxCol : U16, wrapCol : U16, wordDelim ? Str, fg ? Ansi.Color } -> List Ansi.DrawFn
 renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ? " ", fg ? Standard White } ->
     firstLineWidth = maxCol - startCol
     consecutiveWidths = maxCol - wrapCol
@@ -106,11 +106,11 @@ renderMultiLineText = \words, { startCol, startRow, maxCol, wrapCol, wordDelim ?
                 [] -> [word]
     List.mapWithIndex lineList \line, idx ->
         if idx == 0 then
-            Core.drawText line { r: startRow, c: startCol, fg }
+            Ansi.drawText line { r: startRow, c: startCol, fg }
         else
-            Core.drawText line { r: startRow + (Num.toU16 idx), c: wrapCol, fg }
+            Ansi.drawText line { r: startRow + (Num.toU16 idx), c: wrapCol, fg }
 
-renderTypeSelect : Model -> List Core.DrawFn
+renderTypeSelect : Model -> List Ansi.DrawFn
 renderTypeSelect = \model ->
     List.join [
         [
@@ -120,13 +120,13 @@ renderTypeSelect = \model ->
         renderOuterBorder model.screen,
         [
             renderScreenPrompt "WHAT TO START?",
-            Core.drawCursor { fg: Standard Magenta, char: ">" },
+            Ansi.drawCursor { fg: Standard Magenta, char: ">" },
         ],
         renderMenu model,
     ]
 
 ## Generate the list of functions to draw the platform select page.
-renderPlatformSelect : Model -> List Core.DrawFn
+renderPlatformSelect : Model -> List Ansi.DrawFn
 renderPlatformSelect = \model ->
     List.join [
         [
@@ -136,13 +136,13 @@ renderPlatformSelect = \model ->
         renderOuterBorder model.screen,
         [
             renderScreenPrompt "SELECT A PLATFORM:",
-            Core.drawCursor { fg: Standard Magenta, char: ">" },
+            Ansi.drawCursor { fg: Standard Magenta, char: ">" },
         ],
         renderMenu model,
     ]
 
 ## Generate the list of functions to draw the package select page.
-renderPackageSelect : Model -> List Core.DrawFn
+renderPackageSelect : Model -> List Ansi.DrawFn
 renderPackageSelect = \model ->
     List.join [
         [
@@ -152,14 +152,14 @@ renderPackageSelect = \model ->
         renderOuterBorder model.screen,
         [
             renderScreenPrompt "SELECT 0+ PACKAGES:",
-            Core.drawCursor { fg: Standard Magenta, char: ">" },
+            Ansi.drawCursor { fg: Standard Magenta, char: ">" },
         ],
         renderMultipleChoiceMenu model,
 
     ]
 
 ## Generate the list of functions to draw the app name input page.
-renderInputAppName : Model -> List Core.DrawFn
+renderInputAppName : Model -> List Ansi.DrawFn
 renderInputAppName = \model ->
     when model.state is
         InputAppName { nameBuffer } ->
@@ -169,11 +169,11 @@ renderInputAppName = \model ->
                     renderControlsPrompt (controlsPromptStr model) model.screen,
                 ],
                 renderOuterBorder model.screen,
-                if List.len nameBuffer == 0 then [Core.drawText " (Leave blank for \"main\"):" { r: 1, c: 20, fg: Standard Cyan }] else [],
+                if List.len nameBuffer == 0 then [Ansi.drawText " (Leave blank for \"main\"):" { r: 1, c: 20, fg: Standard Cyan }] else [],
                 [
                     renderScreenPrompt "ENTER THE APP NAME:",
-                    Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
+                    Ansi.drawCursor { fg: Standard Magenta, char: ">" },
+                    Ansi.drawText (nameBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
 
                 ],
             ]
@@ -181,7 +181,7 @@ renderInputAppName = \model ->
         _ -> []
 
 ## Generate the list of functions to draw the search page.
-renderSearch : Model -> List Core.DrawFn
+renderSearch : Model -> List Ansi.DrawFn
 renderSearch = \model ->
     when model.state is
         Search { sender, searchBuffer } ->
@@ -194,15 +194,15 @@ renderSearch = \model ->
                 renderOuterBorder model.screen,
                 [
                     renderScreenPrompt searchPrompt,
-                    Core.drawCursor { fg: Standard Magenta, char: ">" },
-                    Core.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
+                    Ansi.drawCursor { fg: Standard Magenta, char: ">" },
+                    Ansi.drawText (searchBuffer |> Str.fromUtf8 |> Result.withDefault "") { r: model.menuRow, c: 4, fg: Standard White },
                 ],
             ]
 
         _ -> []
 
 ## Generate the list of functions to draw the confirmation page.
-renderConfirmation : Model -> List Core.DrawFn
+renderConfirmation : Model -> List Ansi.DrawFn
 renderConfirmation = \model ->
     when model.state is
         Confirmation { config } ->
@@ -216,16 +216,16 @@ renderConfirmation = \model ->
                     if config.type == App then
                         [
                             renderScreenPrompt "APP CONFIGURATION:",
-                            Core.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
-                            Core.drawText config.fileName { r: model.menuRow, c: 12, fg: Standard White },
-                            Core.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
-                            Core.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
-                            Core.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
+                            Ansi.drawText "App name:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                            Ansi.drawText config.fileName { r: model.menuRow, c: 12, fg: Standard White },
+                            Ansi.drawText "Platform:" { r: model.menuRow + 1, c: 2, fg: Standard Magenta },
+                            Ansi.drawText config.platform { r: model.menuRow + 1, c: 12, fg: Standard White },
+                            Ansi.drawText "Packages:" { r: model.menuRow + 2, c: 2, fg: Standard Magenta },
                         ]
                     else
                         [
                             renderScreenPrompt "PACKAGE CONFIGURATION:",
-                            Core.drawText "Packages:" { r: model.menuRow, c: 2, fg: Standard Magenta },
+                            Ansi.drawText "Packages:" { r: model.menuRow, c: 2, fg: Standard Magenta },
                         ]
                 ),
                 renderMultiLineText config.packages {
@@ -241,41 +241,41 @@ renderConfirmation = \model ->
         _ -> []
 
 ## Generate the list of functions to draw a box.
-renderBox : U16, U16, U16, U16, BoxStyle, Core.Color -> List Core.DrawFn
+renderBox : U16, U16, U16, U16, BoxStyle, Ansi.Color -> List Ansi.DrawFn
 renderBox = \col, row, width, height, style, color -> [
-    Core.drawHLine { r: row, c: col, len: 1, char: border TopLeft style, fg: color },
-    Core.drawHLine { r: row, c: col + 1, len: width - 2, char: border Top style, fg: color },
-    Core.drawHLine { r: row, c: col + width - 1, len: 1, char: border TopRight style, fg: color },
-    Core.drawVLine { r: row + 1, c: col, len: height - 2, char: border Left style, fg: color },
-    Core.drawVLine { r: row + 1, c: col + width - 1, len: height - 2, char: border Right style, fg: color },
-    Core.drawHLine { r: row + height - 1, c: col, len: 1, char: border BotLeft style, fg: color },
-    Core.drawHLine { r: row + height - 1, c: col + 1, len: width - 2, char: border Bot style, fg: color },
-    Core.drawHLine { r: row + height - 1, c: col + width - 1, len: 1, char: border BotRight style, fg: color },
+    Ansi.drawHLine { r: row, c: col, len: 1, char: border TopLeft style, fg: color },
+    Ansi.drawHLine { r: row, c: col + 1, len: width - 2, char: border Top style, fg: color },
+    Ansi.drawHLine { r: row, c: col + width - 1, len: 1, char: border TopRight style, fg: color },
+    Ansi.drawVLine { r: row + 1, c: col, len: height - 2, char: border Left style, fg: color },
+    Ansi.drawVLine { r: row + 1, c: col + width - 1, len: height - 2, char: border Right style, fg: color },
+    Ansi.drawHLine { r: row + height - 1, c: col, len: 1, char: border BotLeft style, fg: color },
+    Ansi.drawHLine { r: row + height - 1, c: col + 1, len: width - 2, char: border Bot style, fg: color },
+    Ansi.drawHLine { r: row + height - 1, c: col + width - 1, len: 1, char: border BotRight style, fg: color },
 ]
 
 ## Generate the list of functions to draw a single select menu.
-renderMenu : Model -> List Core.DrawFn
+renderMenu : Model -> List Ansi.DrawFn
 renderMenu = \model ->
     List.mapWithIndex model.menu \item, idx ->
         row = Num.toU16 idx + model.menuRow
         if model.cursor.row == row then
-            Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
+            Ansi.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
         else
-            Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
+            Ansi.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
 ## Generate the list of functions to draw a multiple choice menu.
-renderMultipleChoiceMenu : Model -> List Core.DrawFn
+renderMultipleChoiceMenu : Model -> List Ansi.DrawFn
 renderMultipleChoiceMenu = \model ->
     isSelected = \item -> List.contains model.selected item
     checkedItems = List.map model.menu \item -> if isSelected item then "[X] $(item)" else "[ ] $(item)"
     List.mapWithIndex checkedItems \item, idx ->
         row = Num.toU16 idx + model.menuRow
         if model.cursor.row == row then
-            Core.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
+            Ansi.drawText "> $(item)" { r: row, c: 2, fg: Standard Magenta }
         else
-            Core.drawText "- $(item)" { r: row, c: 2, fg: Default }
+            Ansi.drawText "- $(item)" { r: row, c: 2, fg: Default }
 
-renderSplash : Model -> List Core.DrawFn
+renderSplash : Model -> List Ansi.DrawFn
 renderSplash = \model ->
     List.join [
         [
@@ -286,7 +286,7 @@ renderSplash = \model ->
         renderSplashBySize model.screen,
     ]
 
-renderSplashBySize : Core.ScreenSize -> List Core.DrawFn
+renderSplashBySize : Ansi.ScreenSize -> List Ansi.DrawFn
 renderSplashBySize = \screen ->
     art = chooseSplashArt screen
     startRow = (screen.height - art.height) // 2
@@ -296,12 +296,12 @@ renderSplashBySize = \screen ->
         renderAsciiArt art startRow startCol,
     ]
 
-renderAsciiArt : AsciiArt.Art, U16, U16 -> List Core.DrawFn
+renderAsciiArt : AsciiArt.Art, U16, U16 -> List Ansi.DrawFn
 renderAsciiArt = \art, startRow, startCol ->
     List.map art.art \elem ->
-        Core.drawText elem.text { r: startRow + elem.r, c: startCol + elem.c, fg: elem.color }
+        Ansi.drawText elem.text { r: startRow + elem.r, c: startCol + elem.c, fg: elem.color }
 
-chooseSplashArt : Core.ScreenSize -> AsciiArt.Art
+chooseSplashArt : Ansi.ScreenSize -> AsciiArt.Art
 chooseSplashArt = \screen ->
     if
         (screen.height >= (AsciiArt.rocLargeColored.height + 2))
@@ -316,17 +316,17 @@ chooseSplashArt = \screen ->
     else
         AsciiArt.rocStartColored
 
-renderArtAccent : AsciiArt.Art, Core.ScreenSize -> List Core.DrawFn
+renderArtAccent : AsciiArt.Art, Ansi.ScreenSize -> List Ansi.DrawFn
 renderArtAccent = \art, screen ->
     startRow = (screen.height - art.height) // 2
     startCol = (screen.width - art.width) // 2
     if art == AsciiArt.rocLargeColored then
         List.mapWithIndex AsciiArt.rocStart \line, idx ->
-            Core.drawText line { r: startRow + 30 + Num.toU16 idx, c: startCol + 50, fg: Standard Cyan }
+            Ansi.drawText line { r: startRow + 30 + Num.toU16 idx, c: startCol + 50, fg: Standard Cyan }
     else if art == AsciiArt.rocSmallColored then
         [
-            Core.drawText "roc start" { r: startRow + 11, c: startCol + 16, fg: Standard Cyan },
-            Core.drawText "quick start cli" { r: startRow + 12, c: startCol + 16, fg: Standard Cyan },
+            Ansi.drawText "roc start" { r: startRow + 11, c: startCol + 16, fg: Standard Cyan },
+            Ansi.drawText "quick start cli" { r: startRow + 12, c: startCol + 16, fg: Standard Cyan },
         ]
     else
-        [Core.drawText " quick start cli" { r: startRow + 5, c: startCol, fg: Standard Cyan }]
+        [Ansi.drawText " quick start cli" { r: startRow + 5, c: startCol, fg: Standard Cyan }]

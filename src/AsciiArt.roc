@@ -1,11 +1,11 @@
 module [Art, size, width, height, rocStart, rocSmall, rocLarge, rocStartColored, rocLargeColored, rocSmallColored]
 
-import ansi.Core
+import ansi.Ansi
 
 Art : {
     height : U16,
     width : U16,
-    art : List { text : Str, r : U16, c : U16, color : Core.Color },
+    art : List { text : Str, r : U16, c : U16, color : Ansi.Color },
 }
 
 size : List Str -> { width : I32, height : I32 }

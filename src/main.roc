@@ -1,9 +1,8 @@
 app [main] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.15.0/SlwdbJ-3GR7uBWQo6zlmYWNYOxnvo8r6YABXD-45UOw.tar.br",
-    ansi: "./roc-ansi/main.roc",
-    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.10.2/FH4N0Sw-JSFXJfG3j54VEDPtXOoN-6I9v_IA8S18IGk.tar.br",
-    rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.2.0/omuMnR9ZyK4n5MaBqi7Gg73-KS50UMs-1nTu165yxvM.tar.br",
-    weaver: "https://github.com/smores56/weaver/releases/download/0.2.0/BBDPvzgGrYp-AhIDw0qmwxT0pWZIQP_7KOrUrZfp_xw.tar.br",
+    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.17.0/lZFLstMUCUvd5bjnnpYromZJXkQUrdhbva4xdBInicE.tar.br",
+    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.7.0/NmbsrdwKIOb1DtUIV7L_AhCvTx7nhfaW3KkOpT7VUZg.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.11.0/z45Wzc-J39TLNweQUoLw3IGZtkQiEN3lTBv3BXErRjQ.tar.br",
+    rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.3.0/6AqhP_-5msgMDvUgoJF-aFwcFpFGCSzmvL3sghcXUXM.tar.br",
 }
 
 import ArgParser
@@ -11,7 +10,7 @@ import Controller
 import Model exposing [Model]
 import Repo exposing [RepositoryEntry, RemoteRepoEntry, CacheRepoEntry]
 import View
-import ansi.Core
+import ansi.Ansi
 import cli.Arg
 import cli.Cmd
 import cli.Dir
@@ -32,8 +31,8 @@ Configuration : {
     type : [App, Pkg],
 }
 
-greenCheck = "✔" |> Core.color { fg: Standard Green }
-redCross = "✖" |> Core.color { fg: Standard Red }
+greenCheck = "✔" |> Ansi.color { fg: Standard Green }
+redCross = "✖" |> Ansi.color { fg: Standard Red }
 
 ## The main entry point for the program.
 main : Task {} _
@@ -106,7 +105,7 @@ runTuiApp = \forceUpdate, showSplash ->
         else
             Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}
     model = Task.loop! initialModel runUiLoop #(Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}) runUiLoop
-    Stdout.write! (Core.toStr Reset)
+    Stdout.write! (Ansi.toStr Reset)
     Tty.disableRawMode! {}
     when model.state is
         UserExited -> Task.ok {}
@@ -119,7 +118,7 @@ runTuiApp = \forceUpdate, showSplash ->
                 createRocFile! config repos
                 Stdout.line "Created $(config.fileName).roc $(greenCheck)"
 
-        _ -> Stdout.line ("Oops! Something went wrong..." |> Core.color { fg: Standard Yellow })
+        _ -> Stdout.line ("Oops! Something went wrong..." |> Ansi.color { fg: Standard Yellow })
 
 ## Run the update tasks for the platform, package, and app-stub repositories.
 runUpdates : Bool, Bool, Bool -> Task {} _
@@ -141,26 +140,26 @@ runUiLoop : Model -> Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
     model = Controller.paginate { prevModel & screen: terminalSize }
-    Core.drawScreen model (render model) |> Stdout.write!
+    Ansi.drawScreen model (render model) |> Stdout.write!
 
-    input = Stdin.bytes {} |> Task.map! Core.parseRawStdin
+    input = Stdin.bytes {} |> Task.map! Ansi.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
     handleInput modelWithInput input
 
 ## Get the size of the terminal window.
 ## Author: Luke Boswell
-getTerminalSize : Task Core.ScreenSize _
+getTerminalSize : Task Ansi.ScreenSize _
 getTerminalSize =
     # Move the cursor to bottom right corner of terminal
-    cmd = [Cursor (Abs { row: 999, col: 999 }), Cursor (Position (Get))] |> List.map Control |> List.map Core.toStr |> Str.joinWith ""
+    cmd = [Cursor (Abs { row: 999, col: 999 }), Cursor (Position (Get))] |> List.map Control |> List.map Ansi.toStr |> Str.joinWith ""
     Stdout.write! cmd
     # Read the cursor position
     Stdin.bytes {}
-        |> Task.map Core.parseCursor
+        |> Task.map Ansi.parseCursor
         |> Task.map! \{ row, col } -> { width: col, height: row }
 
 ## Generate the list of draw functions which will be used to draw the screen.
-render : Model -> List Core.DrawFn
+render : Model -> List Ansi.DrawFn
 render = \model ->
     when model.state is
         TypeSelect _ -> View.renderTypeSelect model
@@ -173,7 +172,7 @@ render = \model ->
         _ -> []
 
 ## Dispatch the input to the input handler for the current state.
-handleInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleInput = \model, input ->
     when model.state is
         TypeSelect _ -> handleTypeSelectInput model input
@@ -188,7 +187,7 @@ handleInput = \model, input ->
 ## Default input handler which ensures that the program can always be exited.
 ## This ensures that even if you forget to handle input for a state, or end up
 ## in a state that doesn't have an input handler, the program can still be exited.
-handleDefaultInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleDefaultInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleDefaultInput = \model, input ->
     action =
         when input is
@@ -196,7 +195,7 @@ handleDefaultInput = \model, input ->
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
-handleTypeSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleTypeSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleTypeSelectInput = \model, input ->
     action =
         when input is
@@ -214,7 +213,7 @@ handleTypeSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PlatformSelect state.
-handlePlatformSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handlePlatformSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
     action =
         when input is
@@ -236,7 +235,7 @@ handlePlatformSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PackageSelect state.
-handlePackageSelectInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handlePackageSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
     action =
         when input is
@@ -259,7 +258,7 @@ handlePackageSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the Search state.
-handleSearchInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleSearchInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleSearchInput = \model, input ->
     (action, keyPress) =
         when input is
@@ -277,7 +276,7 @@ handleSearchInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the InputAppName state.
-handleInputAppNameInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleInputAppNameInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
     bufferLen =
         when model.state is
@@ -298,7 +297,7 @@ handleInputAppNameInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the Confirmation state.
-handleConfirmationInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleConfirmationInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleConfirmationInput = \model, input ->
     action =
         when input is
@@ -308,7 +307,7 @@ handleConfirmationInput = \model, input ->
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
-handleSplashInput : Model, Core.Input -> Task [Step Model, Done Model] _
+handleSplashInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
 handleSplashInput = \model, input ->
     action =
         when input is
@@ -424,12 +423,12 @@ doPackageUpdate =
 
                         Err GhAuthError ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not authenticated." |> Core.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not authenticated." |> Ansi.color { fg: Standard Yellow })
                             Task.err GhAuthError
 
                         Err GhNotInstalled ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not installed." |> Core.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not installed." |> Ansi.color { fg: Standard Yellow })
                             Task.err GhNotInstalled
 
                         Err e ->
@@ -440,7 +439,7 @@ doPackageUpdate =
                 Stdout.line! "Package update failed. $(redCross)"
                 when e is
                     NetworkErr _ ->
-                        Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
+                        Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
                         Task.err e
 
                     _ ->
@@ -460,12 +459,12 @@ doPlatformUpdate =
 
                         Err GhAuthError ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not authenticated" |> Core.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not authenticated" |> Ansi.color { fg: Standard Yellow })
                             Task.err GhAuthError
 
                         Err GhNotInstalled ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not installed" |> Core.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not installed" |> Ansi.color { fg: Standard Yellow })
                             Task.err GhNotInstalled
 
                         Err e ->
@@ -476,7 +475,7 @@ doPlatformUpdate =
                 Stdout.line! "Platform update failed. $(redCross)"
                 when e is
                     NetworkErr _ ->
-                        Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
+                        Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
                         Task.err e
 
                     _ ->
@@ -494,7 +493,7 @@ doAppStubUpdate =
 
             Err _ ->
                 Stdout.line! "App-stub update failed. $(redCross)"
-                Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.color { fg: Standard Yellow })
+                Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Ansi.color { fg: Standard Yellow })
                 Task.err ErrReadingPlatforms
 
 getRemoteRepoData : [Packages, Platforms] -> Task (List RemoteRepoEntry) _
@@ -532,7 +531,7 @@ updateRepoCache = \repositoryList, filename ->
         Task.attempt (Task.loop { repositoryList, rvnDataStr: "[\n" } reposToRvnStrLoop) \pkgRvnStrRes ->
             when pkgRvnStrRes is
                 Ok pkgRvnStr ->
-                    File.writeBytes "$(dataDir)/$(filename)" (pkgRvnStr |> Str.toUtf8)
+                    File.writeBytes (pkgRvnStr |> Str.toUtf8) "$(dataDir)/$(filename)"
 
                 Err e ->
                     Task.err e
@@ -630,7 +629,7 @@ getAppStubs = \platforms ->
             when res is
                 Err (NetworkErr _) ->
                     Stdout.line! redCross
-                    Stdout.line! ("Error: network error." |> Core.color { fg: Standard Yellow })
+                    Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
 
                 Err _ ->
                     Stdout.line! redCross
@@ -639,7 +638,7 @@ getAppStubs = \platforms ->
                     Stdout.line! greenCheck
     else
         Stdout.line! redCross
-        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Core.color { fg: Standard Yellow })
+        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Ansi.color { fg: Standard Yellow })
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
@@ -658,7 +657,7 @@ getAppStubsLoop = \{ platforms, dir } ->
                             _ -> Task.err (NetworkErr e)
 
                     Ok response ->
-                        File.writeBytes! "$(dir)/$(platform)" response.body
+                        File.writeBytes! response.body "$(dir)/$(platform)"
                         Task.ok (Step { platforms: updatedList, dir })
 
         Err OutOfBounds -> Task.ok (Done {})
@@ -680,7 +679,7 @@ createRocFile = \config, repos ->
         when config.type is
             App -> buildRocApp config.platform config.packages repos appStub
             Pkg -> buildRocPackage config.packages repos.packages
-    File.writeBytes "$(config.fileName).roc" bytes
+    File.writeBytes bytes "$(config.fileName).roc"
 
 ## Build the raw byte representation of a roc file from the given platform, packageList, and repositories.
 buildRocApp : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry }, List U8 -> List U8
