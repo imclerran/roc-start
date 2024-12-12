@@ -11,17 +11,17 @@ module [
 ]
     
 
-import ansi.Ansi
+import ansi.ANSI
 
 Model : {
-    screen : Ansi.ScreenSize,
-    cursor : Ansi.CursorPosition,
+    screen : ANSI.ScreenSize,
+    cursor : ANSI.CursorPosition,
     menuRow : U16,
     pageFirstItem : U64,
     menu : List Str,
     fullMenu : List Str,
     selected : List Str,
-    inputs : List Ansi.Input,
+    inputs : List ANSI.Input,
     packageList : List Str,
     platformList : List Str,
     state : State,
