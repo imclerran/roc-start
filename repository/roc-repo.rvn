@@ -4,6 +4,7 @@
     { repo: "basic-ssg", owner: "lukewilliamboswell", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "basic-webserver", owner: "roc-lang", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "crisp", owner: "KilianVounckx", alias: "crisp", platform: Bool.false, requires: [] },
+    { repo: "joy", owner: "niclas-ahden", alias: "web", platform: Bool.true, requires: ["Model", "init!", "update!", "render"] },
     { repo: "kingfisher", owner: "ostcar", alias: "webserver", platform: Bool.true, requires: ["main", "Model"] },
     { repo: "okka", owner: "KilianVounckx", alias: "okka", platform: Bool.false, requires: [] },
     { repo: "r2e", owner: "adomurad", alias: "r2e", platform: Bool.false, requires: [] },
