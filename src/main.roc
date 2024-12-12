@@ -10,7 +10,7 @@ import Controller
 import Model exposing [Model]
 import Repo exposing [RepositoryEntry, RemoteRepoEntry, CacheRepoEntry]
 import View
-import ansi.Ansi
+import ansi.ANSI
 import cli.Arg
 import cli.Cmd
 import cli.Dir
@@ -31,8 +31,8 @@ Configuration : {
     type : [App, Pkg],
 }
 
-greenCheck = "✔" |> Ansi.color { fg: Standard Green }
-redCross = "✖" |> Ansi.color { fg: Standard Red }
+greenCheck = "✔" |> ANSI.color { fg: Standard Green }
+redCross = "✖" |> ANSI.color { fg: Standard Red }
 
 ## The main entry point for the program.
 main : Task {} _
@@ -105,7 +105,7 @@ runTuiApp = \forceUpdate, showSplash ->
         else
             Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}
     model = Task.loop! initialModel runUiLoop #(Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}) runUiLoop
-    Stdout.write! (Ansi.toStr Reset)
+    Stdout.write! (ANSI.toStr Reset)
     Tty.disableRawMode! {}
     when model.state is
         UserExited -> Task.ok {}
@@ -118,7 +118,7 @@ runTuiApp = \forceUpdate, showSplash ->
                 createRocFile! config repos
                 Stdout.line "Created $(config.fileName).roc $(greenCheck)"
 
-        _ -> Stdout.line ("Oops! Something went wrong..." |> Ansi.color { fg: Standard Yellow })
+        _ -> Stdout.line ("Oops! Something went wrong..." |> ANSI.color { fg: Standard Yellow })
 
 ## Run the update tasks for the platform, package, and app-stub repositories.
 runUpdates : Bool, Bool, Bool -> Task {} _
@@ -140,26 +140,26 @@ runUiLoop : Model -> Task [Step Model, Done Model] _
 runUiLoop = \prevModel ->
     terminalSize = getTerminalSize!
     model = Controller.paginate { prevModel & screen: terminalSize }
-    Ansi.drawScreen model (render model) |> Stdout.write!
+    ANSI.drawScreen model (render model) |> Stdout.write!
 
-    input = Stdin.bytes {} |> Task.map! Ansi.parseRawStdin
+    input = Stdin.bytes {} |> Task.map! ANSI.parseRawStdin
     modelWithInput = { model & inputs: List.append model.inputs input }
     handleInput modelWithInput input
 
 ## Get the size of the terminal window.
 ## Author: Luke Boswell
-getTerminalSize : Task Ansi.ScreenSize _
+getTerminalSize : Task ANSI.ScreenSize _
 getTerminalSize =
     # Move the cursor to bottom right corner of terminal
-    cmd = [Cursor (Abs { row: 999, col: 999 }), Cursor (Position (Get))] |> List.map Control |> List.map Ansi.toStr |> Str.joinWith ""
+    cmd = [Cursor (Abs { row: 999, col: 999 }), Cursor (Position (Get))] |> List.map Control |> List.map ANSI.toStr |> Str.joinWith ""
     Stdout.write! cmd
     # Read the cursor position
     Stdin.bytes {}
-        |> Task.map Ansi.parseCursor
+        |> Task.map ANSI.parseCursor
         |> Task.map! \{ row, col } -> { width: col, height: row }
 
 ## Generate the list of draw functions which will be used to draw the screen.
-render : Model -> List Ansi.DrawFn
+render : Model -> List ANSI.DrawFn
 render = \model ->
     when model.state is
         TypeSelect _ -> View.renderTypeSelect model
@@ -172,7 +172,7 @@ render = \model ->
         _ -> []
 
 ## Dispatch the input to the input handler for the current state.
-handleInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleInput = \model, input ->
     when model.state is
         TypeSelect _ -> handleTypeSelectInput model input
@@ -187,7 +187,7 @@ handleInput = \model, input ->
 ## Default input handler which ensures that the program can always be exited.
 ## This ensures that even if you forget to handle input for a state, or end up
 ## in a state that doesn't have an input handler, the program can still be exited.
-handleDefaultInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleDefaultInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleDefaultInput = \model, input ->
     action =
         when input is
@@ -195,7 +195,7 @@ handleDefaultInput = \model, input ->
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
-handleTypeSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleTypeSelectInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleTypeSelectInput = \model, input ->
     action =
         when input is
@@ -213,7 +213,7 @@ handleTypeSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PlatformSelect state.
-handlePlatformSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handlePlatformSelectInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handlePlatformSelectInput = \model, input ->
     action =
         when input is
@@ -235,7 +235,7 @@ handlePlatformSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the PackageSelect state.
-handlePackageSelectInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handlePackageSelectInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handlePackageSelectInput = \model, input ->
     action =
         when input is
@@ -258,7 +258,7 @@ handlePackageSelectInput = \model, input ->
     Task.ok (Controller.applyAction { model, action })
 
 ## The input handler for the Search state.
-handleSearchInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleSearchInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleSearchInput = \model, input ->
     (action, keyPress) =
         when input is
@@ -276,7 +276,7 @@ handleSearchInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the InputAppName state.
-handleInputAppNameInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleInputAppNameInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleInputAppNameInput = \model, input ->
     bufferLen =
         when model.state is
@@ -297,7 +297,7 @@ handleInputAppNameInput = \model, input ->
     Task.ok (Controller.applyAction { model, action, keyPress })
 
 ## The input handler for the Confirmation state.
-handleConfirmationInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleConfirmationInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleConfirmationInput = \model, input ->
     action =
         when input is
@@ -307,7 +307,7 @@ handleConfirmationInput = \model, input ->
             _ -> None
     Task.ok (Controller.applyAction { model, action })
 
-handleSplashInput : Model, Ansi.Input -> Task [Step Model, Done Model] _
+handleSplashInput : Model, ANSI.Input -> Task [Step Model, Done Model] _
 handleSplashInput = \model, input ->
     action =
         when input is
@@ -423,12 +423,12 @@ doPackageUpdate =
 
                         Err GhAuthError ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not authenticated." |> Ansi.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not authenticated." |> ANSI.color { fg: Standard Yellow })
                             Task.err GhAuthError
 
                         Err GhNotInstalled ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not installed." |> Ansi.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not installed." |> ANSI.color { fg: Standard Yellow })
                             Task.err GhNotInstalled
 
                         Err e ->
@@ -439,7 +439,7 @@ doPackageUpdate =
                 Stdout.line! "Package update failed. $(redCross)"
                 when e is
                     NetworkErr _ ->
-                        Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
+                        Stdout.line! ("Error: network error." |> ANSI.color { fg: Standard Yellow })
                         Task.err e
 
                     _ ->
@@ -459,12 +459,12 @@ doPlatformUpdate =
 
                         Err GhAuthError ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not authenticated" |> Ansi.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not authenticated" |> ANSI.color { fg: Standard Yellow })
                             Task.err GhAuthError
 
                         Err GhNotInstalled ->
                             Stdout.line! redCross
-                            Stdout.line! ("Error: `gh` not installed" |> Ansi.color { fg: Standard Yellow })
+                            Stdout.line! ("Error: `gh` not installed" |> ANSI.color { fg: Standard Yellow })
                             Task.err GhNotInstalled
 
                         Err e ->
@@ -475,7 +475,7 @@ doPlatformUpdate =
                 Stdout.line! "Platform update failed. $(redCross)"
                 when e is
                     NetworkErr _ ->
-                        Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
+                        Stdout.line! ("Error: network error." |> ANSI.color { fg: Standard Yellow })
                         Task.err e
 
                     _ ->
@@ -493,7 +493,7 @@ doAppStubUpdate =
 
             Err _ ->
                 Stdout.line! "App-stub update failed. $(redCross)"
-                Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Ansi.color { fg: Standard Yellow })
+                Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> ANSI.color { fg: Standard Yellow })
                 Task.err ErrReadingPlatforms
 
 getRemoteRepoData : [Packages, Platforms] -> Task (List RemoteRepoEntry) _
@@ -629,7 +629,7 @@ getAppStubs = \platforms ->
             when res is
                 Err (NetworkErr _) ->
                     Stdout.line! redCross
-                    Stdout.line! ("Error: network error." |> Ansi.color { fg: Standard Yellow })
+                    Stdout.line! ("Error: network error." |> ANSI.color { fg: Standard Yellow })
 
                 Err _ ->
                     Stdout.line! redCross
@@ -638,7 +638,7 @@ getAppStubs = \platforms ->
                     Stdout.line! greenCheck
     else
         Stdout.line! redCross
-        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> Ansi.color { fg: Standard Yellow })
+        Stdout.line! ("Error: no platforms downloaded. Try updating platforms." |> ANSI.color { fg: Standard Yellow })
 
 AppStubsLoopState : { platforms : List Str, dir : Str }
 
