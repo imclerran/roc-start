@@ -3,9 +3,6 @@
 # https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
 set -euxo pipefail
 
-# roc='./roc_nightly/roc'
-# roc=$(which roc) # for local use
-
 if roc_path=$(which roc 2>/dev/null); then
     roc="$roc_path"
 else
