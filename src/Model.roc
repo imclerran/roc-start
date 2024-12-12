@@ -11,17 +11,17 @@ module [
 ]
     
 
-import ansi.Core
+import ansi.Ansi
 
 Model : {
-    screen : Core.ScreenSize,
-    cursor : Core.CursorPosition,
+    screen : Ansi.ScreenSize,
+    cursor : Ansi.CursorPosition,
     menuRow : U16,
     pageFirstItem : U64,
     menu : List Str,
     fullMenu : List Str,
     selected : List Str,
-    inputs : List Core.Input,
+    inputs : List Ansi.Input,
     packageList : List Str,
     platformList : List Str,
     state : State,
