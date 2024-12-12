@@ -1,4 +1,5 @@
 [
+    { repo: "aoc-template", owner: "lukewilliamboswell", alias: "aoc", platform: Bool.false, requires: [] },
     { repo: "basic-cli", owner: "roc-lang", alias: "cli", platform: Bool.true, requires: ["main"] },
     { repo: "basic-ssg", owner: "lukewilliamboswell", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "basic-webserver", owner: "roc-lang", alias: "pf", platform: Bool.true, requires: ["main"] },
