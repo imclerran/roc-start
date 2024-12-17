@@ -3,6 +3,7 @@ app [main] {
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.7.0/NmbsrdwKIOb1DtUIV7L_AhCvTx7nhfaW3KkOpT7VUZg.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.11.0/z45Wzc-J39TLNweQUoLw3IGZtkQiEN3lTBv3BXErRjQ.tar.br",
     rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.3.0/6AqhP_-5msgMDvUgoJF-aFwcFpFGCSzmvL3sghcXUXM.tar.br",
+    weaver: "https://github.com/smores56/weaver/releases/download/0.4.0/xgCr4fYD-5UsEArgh3kgk-JxqJcXBMbHlOb5jEl4yEk.tar.br",
 }
 
 import ArgParser
@@ -69,6 +70,10 @@ runWith = \args ->
             runCliApp Pkg "main" "" packages args.update
             |> Task.onErr \_ -> Task.err (Exit 1 "")
 
+        Ok (Upgrade { filename, toUpgrade }) ->
+            runUpgrades filename toUpgrade args.update
+            |> Task.onErr \_ -> Task.err (Exit 1 "")
+
         Err NoSubcommand ->
             Stdout.line! ArgParser.extendedUsage
             Task.err (Exit 1 "")
@@ -78,19 +83,19 @@ runWith = \args ->
 runCliApp : [App, Pkg], Str, Str, List Str, Bool -> Task {} _
 runCliApp = \type, fileName, platform, packages, forceUpdate ->
     loadRepoData forceUpdate
-        |> Task.attempt \reposRes ->
-            when reposRes is
-                Ok repos ->
-                    getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
-                    fileExists = checkForFile! "$(fileName).roc"
-                    if fileExists then
-                        Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
-                        Task.err (Exit 1 "")
-                    else
-                        createRocFile! { fileName, platform, packages, type } repos
-                        Stdout.line! "Created $(fileName).roc $(greenCheck)"
+    |> Task.attempt \reposRes ->
+        when reposRes is
+            Ok repos ->
+                getAppStubsIfNeeded! (Dict.keys repos.platforms) forceUpdate
+                fileExists = checkForFile! "$(fileName).roc"
+                if fileExists then
+                    Stdout.line! "Error: $(fileName).roc already exists. $(redCross)"
+                    Task.err (Exit 1 "")
+                else
+                    createRocFile! { fileName, platform, packages, type } repos
+                    Stdout.line! "Created $(fileName).roc $(greenCheck)"
 
-                Err e -> Task.err e
+            Err e -> Task.err e
 
 ## Run the TUI application.
 ## Load the repository data, run the main tui loop, and create the roc file when the user confirms their selections.
@@ -104,7 +109,7 @@ runTuiApp = \forceUpdate, showSplash ->
             Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) { state: Splash { config: Model.emptyAppConfig } }
         else
             Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}
-    model = Task.loop! initialModel runUiLoop #(Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}) runUiLoop
+    model = Task.loop! initialModel runUiLoop # (Model.init (Dict.keys repos.platforms) (Dict.keys repos.packages) {}) runUiLoop
     Stdout.write! (ANSI.toStr Reset)
     Tty.disableRawMode! {}
     when model.state is
@@ -134,6 +139,127 @@ runUpdates = \doPfs, doPkgs, doStubs ->
 
             _ -> Task.ok (Done {})
 
+runUpgrades : Str, List Str, Bool -> Task {} _
+runUpgrades = \filename, toUpgrade, forceUpdate ->
+    { prefix, dependencies: depLines, rest: remainder } =
+        File.readBytes filename
+        |> Task.onErr! \_ -> Task.ok []
+        |> splitFile
+        |> Task.fromResult!
+
+    loadRepoData forceUpdate
+    |> Task.attempt \reposRes ->
+        when reposRes is
+            Ok repos ->
+                newDeps = Task.loop! { oldDeps: depLines, newDeps: [] } \{ oldDeps, newDeps } ->
+                    when oldDeps is
+                        [depLine, .. as rest] ->
+                            newDep = upgradeDep! depLine toUpgrade repos
+                            Task.ok (Step { oldDeps: rest, newDeps: List.append newDeps newDep })
+
+                        [] ->
+                            Task.ok (Done newDeps)
+                if List.len newDeps == List.len depLines then
+                    dependencies =
+                        newDeps
+                        |> List.map \line -> List.append line '\n'
+                        |> List.join
+                    newFile = List.join [prefix, ['{', '\n'], dependencies, ['}'], remainder]
+                    File.writeBytes! newFile filename
+                    Task.ok {}
+                else
+                    Task.ok {}
+
+            Err e -> Task.err e
+
+splitFile : List U8 -> Result { prefix : List U8, dependencies : List (List U8), rest : List U8 } [NotFound]
+splitFile = \bytes ->
+    { before: prefix, after: most } = List.splitFirst? bytes '{'
+    { before: deps, after: rest } = List.splitFirst? most '}'
+    dependencies =
+        deps
+        |> List.splitOn '\n'
+        |> List.dropIf \line -> line |> trimL |> List.isEmpty
+        |> justify
+
+    Ok { prefix, dependencies, rest }
+
+justify : List (List U8) -> List (List U8)
+justify = \lines ->
+    indent =
+        when lines is
+            [_, secondLine, ..] -> getIndent secondLine
+            [firstLine] ->
+                firstLine
+                |> getIndent
+                |> \i -> if List.len i < 2 then [' ', ' ', ' ', ' '] else i
+
+            [] -> []
+    lines
+    |> List.map \line ->
+        trimmed = trimL line
+        List.concat indent trimmed
+
+trimL = \bytes ->
+    when bytes is
+        [' ', .. as rest] -> trimL rest
+        ['\t', .. as rest] -> trimL rest
+        _ -> bytes
+
+trimR = \bytes ->
+    when bytes is
+        [.. as rest, ' '] -> trimR rest
+        [.. as rest, '\t'] -> trimR rest
+        _ -> bytes
+
+getIndent : List U8 -> List U8
+getIndent = \bytes ->
+    whitespace = [' ', '\t']
+    List.walkUntil bytes [] \indent, byte ->
+        if List.contains whitespace byte then
+            Continue (List.append indent byte)
+        else
+            Break indent
+
+upgradeDep : List U8, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task (List U8) _
+upgradeDep = \depLine, toUpgrade, repos ->
+    isPlatform = \line ->
+        Str.fromUtf8 line
+        |> Result.withDefault ""
+        |> Str.contains " platform "
+    repo =
+        depLine
+        |> Str.fromUtf8
+        |> Result.withDefault ""
+        |> Str.splitOn "/"
+        |> List.get 4
+        |> Result.withDefault ""
+    if List.contains toUpgrade repo || List.isEmpty toUpgrade then
+        newUrl =
+            if isPlatform depLine then
+                Dict.get repos.platforms repo
+                |> Result.map \entry -> entry.url
+                |> Result.withDefault ""
+            else
+                Dict.get repos.packages repo
+                |> Result.map \entry -> entry.url
+                |> Result.withDefault ""
+        prefix =
+            depLine
+            |> trimR
+            |> List.splitLast ' '
+            |> Result.withDefault { before: [], after: [] }
+            |> \split -> split.before
+            |> Str.fromUtf8
+            |> Result.withDefault ""
+        newDep = "$(prefix) \"$(newUrl)\"," |> Str.toUtf8
+        if !(Str.isEmpty prefix) && !(Str.isEmpty newUrl) then
+            Task.ok newDep
+        else
+            Task.ok depLine
+    else
+        Task.ok depLine
+
 ## The main loop for running the TUI.
 ## Checks the terminal size, draws the screen, reads input, and handles the input.
 runUiLoop : Model -> Task [Step Model, Done Model] _
@@ -155,8 +281,8 @@ getTerminalSize =
     Stdout.write! cmd
     # Read the cursor position
     Stdin.bytes {}
-        |> Task.map ANSI.parseCursor
-        |> Task.map! \{ row, col } -> { width: col, height: row }
+    |> Task.map ANSI.parseCursor
+    |> Task.map! \{ row, col } -> { width: col, height: row }
 
 ## Generate the list of draw functions which will be used to draw the screen.
 render : Model -> List ANSI.DrawFn
@@ -332,20 +458,20 @@ getAndCreateDataDir =
 checkForDir : Str -> Task Bool _
 checkForDir = \path ->
     Path.isDir (Path.fromStr path)
-        |> Task.attempt! \res ->
-            when res is
-                Ok bool -> Task.ok bool
-                _ -> Task.ok Bool.false
+    |> Task.attempt! \res ->
+        when res is
+            Ok bool -> Task.ok bool
+            _ -> Task.ok Bool.false
 
 ## Check if a file exists at the given path.
 ## Guarantee Task.ok Bool result.
 checkForFile : Str -> Task Bool _
 checkForFile = \filename ->
     Path.isFile (Path.fromStr filename)
-        |> Task.attempt! \res ->
-            when res is
-                Ok bool -> Task.ok bool
-                _ -> Task.ok Bool.false
+    |> Task.attempt! \res ->
+        when res is
+            Ok bool -> Task.ok bool
+            _ -> Task.ok Bool.false
 
 ## Load the repository data from the local cache. If the cache does not exist,
 ## or the user requests an update, fetch the latest data from the remote repository.
@@ -706,8 +832,8 @@ getAppStub : Str -> Task (List U8) _
 getAppStub = \platform ->
     dataDir = getAndCreateDataDir!
     File.readBytes "$(dataDir)/app-stubs/$(platform)"
-        |> Task.onErr \_ -> Task.ok []
-        |> Task.map! \bytes -> if List.isEmpty bytes then bytes else List.prepend bytes '\n'
+    |> Task.onErr \_ -> Task.ok []
+    |> Task.map! \bytes -> if List.isEmpty bytes then bytes else List.prepend bytes '\n'
 
 buildRocPackage : List Str, Dict Str RepositoryEntry -> List U8
 buildRocPackage = \packageList, packageRepo ->
@@ -720,4 +846,7 @@ buildRocPackage = \packageList, packageRepo ->
         "package [] {}\n" |> Str.toUtf8
     else
         "package [] {\n$(pkgsStr)}\n" |> Str.toUtf8
+
+# getFileContents : Str -> Task (List Str) _
+# getFileContents = \filename ->
 
