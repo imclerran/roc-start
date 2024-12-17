@@ -1,10 +1,10 @@
 module [parseOrDisplayMessage, baseUsage, extendedUsage]
 
-import cli.Arg.Cli as Cli
-import cli.Arg.Help as Help
-import cli.Arg.Opt as Opt
-import cli.Arg.Param as Param
-import cli.Arg.SubCmd as Subcommand
+import weaver.Cli
+import weaver.Help
+import weaver.Opt
+import weaver.Param
+import weaver.SubCmd
 
 parseOrDisplayMessage = \args -> Cli.parseOrDisplayMessage cliParser args
 
@@ -26,9 +26,9 @@ extendedUsage =
     Str.joinWith [usageHelpStr, extendedUsageStr] "\n\n"
 
 cliParser =
-    { Cli.combine <-
+    { Cli.weave <-
         update: Opt.flag { short: "u", long: "update", help: "Update the platform and package repositories." },
-        subcommand: Subcommand.optional [tuiSubcommand, updateSubcommand, appSubcommand, pkgSubcommand],
+        subcommand: SubCmd.optional [tuiSubcommand, updateSubcommand, appSubcommand, pkgSubcommand, upgradeSubcommand],
     }
     |> Cli.finish {
         name: "roc-start",
@@ -40,12 +40,12 @@ cliParser =
     |> Cli.assertValid
 
 appSubcommand =
-    { Cli.combine <-
+    { Cli.weave <-
         appName: Param.str { name: "app-name", help: "Name your new roc app." },
         platform: Param.str { name: "platform", help: "The platform to use." },
         packages: Param.strList { name: "packages", help: "Any packages to use." },
     }
-    |> Subcommand.finish {
+    |> SubCmd.finish {
         name: "app",
         description: "Create a new roc app with the specified name, platform, and packages.",
         mapper: App,
@@ -53,7 +53,7 @@ appSubcommand =
 
 pkgSubcommand =
     Param.strList { name: "packages", help: "Any packages to use." }
-    |> Subcommand.finish {
+    |> SubCmd.finish {
         name: "pkg",
         description: "Create a new roc package main file with any other specified packages dependencies.",
         mapper: Pkg,
@@ -61,20 +61,31 @@ pkgSubcommand =
 
 tuiSubcommand =
     Opt.flag { short: "s", long: "secret" }
-    |> Subcommand.finish {
+    |> SubCmd.finish {
         name: "tui",
         description: "Use the TUI app to browse and search for platforms and packages.",
         mapper: Tui,
     }
 
 updateSubcommand =
-    { Cli.combine <-
+    { Cli.weave <-
         doPkgs: Opt.flag { short: "k", long: "packages", help: "Update the package repositories." },
         doPfs: Opt.flag { short: "f", long: "platforms", help: "Update the platform repositories." },
         doStubs: Opt.flag { short: "s", long: "app-stubs", help: "Update the app stubs." },
     }
-    |> Subcommand.finish {
+    |> SubCmd.finish {
         name: "update",
         description: "Update the platform and package repositories and app stubs. Update all, or specify which to update.",
         mapper: Update,
+    }
+
+upgradeSubcommand = 
+    { Cli.weave <-
+        filename: Param.str { name: "filename", help: "The name of the file who's platforms and/or packages should be upgraded." },
+        toUpgrade: Param.strList { name: "to-upgrade", help: "List of platform and package names to upgrade. If ommitted, all will be upgraded." },
+    }
+    |> SubCmd.finish {
+        name: "upgrade",
+        description: "Upgrade the platform and/or packages in an app or package",
+        mapper: Upgrade,
     }

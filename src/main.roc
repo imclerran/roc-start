@@ -3,6 +3,7 @@ app [main] {
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.7.0/NmbsrdwKIOb1DtUIV7L_AhCvTx7nhfaW3KkOpT7VUZg.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.11.0/z45Wzc-J39TLNweQUoLw3IGZtkQiEN3lTBv3BXErRjQ.tar.br",
     rvn: "https://github.com/jwoudenberg/rvn/releases/download/0.3.0/6AqhP_-5msgMDvUgoJF-aFwcFpFGCSzmvL3sghcXUXM.tar.br",
+    weaver: "https://github.com/smores56/weaver/releases/download/0.4.0/xgCr4fYD-5UsEArgh3kgk-JxqJcXBMbHlOb5jEl4yEk.tar.br",
 }
 
 import ArgParser
@@ -69,6 +70,11 @@ runWith = \args ->
             runCliApp Pkg "main" "" packages args.update
             |> Task.onErr \_ -> Task.err (Exit 1 "")
 
+        Ok (Upgrade {filename, toUpgrade }) ->
+            runUpgrades filename toUpgrade args.update
+            |> Task.onErr \_ -> Task.err (Exit 1 "")
+
+
         Err NoSubcommand ->
             Stdout.line! ArgParser.extendedUsage
             Task.err (Exit 1 "")
@@ -133,6 +139,58 @@ runUpdates = \doPfs, doPkgs, doStubs ->
                     Task.ok (Step (List.dropFirst updateList 1))
 
             _ -> Task.ok (Done {})
+
+runUpgrades : Str, List Str, Bool -> Task {} _
+runUpgrades =\filename, toUpgrade, forceUpdate ->
+    { prefix, dependencies, rest: remainder } =
+        File.readBytes filename 
+        |> Task.onErr! \_ -> Task.ok []
+        |> splitFile
+        |> Task.fromResult!
+
+    Stdout.line! "Found dependency lines:"
+    Task.loop! dependencies \lines -> 
+        when lines is
+            [line, .. as rest] ->
+                Stdout.line! (Str.fromUtf8 line |> Result.withDefault "")
+                Task.ok (Step rest)
+            [] -> 
+                Task.ok (Done {})
+
+    loadRepoData forceUpdate
+        |> Task.attempt \reposRes ->
+            when reposRes is
+                Ok repos -> 
+                    _ = upgradeUrlStr! (getLineUrl (dependencies |> List.first |> Result.withDefault []) ) toUpgrade repos
+                    Task.ok {}
+                    
+                Err e -> Task.err e
+
+splitFile : List U8 -> Result {prefix: List U8, dependencies: List (List U8), rest: List U8 } [NotFound]
+splitFile =\bytes ->
+    { before: prefix, after: most } = List.splitFirst? bytes '{'
+    { before: deps, after: rest } = List.splitFirst? most '}'
+    dependencies = List.splitOn deps '\n' |> List.dropIf List.isEmpty
+    Ok { prefix, dependencies, rest }
+
+getLineUrl : List U8 -> Str
+getLineUrl =\line ->
+    line 
+        |> List.splitLast ' ' 
+        |> Result.withDefault { before: [], after: [] } 
+        |> \split -> split.after
+        |> List.splitOn '\"'
+        |> List.get 1
+        |> Result.withDefault []
+        |> Str.fromUtf8 
+        |> Result.withDefault ""
+
+upgradeUrlStr : Str, List Str, { packages : Dict Str RepositoryEntry, platforms : Dict Str RepositoryEntry } -> Task Str _
+upgradeUrlStr =\urlStr, toUpgrade, repos ->
+    segs = Str.splitOn urlStr "/" 
+    repo = segs |> List.get 4 |> Result.withDefault ""
+    Stdout.line! repo
+    Task.ok ""
 
 ## The main loop for running the TUI.
 ## Checks the terminal size, draws the screen, reads input, and handles the input.
@@ -720,4 +778,8 @@ buildRocPackage = \packageList, packageRepo ->
         "package [] {}\n" |> Str.toUtf8
     else
         "package [] {\n$(pkgsStr)}\n" |> Str.toUtf8
+
+# getFileContents : Str -> Task (List Str) _
+# getFileContents = \filename ->
+
 
