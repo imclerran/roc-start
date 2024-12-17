@@ -87,6 +87,22 @@ Options:
   -V, --version    Show the version.
 ```
 
+## roc-start upgrade --help
+```
+Upgrade the platform and/or packages in an app or package
+
+Usage:
+  roc-start upgrade [options] <filename> <to-upgrade...>
+
+Arguments:
+  <filename>       The name of the file who's platforms and/or packages should be upgraded.
+  <to-upgrade...>  List of platform and package names to upgrade. If ommitted, all will be upgraded.
+
+Options:
+  -h, --help     Show this help page.
+  -V, --version  Show the version.
+```
+
 <!-- [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb -->
 [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FcFzuCCd7
 [roc_link]: https://github.com/roc-lang/roc
