@@ -15,7 +15,7 @@ Roc-start maintains a repository of package and platform git repos. From this li
 ## Two workflows
 
 1) Include the application name, platform, and packages as CLI args:
-   - `roc-start my-app basic-cli weaver json`
+   - `roc-start app my-app basic-cli weaver json`
 2) Launch the TUI app to browse and search for packages and platforms:
    - `roc-start tui`
 
