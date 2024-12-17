@@ -15,6 +15,7 @@
     { repo: "roc-asciiart", owner: "imclerran", alias: "art", platform: Bool.false, requires: [] },
     { repo: "roc-aws-lambda", owner: "isaacvando", alias: "pf", platform: Bool.true, requires: ["main"] },
     { repo: "roc-base64", owner: "adomurad", alias: "base64", platform: Bool.false, requires: [] },
+    { repo: "roc-color", owner: "phagenlocher", alias: "color", platform: Bool.false, requires: [] },
     { repo: "roc-data", owner: "Subtlesplendor", alias: "data", platform: Bool.false, requires: [] },
     { repo: "roc-datetimes", owner: "hasnep", alias: "dt", platform: Bool.false, requires: [] },
     { repo: "roc-extra", owner: "KilianVounckx", alias: "extra", platform: Bool.false, requires: [] },
