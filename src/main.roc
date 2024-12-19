@@ -40,6 +40,7 @@ main : Task {} _
 main =
     when ArgParser.parseOrDisplayMessage (Arg.list! {}) is
         Ok args ->
+            Stdout.line! (Inspect.toStr args)
             runWith args
 
         Err message ->
