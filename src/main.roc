@@ -38,11 +38,8 @@ redCross = "✖" |> ANSI.color { fg: Standard Red }
 ## The main entry point for the program.
 main : Task {} _
 main =
-    cliArgs = Arg.list! {}
-    Stdout.line! (Inspect.toStr cliArgs)
     when ArgParser.parseOrDisplayMessage (Arg.list! {}) is
         Ok args ->
-            Stdout.line! (Inspect.toStr args)
             runWith args
 
         Err message ->
