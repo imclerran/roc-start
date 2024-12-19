@@ -2,28 +2,30 @@
   description = "roc-start";
 
   inputs = {
-    roc.url = "github:roc-lang/roc";
+    roc.url = "github:nxy7/roc";
     nixpkgs.follows = "roc/nixpkgs";
 
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }@inputs:
+  outputs = { nixpkgs, flake-utils, roc, ... }:
     let
       supportedSystems =
         [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     in flake-utils.lib.eachSystem supportedSystems (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        roc-cli = inputs.roc.packages.${system}.cli;
+        roc-cli = roc.packages.${system}.cli;
       in {
         devShell = pkgs.mkShell { packages = [ roc-cli ]; };
 
         packages = rec {
           default = roc-start;
-          roc-start = import ./buildRocPackage.nix {
+          roc-start = roc.lib.buildRocPackage {
             inherit pkgs roc-cli;
+            name = "roc-start";
             src = ./.;
+            entryPoint = "src/main.roc";
             outputHash = "sha256-huhu+fXYoxxf8WT2eQ5teGM6t1ziWyaTVdUAz6mBaTo=";
           };
 
