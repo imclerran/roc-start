@@ -2,7 +2,7 @@
   description = "roc-start";
 
   inputs = {
-    roc.url = "github:nxy7/roc";
+    roc.url = "github:roc-lang/roc";
     nixpkgs.follows = "roc/nixpkgs";
 
     flake-utils.url = "github:numtide/flake-utils";
