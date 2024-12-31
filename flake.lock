@@ -3,11 +3,11 @@
     "flake-compat": {
       "flake": false,
       "locked": {
-        "lastModified": 1732722421,
-        "narHash": "sha256-HRJ/18p+WoXpWJkcdsk9St5ZiukCqSDgbOGFa8Okehg=",
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
         "owner": "edolstra",
         "repo": "flake-compat",
-        "rev": "9ed2ac151eada2306ca8c418ebd97807bb08f6ac",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
         "type": "github"
       },
       "original": {
@@ -102,15 +102,15 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1734653464,
-        "narHash": "sha256-INMztD7eBBfRWYyPXRZ5eISz7FwO1njfDIhZ+RVU0Cc=",
-        "owner": "nxy7",
+        "lastModified": 1736643594,
+        "narHash": "sha256-iMUA+FTdRNsizy7eRW97t/F8UPyHypNZA4QX1slLv7Q=",
+        "owner": "roc-lang",
         "repo": "roc",
-        "rev": "ce0920677dc28a8dbd41b784570bb74d5267eb0d",
+        "rev": "1a8f56e1037cc5074cc5831ced17b76707426db2",
         "type": "github"
       },
       "original": {
-        "owner": "nxy7",
+        "owner": "roc-lang",
         "repo": "roc",
         "type": "github"
       }
@@ -133,11 +133,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1732802692,
-        "narHash": "sha256-kFrxb45qj52TT/OFUFyTdmvXkn/KXDUL0/DOtjHEQvs=",
+        "lastModified": 1736303309,
+        "narHash": "sha256-IKrk7RL+Q/2NC6+Ql6dwwCNZI6T6JH2grTdJaVWHF0A=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "34971069ec33755b2adf2481851f66d8ec9a6bfa",
+        "rev": "a0b81d4fa349d9af1765b0f0b4a899c13776f706",
         "type": "github"
       },
       "original": {
