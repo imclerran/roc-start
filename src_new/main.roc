@@ -33,7 +33,6 @@ import ScriptManager {
         path_to_str: Path.display,
     } exposing [cache_scripts!]
 
-
 main! = |args|
     when parse_or_display_message(args, to_os_raw) is
         Ok(subcommand) ->
@@ -116,14 +115,14 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }|
 
     pk_res =
         if do_packages or !(do_platforms or do_packages or do_scripts) then
-            do_package_update!(Verbose) 
+            do_package_update!(Verbose)
             |> Result.map_err(|_| PackagesUpdateFailed)
         else
             Ok(Dict.empty({}))
 
     sc_res =
         if do_scripts or !(do_platforms or do_packages or do_scripts) then
-            maybe_pfs = 
+            maybe_pfs =
                 when pf_res is
                     Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
                     _ -> None
@@ -135,11 +134,8 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }|
 
     when (pf_res, pk_res, sc_res) is
         (Ok(_), Ok(_), Ok(_)) -> Ok({})
-
         (Err(e), _, _) -> Err(e)
-
         (_, Err(e), _) -> Err(e)
-
         (_, _, Err(e)) -> Err(e)
 
 do_app_command! : { force : Bool, out_name : [Err [NoValue], Ok Str], packages : List Str, platform : [Err [NoValue], Ok Str] } => Result {} _
@@ -156,37 +152,39 @@ do_app_command! = |app_args|
             ["Creating ", "${arg_data.file_name}", "..."]
             |> colorize([primary, secondary, primary])
             |> Stdout.line!?
-            { packages, platforms } =  
-                get_repositories!(Verbose) 
-                |> Result.on_err!(handle_get_repositories_error!) 
+            { packages, platforms } =
+                get_repositories!(Verbose)
+                |> Result.on_err!(handle_get_repositories_error!)
                 |> Result.map_err(|_| GetRepositoriesFailed)?
             repo_names = List.join([Dict.keys(packages), Dict.keys(platforms)])
             repo_name_map = RepoManager.build_repo_name_map(repo_names)
-            platform_repo = 
+            platform_repo =
                 RepoManager.get_full_platform_repo_name(repo_name_map, arg_data.platform.name)
                 |> Result.on_err!(handle_platform_repo_error(arg_data.platform.name))?
-            platform_release = 
+            platform_release =
                 RepoManager.get_platform_release(platforms, platform_repo, arg_data.platform.version)
                 |> Result.on_err!(handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version))?
             ["platform: ", platform_release.repo, " : ${platform_release.tag}"]
             |> colorize([primary, secondary, primary])
             |> Stdout.line!?
             base_cmd_args = [arg_data.file_name, platform_release.alias, platform_release.url]
-            cmd_args = 
+            cmd_args =
                 if !List.is_empty(arg_data.packages) then
-                    _ = "packages:"
+                    _ =
+                        "packages:"
                         |> ANSI.color({ fg: primary })
                         |> Stdout.line!
-                    List.join([
-                        base_cmd_args,
-                        build_pacakge_arg_list!(packages, repo_name_map, arg_data),
-                    ])
-                    
+                    List.join(
+                        [
+                            base_cmd_args,
+                            build_pacakge_arg_list!(packages, repo_name_map, arg_data),
+                        ],
+                    )
                 else
                     base_cmd_args
             cache_dir = get_repo_dir!({})? |> Str.concat("/scripts/")
             scripts = ScriptManager.get_available_scripts!(cache_dir, platform_repo)
-            script_path_res = 
+            script_path_res =
                 ScriptManager.choose_script(platform_release.tag, scripts)
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
@@ -197,24 +195,25 @@ do_app_command! = |app_args|
                         |> Cmd.args(cmd_args)
                         |> Cmd.output!
                     Ok({})
+
                 Err(_) ->
                     pkg_alias_url_list =
                         List.drop_first(cmd_args, 3)
                         |> List.chunks_of(2)
-                        |> List.map(|pair| 
-                            when pair is
-                                [alias, url] -> { alias, url } 
-                                _ -> crash "List should alway be pairs."
+                        |> List.map(
+                            |pair|
+                                when pair is
+                                    [alias, url] -> { alias, url }
+                                    _ -> crash "List should alway be pairs.",
                         )
                     build_default_app!(arg_data.file_name, platform_release, pkg_alias_url_list)
-                    
 
 build_default_app! = |file_name, platform, packages|
     "app [main!] {\n"
     |> Str.concat("    ${platform.alias}: platform \"${platform.url}\",\n")
     |> Str.concat(
         List.map(packages, |pkg| "    ${pkg.alias}: \"${pkg.url}\",\n")
-        |> Str.join_with("")
+        |> Str.join_with(""),
     )
     |> Str.concat("}\n")
     |> File.write_utf8!(file_name)
@@ -224,24 +223,30 @@ build_default_app! = |file_name, platform, packages|
 handle_get_repositories_error! : [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError] => Result * _
 handle_get_repositories_error! = |e|
     when e is
-        HomeVarNotSet -> 
-            _ =  "HOME environment variable not set" |> ANSI.color({ fg: error }) |> Stdout.line!
+        HomeVarNotSet ->
+            _ = "HOME environment variable not set" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
-        FileWriteError -> 
+
+        FileWriteError ->
             _ = "Error writing to file" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
+
         FileReadError ->
             _ = "Error reading from file" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
+
         GhAuthError ->
             _ = "GitHub CLI tool not authenticated" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
+
         GhNotInstalled ->
             _ = "GitHub CLI tool not installed" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
+
         NetworkError ->
             _ = "Network error" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
+
         ParsingError ->
             _ = "Error parsing data" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
@@ -251,12 +256,12 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
         processed_args.packages,
         [],
         |args_list, package|
-            package_repo_res = 
+            package_repo_res =
                 RepoManager.get_full_package_repo_name(repo_name_map, package.name)
                 |> Result.on_err!(handle_package_repo_error(package.name))
             when package_repo_res is
                 Ok(package_repo) ->
-                    pkg_res = 
+                    pkg_res =
                         RepoManager.get_package_release(packages, package_repo, package.version)
                         |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version))
                     when pkg_res is
@@ -265,29 +270,33 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
                             |> colorize([primary, secondary, primary])
                             |> Stdout.line!?
                             List.join([args_list, [pkg.alias, pkg.url]]) |> Ok
-                        
+
                         Err(PackageReleaseErrorHandled) -> Ok(args_list)
 
-                Err(PackageRepoLookupErrorHandled) -> Ok(args_list)
-    ) |> Result.with_default([])
+                Err(PackageRepoLookupErrorHandled) -> Ok(args_list),
+    )
+    |> Result.with_default([])
 
 handle_platform_repo_error = |name|
     |err|
         when err is
             PlatformNotFound ->
-                _ = ["platform: ", name, " : repo not found - valid platform is required"]
+                _ =
+                    ["platform: ", name, " : repo not found - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformRepoLookupErrorHandled)
 
             PlatformNotFoundButMaybe(suggestion) ->
-                _ = ["platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required"]
+                _ =
+                    ["platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformRepoLookupErrorHandled)
 
             AmbiguousName ->
-                _ = ["platform: ", name, " : ambiguous; use <owner>/${name} - valid platform is required"]
+                _ =
+                    ["platform: ", name, " : ambiguous; use <owner>/${name} - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformRepoLookupErrorHandled)
@@ -296,19 +305,22 @@ handle_package_repo_error = |name|
     |err|
         when err is
             PackageNotFound ->
-                _ = ["| ", name, " : package repo not found - skipping"]
+                _ =
+                    ["| ", name, " : package repo not found - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageRepoLookupErrorHandled)
 
             PackageNotFoundButMaybe(suggestion) ->
-                _ = ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping"]
+                _ =
+                    ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageRepoLookupErrorHandled)
 
             AmbiguousName ->
-                _ = ["| ", name, " : ambiguous; use <owner>/${name} - skipping"]
+                _ =
+                    ["| ", name, " : ambiguous; use <owner>/${name} - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageRepoLookupErrorHandled)
@@ -317,13 +329,15 @@ handle_package_release_error = |packages, repo, name, version|
     |err|
         when err is
             PackageNotFound ->
-                _ = ["| ", name, " : package not found - skipping"]
+                _ =
+                    ["| ", name, " : package not found - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageReleaseErrorHandled)
 
             PackageNotFoundButMaybe(suggestion) ->
-                _ = ["| ", name, " : package not found; did you mean ${suggestion}? - skipping"]
+                _ =
+                    ["| ", name, " : package not found; did you mean ${suggestion}? - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageReleaseErrorHandled)
@@ -331,13 +345,15 @@ handle_package_release_error = |packages, repo, name, version|
             VersionNotFound ->
                 when RepoManager.get_package_release(packages, repo, "latest") is
                     Ok(suggestion) ->
-                        _ = ["| ", name, " : version not found; latest is ${suggestion.tag} - skipping"]
+                        _ =
+                            ["| ", name, " : version not found; latest is ${suggestion.tag} - skipping"]
                             |> colorize([error, secondary, error])
                             |> Stdout.line!
                         Err(PackageReleaseErrorHandled)
 
-                    Err(_) -> 
-                        _ = ["| ", name, " : version ${version} not found - skipping"]
+                    Err(_) ->
+                        _ =
+                            ["| ", name, " : version ${version} not found - skipping"]
                             |> colorize([error, secondary, error])
                             |> Stdout.line!
                         Err(PackageReleaseErrorHandled)
@@ -346,13 +362,15 @@ handle_platform_release_error = |platforms, repo, name, version|
     |err|
         when err is
             PlatformNotFound ->
-                _ = ["platform: ", name, " : not found - valid platform is required"]
+                _ =
+                    ["platform: ", name, " : not found - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformReleaseErrorHandled)
 
             PlatformNotFoundButMaybe(suggestion) ->
-                _ = ["platform: ", name, " : not found; did you mean ${suggestion}? - valid platform is required"]
+                _ =
+                    ["platform: ", name, " : not found; did you mean ${suggestion}? - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformReleaseErrorHandled)
@@ -360,13 +378,15 @@ handle_platform_release_error = |platforms, repo, name, version|
             VersionNotFound ->
                 when RepoManager.get_platform_release(platforms, repo, "latest") is
                     Ok(suggestion) ->
-                        _ = ["platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required"]
+                        _ =
+                            ["platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required"]
                             |> colorize([primary, secondary, error])
                             |> Stdout.line!
                         Err(PlatformReleaseErrorHandled)
 
-                    Err(_) -> 
-                        _ = ["platform: ", name, " : version ${version} not found - valid platform is required"]
+                    Err(_) ->
+                        _ =
+                            ["platform: ", name, " : version ${version} not found - valid platform is required"]
                             |> colorize([primary, secondary, error])
                             |> Stdout.line!
                         Err(PlatformReleaseErrorHandled)
@@ -385,27 +405,31 @@ get_repositories! = |log_level|
     packages =
         when File.is_file!(packages_path) is
             Ok(bool) if bool ->
-                File.read_utf8!(packages_path) ? |_| FileReadError
+                File.read_utf8!(packages_path)
+                ? |_| FileReadError
                 |> get_packages_from_csv_text?
 
             _ ->
                 log!("Downloading packages from remote...", log_level)
-                known_packages_text = 
-                    Http.send!({ Http.default_request & uri: known_packages_url }) ? |_| NetworkError
-                    |> .body 
+                known_packages_text =
+                    Http.send!({ Http.default_request & uri: known_packages_url })
+                    ? |_| NetworkError
+                    |> .body
                     |> Str.from_utf8_lossy
                 known_packages_text |> update_packages!(repo_dir)?
     platforms =
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
-                File.read_utf8!(platforms_path) ? |_| FileReadError
+                File.read_utf8!(platforms_path)
+                ? |_| FileReadError
                 |> get_platforms_from_csv_text?
 
             _ ->
                 log!("Downloading platforms from remote...", log_level)
-                known_platforms_text = 
-                    Http.send!({ Http.default_request & uri: known_platforms_url }) ? |_| NetworkError  
-                    |> .body 
+                known_platforms_text =
+                    Http.send!({ Http.default_request & uri: known_platforms_url })
+                    ? |_| NetworkError
+                    |> .body
                     |> Str.from_utf8_lossy
                 known_platforms_text |> update_platforms!(repo_dir)?
     Ok({ packages, platforms })
@@ -437,7 +461,7 @@ do_platform_update! = |log_level|
 do_scripts_update! : [Some PlatformDict, None], [Silent, Verbose] => Result {} []_
 do_scripts_update! = |maybe_pfs, log_level|
     log!("Updating scripts...", log_level)
-    platforms = 
+    platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
             None -> get_repositories!(log_level)? |> .platforms

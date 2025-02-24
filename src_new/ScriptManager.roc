@@ -1,14 +1,15 @@
-module {
-    http_send!,
-    file_write_utf8!,
-    create_all_dirs!,
-    list_dir!,
-    path_to_str,
-} -> [
-    cache_scripts!,
-    choose_script,
-    get_available_scripts!,
-]
+module
+    {
+        http_send!,
+        file_write_utf8!,
+        create_all_dirs!,
+        list_dir!,
+        path_to_str,
+    } -> [
+        cache_scripts!,
+        choose_script,
+        get_available_scripts!,
+    ]
 
 import semver.Types exposing [Semver]
 import semver.Semver
@@ -20,7 +21,7 @@ PlatformRelease : { repo : Str, alias : Str, requires : Str, tag : Str, url : St
 # -----------------------------------------------------------------------------
 
 script_url : Str, Str -> Str
-script_url = |repo, tag| 
+script_url = |repo, tag|
     "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${repo}/${tag}.sh"
 
 cache_scripts! : PlatformDict, Str => Result _ _
@@ -36,16 +37,16 @@ cache_scripts! = |platforms, cache_dir|
                     dir_no_slash = cache_dir |> Str.drop_suffix("/")
                     dir_path = "${dir_no_slash}/${repo}"
                     filename = "${release.tag}.sh"
-                    download_script!(url, dir_path, filename)
-            )
+                    download_script!(url, dir_path, filename),
+            ),
     )
-    
+
 download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError]
 download_script! = |url, dir_path, filename|
     req = {
         method: GET,
         headers: [],
-        uri : url,
+        uri: url,
         body: [],
         timeout_ms: NoTimeout,
     }
@@ -70,22 +71,25 @@ choose_script = |tag, scripts|
         |> List.sort_with(|(_, sv1), (_, sv2)| Semver.compare(sv2, sv1))
     List.find_first(
         script_svs,
-        |(_tag, sv)| 
+        |(_tag, sv)|
             when Semver.compare(tag_sv, sv) is
                 GT | EQ -> Bool.true
                 _ -> Bool.false,
-    ) |> Result.map_err(|_| NoMatch) |> Result.map_ok(.0)
+    )
+    |> Result.map_err(|_| NoMatch)
+    |> Result.map_ok(.0)
 
 semver_with_default = |s| Semver.parse(Str.drop_prefix(s, "v")) |> Result.with_default({ major: 0, minor: 0, patch: 0, pre_release: [s], build: [] })
 
-get_available_scripts! : Str, Str => (List Str)
+get_available_scripts! : Str, Str => List Str
 get_available_scripts! = |cache_dir, repo|
-    list_dir!("${cache_dir}/${repo}") 
+    list_dir!("${cache_dir}/${repo}")
     |> Result.with_default([])
-    |> List.map(|path| 
-        f = path_to_str(path)
-        Str.split_last(f, "/") 
-        |> Result.map_ok(|{ after }| after)
-        |> Result.with_default(f)
+    |> List.map(
+        |path|
+            f = path_to_str(path)
+            Str.split_last(f, "/")
+            |> Result.map_ok(|{ after }| after)
+            |> Result.with_default(f),
     )
     |> List.keep_if(|f| Str.ends_with(f, ".sh"))

@@ -43,7 +43,7 @@ app_subcommand =
         force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
         out_name: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." }),
         platform: Opt.maybe_str({ short: "p", long: "platform", help: "The platform to use (Defaults to `basic-cli=latest`). Set the version with `--platform <platform>=<version>`." }),
-        packages: Param.str_list({ name: "packages", help: "Any packages to use." }), 
+        packages: Param.str_list({ name: "packages", help: "Any packages to use." }),
     }
     |> SubCmd.finish(
         {
