@@ -75,14 +75,14 @@ tui_subcommand =
 
 update_subcommand =
     { Cli.weave <-
-        do_pkgs: Opt.flag({ short: "k", long: "packages", help: "Update the package repositories." }),
-        do_pfs: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
-        do_stubs: Opt.flag({ short: "s", long: "app-stubs", help: "Update the app stubs." }),
+        do_packages: Opt.flag({ short: "k", long: "packages", help: "Update the package repositories." }),
+        do_platforms: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
+        do_scripts: Opt.flag({ short: "s", long: "scripts", help: "Update the platform scripts." }),
     }
     |> SubCmd.finish(
         {
             name: "update",
-            description: "Update the platform and package repositories and app stubs. Update all, or specify which to update.",
+            description: "Update the platform and package repositories and scripts. Update all, or specify which to update.",
             mapper: Update,
         },
     )

@@ -14,6 +14,8 @@ module {
     get_platform_release,
     build_repo_name_map,
     get_full_repo_name,
+    get_full_package_repo_name,
+    get_full_platform_repo_name,
 ]
 
 import parse.CSV exposing [csv_string]
@@ -39,7 +41,7 @@ PlatformRelease : { repo : Str, alias : Str, requires : Str, tag : Str, url : St
 # Get packages and platforms from csv text
 # ------------------------------------------------------------------------------
 
-get_packages_from_csv_text : Str -> Result PackageDict _ #[BadKnownPackagesCSV]_
+get_packages_from_csv_text : Str -> Result PackageDict [ParsingError]
 get_packages_from_csv_text = |packages_text|
     packages_text
     |> parse_package_releases
@@ -47,7 +49,7 @@ get_packages_from_csv_text = |packages_text|
     |> build_package_dict
     |> Ok
 
-get_platforms_from_csv_text : Str -> Result PlatformDict _ #[BadKnownPlatformsCSV]_
+get_platforms_from_csv_text : Str -> Result PlatformDict [ParsingError]
 get_platforms_from_csv_text = |platforms_text|
     platforms_text
     |> parse_platform_releases
@@ -345,3 +347,37 @@ get_full_repo_name = |dict, name|
                         Err(NotFound)
                 else
                     Err(NotFound)
+
+get_full_package_repo_name : RepoNameMap, Str -> Result Str [PackageNotFound, AmbiguousName, PackageNotFoundButMaybe(Str)]
+get_full_package_repo_name = |dict, name|
+    if Str.contains(name, "/") then
+        Ok(name)
+    else
+        when Dict.get(dict, name) is
+            Ok([owner]) -> Ok("${owner}/${name}")
+            Ok(_) -> Err(AmbiguousName)
+            Err(KeyNotFound) -> 
+                if !Str.starts_with(name, "roc-") then
+                    if Dict.contains(dict, "roc-${name}") then
+                        Err(PackageNotFoundButMaybe("roc-${name}"))
+                    else
+                        Err(PackageNotFound)
+                else
+                    Err(PackageNotFound)
+
+get_full_platform_repo_name : RepoNameMap, Str -> Result Str [PlatformNotFound, AmbiguousName, PlatformNotFoundButMaybe(Str)]
+get_full_platform_repo_name = |dict, name|
+    if Str.contains(name, "/") then
+        Ok(name)
+    else
+        when Dict.get(dict, name) is
+            Ok([owner]) -> Ok("${owner}/${name}")
+            Ok(_) -> Err(AmbiguousName)
+            Err(KeyNotFound) -> 
+                if !Str.starts_with(name, "basic-") then
+                    if Dict.contains(dict, "basic-${name}") then
+                        Err(PlatformNotFoundButMaybe("basic-${name}"))
+                    else
+                        Err(PlatformNotFound)
+                else
+                    Err(PlatformNotFound)

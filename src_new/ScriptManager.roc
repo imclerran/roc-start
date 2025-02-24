@@ -16,6 +16,9 @@ import semver.Semver
 PlatformDict : Dict Str (List PlatformRelease)
 PlatformRelease : { repo : Str, alias : Str, requires : Str, tag : Str, url : Str, semver : Semver }
 
+# Downloading and caching
+# -----------------------------------------------------------------------------
+
 script_url : Str, Str -> Str
 script_url = |repo, tag| 
     "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${repo}/${tag}.sh"
@@ -43,7 +46,7 @@ cache_generic_script! = |cache_dir|
     url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${filename}"
     download_script!(url, cache_dir, filename)
     
-
+download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError]
 download_script! = |url, dir_path, filename|
     req = {
         method: GET,
@@ -52,15 +55,17 @@ download_script! = |url, dir_path, filename|
         body: [],
         timeout_ms: NoTimeout,
     }
-    resp = http_send!(req)?
+    resp = http_send!(req) ? |_| NetworkError
     if resp.status != 200 then
         Ok({})
     else
         text = resp.body |> Str.from_utf8_lossy
-        create_all_dirs!("${dir_path}")?
+        create_all_dirs!("${dir_path}") ? |_| FileWriteError
         file_path = "${dir_path}/${filename}"
-        _ = file_write_utf8!(text, file_path)
-        Ok({})
+        file_write_utf8!(text, file_path) |> Result.map_err(|_| FileWriteError)
+
+# Script selection
+# -----------------------------------------------------------------------------
 
 choose_script : Str, List Str -> Result Str [NoMatch]
 choose_script = |tag, scripts|

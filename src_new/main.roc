@@ -4,7 +4,7 @@ app [main!] {
     weaver: "https://github.com/smores56/weaver/releases/download/0.6.0/4GmRnyE7EFjzv6dDpebJoWWwXV285OMt4ntHIc6qvmY.tar.br",
     parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
-    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.3/3_hF__4mdRmm8yMDwhrmlyOwFAppHBtLO__6K-QJSVU.tar.br",
+    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.4/jd2cTVkJeFFJIYwDSSzeFN7byd6QeLuozceWcLfFff8.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
 }
 
@@ -43,6 +43,8 @@ main! = |args|
 
                 Ok(App(app_args)) ->
                     when do_app_command!(app_args) is
+                        Err(PlatformRepoLookupErrorHandled) -> Ok({})
+                        Err(PlatformReleaseErrorHandled) -> Ok({})
                         Err(GetRepositoriesFailed) -> Ok({})
                         any_other -> any_other
 
@@ -102,33 +104,35 @@ log! = |str, level|
 
         Silent -> {}
 
-do_update_command! : { do_pfs : Bool, do_pkgs : Bool, do_stubs : Bool } => Result {} _
-do_update_command! = |{ do_pfs, do_pkgs, do_stubs }|
-    r1 =
-        if do_pfs or !(do_pfs or do_pkgs or do_stubs) then
-            do_platform_update!(Verbose) 
-            |> Result.map_ok(|_| {})
+do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool } => Result {} _
+do_update_command! = |{ do_platforms, do_packages, do_scripts }|
+    pf_res =
+        if do_platforms or !(do_platforms or do_packages or do_scripts) then
+            do_platform_update!(Verbose)
             |> Result.map_err(|_| PlatformsUpdateFailed)
         else
-            Ok({})
+            Ok(Dict.empty({}))
 
-    r2 =
-        if do_pkgs or !(do_pfs or do_pkgs or do_stubs) then
+    pk_res =
+        if do_packages or !(do_platforms or do_packages or do_scripts) then
             do_package_update!(Verbose) 
-            |> Result.map_ok(|_| {})
             |> Result.map_err(|_| PackagesUpdateFailed)
         else
-            Ok({})
+            Ok(Dict.empty({}))
 
-    r3 =
-        if do_stubs or !(do_pfs or do_pkgs or do_stubs) then
-            do_scripts_update!(Verbose) 
-            |> Result.map_ok(|_| {}) 
+    sc_res =
+        if do_scripts or !(do_platforms or do_packages or do_scripts) then
+            maybe_pfs = 
+                when pf_res is
+                    Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
+                    _ -> None
+            # pfs = pf_res |> Result.with_default(Dict.empty({}))
+            do_scripts_update!(maybe_pfs, Verbose)
             |> Result.map_err(|_| ScriptsUpdateFailed)
         else
             Ok({})
 
-    when (r1, r2, r3) is
+    when (pf_res, pk_res, sc_res) is
         (Ok(_), Ok(_), Ok(_)) -> Ok({})
 
         (Err(e), _, _) -> Err(e)
@@ -152,13 +156,17 @@ do_app_command! = |app_args|
             |> colorize([primary, secondary, primary])
             |> Stdout.line!?
             { packages, platforms } =  
-                get_repositories!({}) 
+                get_repositories!(Verbose) 
                 |> Result.on_err!(handle_get_repositories_error!) 
                 |> Result.map_err(|_| GetRepositoriesFailed)?
             repo_names = List.join([Dict.keys(packages), Dict.keys(platforms)])
             repo_name_map = RepoManager.build_repo_name_map(repo_names)
-            platform_repo = RepoManager.get_full_repo_name(repo_name_map, arg_data.platform.name)?
-            platform_release = RepoManager.get_platform_release(platforms, platform_repo, arg_data.platform.version)?
+            platform_repo = 
+                RepoManager.get_full_platform_repo_name(repo_name_map, arg_data.platform.name)
+                |> Result.on_err!(handle_platform_repo_error(arg_data.platform.name))?
+            platform_release = 
+                RepoManager.get_platform_release(platforms, platform_repo, arg_data.platform.version)
+                |> Result.on_err!(handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version))?
             ["platform: ", platform_release.repo, " : ${platform_release.tag}"]
             |> colorize([primary, secondary, primary])
             |> Stdout.line!?
@@ -222,7 +230,7 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
         [],
         |args_list, package|
             package_repo_res = 
-                RepoManager.get_full_repo_name(repo_name_map, package.name)
+                RepoManager.get_full_package_repo_name(repo_name_map, package.name)
                 |> Result.on_err!(handle_package_repo_error(package.name))
             when package_repo_res is
                 Ok(package_repo) ->
@@ -240,6 +248,48 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
 
                 Err(PackageRepoLookupErrorHandled) -> Ok(args_list)
     ) |> Result.with_default([])
+
+handle_platform_repo_error = |name|
+    |err|
+        when err is
+            PlatformNotFound ->
+                _ = ["platform: ", name, " : repo not found - valid platform is required"]
+                    |> colorize([primary, secondary, error])
+                    |> Stdout.line!
+                Err(PlatformRepoLookupErrorHandled)
+
+            PlatformNotFoundButMaybe(suggestion) ->
+                _ = ["platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required"]
+                    |> colorize([primary, secondary, error])
+                    |> Stdout.line!
+                Err(PlatformRepoLookupErrorHandled)
+
+            AmbiguousName ->
+                _ = ["platform: ", name, " : ambiguous; use <owner>/${name} - valid platform is required"]
+                    |> colorize([primary, secondary, error])
+                    |> Stdout.line!
+                Err(PlatformRepoLookupErrorHandled)
+
+handle_package_repo_error = |name|
+    |err|
+        when err is
+            PackageNotFound ->
+                _ = ["| ", name, " : package repo not found - skipping"]
+                    |> colorize([error, secondary, error])
+                    |> Stdout.line!
+                Err(PackageRepoLookupErrorHandled)
+
+            PackageNotFoundButMaybe(suggestion) ->
+                _ = ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping"]
+                    |> colorize([error, secondary, error])
+                    |> Stdout.line!
+                Err(PackageRepoLookupErrorHandled)
+
+            AmbiguousName ->
+                _ = ["| ", name, " : ambiguous; use <owner>/${name} - skipping"]
+                    |> colorize([error, secondary, error])
+                    |> Stdout.line!
+                Err(PackageRepoLookupErrorHandled)
 
 handle_package_release_error = |packages, repo, name, version|
     |err|
@@ -270,35 +320,42 @@ handle_package_release_error = |packages, repo, name, version|
                             |> Stdout.line!
                         Err(PackageReleaseErrorHandled)
 
-handle_package_repo_error = |name|
+handle_platform_release_error = |platforms, repo, name, version|
     |err|
         when err is
-            NotFound ->
-                _ = ["| ", name, " : package repo not found - skipping"]
-                    |> colorize([error, secondary, error])
+            PlatformNotFound ->
+                _ = ["platform: ", name, " : not found - valid platform is required"]
+                    |> colorize([primary, secondary, error])
                     |> Stdout.line!
-                Err(PackageRepoLookupErrorHandled)
+                Err(PlatformReleaseErrorHandled)
 
-            NotFoundButMaybe(suggestion) ->
-                _ = ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping"]
-                    |> colorize([error, secondary, error])
+            PlatformNotFoundButMaybe(suggestion) ->
+                _ = ["platform: ", name, " : not found; did you mean ${suggestion}? - valid platform is required"]
+                    |> colorize([primary, secondary, error])
                     |> Stdout.line!
-                Err(PackageRepoLookupErrorHandled)
+                Err(PlatformReleaseErrorHandled)
 
-            AmbiguousName ->
-                _ = ["| ", name, " : ambiguous; use <owner>/${name} - skipping"]
-                    |> colorize([error, secondary, error])
-                    |> Stdout.line!
-                Err(PackageRepoLookupErrorHandled)
-        
+            VersionNotFound ->
+                when RepoManager.get_platform_release(platforms, repo, "latest") is
+                    Ok(suggestion) ->
+                        _ = ["platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required"]
+                            |> colorize([primary, secondary, error])
+                            |> Stdout.line!
+                        Err(PlatformReleaseErrorHandled)
+
+                    Err(_) -> 
+                        _ = ["platform: ", name, " : version ${version} not found - valid platform is required"]
+                            |> colorize([primary, secondary, error])
+                            |> Stdout.line!
+                        Err(PlatformReleaseErrorHandled)
 
 known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-packages.csv"
 known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-platforms.csv"
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.roc-start") |> Ok
 
-get_repositories! : {} => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError]
-get_repositories! = |{}|
+get_repositories! : [Silent, Verbose] => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError]
+get_repositories! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
     packages_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.csv")
@@ -310,7 +367,7 @@ get_repositories! = |{}|
                 |> get_packages_from_csv_text?
 
             _ ->
-                # log!("Downloading packages from remote...", Verbose)
+                log!("Downloading packages from remote...", log_level)
                 known_packages_text = 
                     Http.send!({ Http.default_request & uri: known_packages_url }) ? |_| NetworkError
                     |> .body 
@@ -323,7 +380,7 @@ get_repositories! = |{}|
                 |> get_platforms_from_csv_text?
 
             _ ->
-                # log!("Downloading platforms from remote...", Verbose)
+                log!("Downloading platforms from remote...", log_level)
                 known_platforms_text = 
                     Http.send!({ Http.default_request & uri: known_platforms_url }) ? |_| NetworkError  
                     |> .body 
@@ -334,7 +391,7 @@ get_repositories! = |{}|
 do_package_update! : [Silent, Verbose] => Result PackageDict []_
 do_package_update! = |log_level|
     repo_dir = get_repo_dir!({})?
-    log!("Updating known packages...", log_level)
+    log!("Updating packages...", log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })?
         |> .body
@@ -346,7 +403,7 @@ do_package_update! = |log_level|
 do_platform_update! : [Silent, Verbose] => Result PlatformDict []_
 do_platform_update! = |log_level|
     repo_dir = get_repo_dir!({})?
-    log!("Updating known platforms...", log_level)
+    log!("Updating platforms...", log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })?
         |> .body
@@ -355,10 +412,13 @@ do_platform_update! = |log_level|
     log!("Done.\n", log_level)
     Ok(platforms)
 
-do_scripts_update! : [Silent, Verbose] => Result {} []_
-do_scripts_update! = |log_level|
-    log!("Downloading scripts...", log_level)
-    platforms = get_repositories!({})? |> .platforms
+do_scripts_update! : [Some PlatformDict, None], [Silent, Verbose] => Result {} []_
+do_scripts_update! = |maybe_pfs, log_level|
+    log!("Updating scripts...", log_level)
+    platforms = 
+        when maybe_pfs is
+            Some(pfs) -> pfs
+            None -> get_repositories!(log_level)? |> .platforms
     cache_dir = get_repo_dir!({})? |> Str.concat("/scripts")
     cache_scripts!(platforms, cache_dir)?
     log!("Done.\n", log_level)
