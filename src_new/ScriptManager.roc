@@ -38,13 +38,7 @@ cache_scripts! = |platforms, cache_dir|
                     filename = "${release.tag}.sh"
                     download_script!(url, dir_path, filename)
             )
-    )?
-    cache_generic_script!(cache_dir)
-
-cache_generic_script! = |cache_dir|
-    filename = "generic.sh"
-    url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${filename}"
-    download_script!(url, cache_dir, filename)
+    )
     
 download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError]
 download_script! = |url, dir_path, filename|

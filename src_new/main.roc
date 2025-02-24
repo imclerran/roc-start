@@ -46,6 +46,7 @@ main! = |args|
                         Err(PlatformRepoLookupErrorHandled) -> Ok({})
                         Err(PlatformReleaseErrorHandled) -> Ok({})
                         Err(GetRepositoriesFailed) -> Ok({})
+                        Err(FileExists) -> Ok({})
                         any_other -> any_other
 
                 Ok(Pkg(_pkg_args)) ->
@@ -69,7 +70,7 @@ main! = |args|
                     |> Stdout.line!
 
         Err(e) ->
-            e |> Stdout.line!
+            e |> ANSI.color({ fg: primary }) |> Stdout.line!
 
 # dark_purple = Rgb((107,58,220))
 light_purple = Rgb((137, 101, 222))
@@ -146,7 +147,7 @@ do_app_command! = |app_args|
     arg_data = ArgHandler.handle_app(app_args)
     when File.is_file!(arg_data.file_name) is
         Ok(bool) if bool and !app_args.force ->
-            "File already exists. Choose a different name or use --force"
+            "File <${arg_data.file_name}> already exists. Choose a different name or use --force"
             |> ANSI.color({ fg: magenta })
             |> Stdout.line!?
             Err(FileExists)
@@ -185,19 +186,40 @@ do_app_command! = |app_args|
                     base_cmd_args
             cache_dir = get_repo_dir!({})? |> Str.concat("/scripts/")
             scripts = ScriptManager.get_available_scripts!(cache_dir, platform_repo)
-            script_path = 
-                cache_dir
-                |> Str.concat(
-                    ScriptManager.choose_script(platform_release.tag, scripts)
-                    |> Result.map_ok(|s| "${platform_repo}/${s}")
-                    |> Result.with_default("generic.sh")
-                )
-            Cmd.exec!("chmod", ["+x", script_path])?
-            _ =
-                Cmd.new(script_path)
-                |> Cmd.args(cmd_args)
-                |> Cmd.output!
-            Ok({})
+            script_path_res = 
+                ScriptManager.choose_script(platform_release.tag, scripts)
+                |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
+            when script_path_res is
+                Ok(script_path) ->
+                    Cmd.exec!("chmod", ["+x", script_path])?
+                    _ =
+                        Cmd.new(script_path)
+                        |> Cmd.args(cmd_args)
+                        |> Cmd.output!
+                    Ok({})
+                Err(_) ->
+                    pkg_alias_url_list =
+                        List.drop_first(cmd_args, 3)
+                        |> List.chunks_of(2)
+                        |> List.map(|pair| 
+                            when pair is
+                                [alias, url] -> { alias, url } 
+                                _ -> crash "List should alway be pairs."
+                        )
+                    build_default_app!(arg_data.file_name, platform_release, pkg_alias_url_list)
+                    
+
+build_default_app! = |file_name, platform, packages|
+    "app [main!] {\n"
+    |> Str.concat("    ${platform.alias}: platform \"${platform.url}\",\n")
+    |> Str.concat(
+        List.map(packages, |pkg| "    ${pkg.alias}: \"${pkg.url}\",\n")
+        |> Str.join_with("")
+    )
+    |> Str.concat("}\n")
+    |> File.write_utf8!(file_name)
+    |> Result.map_err(|_| FileWriteError)?
+    Ok({})
 
 handle_get_repositories_error! : [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError] => Result * _
 handle_get_repositories_error! = |e|
