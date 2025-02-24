@@ -14,14 +14,14 @@ module { write_utf8!, cmd_output!, cmd_new, cmd_args } -> [
 ]
 
 import parse.CSV exposing [csv_string]
-import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip, zip_3, zip_4, zip_5, whitespace, finalize]
+import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip, zip_4, whitespace, finalize]
 import semver.Semver
 import semver.Types exposing [Semver]
 
 PackageDict : Dict Str (List PackageRelease)
 PackageRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 PlatformDict : Dict Str (List PlatformRelease)
-PlatformRelease : { repo : Str, alias : Str, requires : Str, tag : Str, url : Str, semver : Semver }
+PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 
 # Get packages and platforms from local or remote
 # ------------------------------------------------------------------------------
@@ -71,7 +71,10 @@ update_packages! = |packages_csv_text, repo_dir|
     )?
     file_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.csv")
     package_releases_header = "repo,alias,tag,url\n"
-    all_releases |> Str.with_prefix(package_releases_header) |> write_utf8!(file_path) |> Result.map_err(|_| FileWriteError)?
+    all_releases 
+    |> Str.with_prefix(package_releases_header) 
+    |> write_utf8!(file_path) 
+    |> Result.map_err(|_| FileWriteError)?
     parse_package_releases(all_releases)
     ? |_| ParsingError
     |> build_package_dict
@@ -83,9 +86,9 @@ update_platforms! = |platforms_csv_text, repo_dir|
     all_releases = List.walk_try!(
         parsed_platforms,
         "",
-        |releases, { repo, alias, requires }|
+        |releases, { repo, alias }|
             new_releases =
-                get_platform_releases_cmd(repo, alias, requires)
+                get_platform_releases_cmd(repo, alias)
                 |> cmd_output!
                 |> get_gh_cmd_stdout?
                 |> Str.from_utf8_lossy
@@ -99,8 +102,11 @@ update_platforms! = |platforms_csv_text, repo_dir|
                         _ -> Ok(releases),
     )?
     file_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases.csv")
-    platform_releases_header = "repo,alias,requires,tag,url\n"
-    all_releases |> Str.with_prefix(platform_releases_header) |> write_utf8!(file_path) |> Result.map_err(|_| FileWriteError)?
+    platform_releases_header = "repo,alias,tag,url\n"
+    all_releases 
+    |> Str.with_prefix(platform_releases_header) 
+    |> write_utf8!(file_path)
+    |> Result.map_err(|_| FileWriteError)?
     parse_platform_releases(all_releases)
     ? |_| ParsingError
     |> build_platform_dict
@@ -113,9 +119,9 @@ get_package_releases_cmd = |repo, alias|
     cmd_new("gh")
     |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|endswith(\".tar.br\")) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
 
-get_platform_releases_cmd = |repo, alias, requires|
+get_platform_releases_cmd = |repo, alias|
     cmd_new("gh")
-    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|endswith(\".tar.br\")) | [\"${repo}\", \"${alias}\", \"${requires}\", \$release.tag_name, .browser_download_url] | @csv"])
+    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|endswith(\".tar.br\")) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
 
 get_gh_cmd_stdout = |cmd_output|
     when cmd_output.status is
@@ -153,18 +159,17 @@ parse_known_platforms = |csv_text|
     parser(csv_text) |> finalize |> Result.map_err(|_| BadKnownPlatformsCSV)
 
 parse_platform_header_line = |line|
-    parser = maybe(string("repo,alias,requires") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
+    parser = maybe(string("repo,alias") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
     parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
 
 parse_platform_line = |line|
     pattern =
-        zip_3(
-            csv_string |> lhs(string(",")),
+        zip(
             csv_string |> lhs(string(",")),
             csv_string |> lhs(maybe(string(","))),
         )
         |> lhs(maybe(string("\n")))
-    parser = pattern |> map(|(repo, alias, requires)| Ok({ repo, alias, requires }))
+    parser = pattern |> map(|(repo, alias)| Ok({ repo, alias }))
     parser(line) |> Result.map_err(|_| KnownPlatformsLineNotFound)
 
 # Parse package releases
@@ -199,20 +204,19 @@ parse_platform_releases = |csv_text|
     parser(csv_text) |> finalize |> Result.map_err(|_| BadPlatformReleasesCSV)
 
 parse_platform_releases_header_line = |line|
-    parser = maybe(string("repo,alias,requires,tag,url") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
+    parser = maybe(string("repo,alias,tag,url") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
     parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
 
 parse_platform_releases_line = |line|
     pattern =
-        zip_5(
-            csv_string |> lhs(string(",")),
+        zip_4(
             csv_string |> lhs(string(",")),
             csv_string |> lhs(string(",")),
             csv_string |> lhs(string(",")),
             csv_string |> lhs(maybe(string(","))),
         )
         |> lhs(maybe(string("\n")))
-    parser = pattern |> map(|(repo, alias, requires, tag, url)| Ok({ repo, alias, requires, tag, url }))
+    parser = pattern |> map(|(repo, alias, tag, url)| Ok({ repo, alias, tag, url }))
     parser(line) |> Result.map_err(|_| PlatformReleaseLineNotFound)
 
 # Build dictionaries from csv data
@@ -237,22 +241,22 @@ build_package_dict = |package_list|
                     Dict.insert(dict, repo, [{ repo, alias, tag, url, semver: semver_with_default(tag) }]),
     )
 
-build_platform_dict : List { repo : Str, alias : Str, requires : Str, tag : Str, url : Str } -> PlatformDict
+build_platform_dict : List { repo : Str, alias : Str, tag : Str, url : Str } -> PlatformDict
 build_platform_dict = |platform_list|
     List.walk(
         platform_list,
         Dict.empty {},
-        |dict, { repo, alias, requires, tag, url }|
+        |dict, { repo, alias, tag, url }|
             when Dict.get(dict, repo) is
                 Ok(releases) ->
                     Dict.insert(
                         dict,
                         repo,
-                        List.append(releases, { repo, alias, requires, tag, url, semver: semver_with_default(tag) }),
+                        List.append(releases, { repo, alias, tag, url, semver: semver_with_default(tag) }),
                     )
 
                 Err(KeyNotFound) ->
-                    Dict.insert(dict, repo, [{ repo, alias, requires, tag, url, semver: semver_with_default(tag) }]),
+                    Dict.insert(dict, repo, [{ repo, alias, tag, url, semver: semver_with_default(tag) }]),
     )
 
 semver_with_default = |s| Semver.parse(Str.drop_prefix(s, "v")) |> Result.with_default({ major: 0, minor: 0, patch: 0, pre_release: [s], build: [] })

@@ -15,7 +15,7 @@ import semver.Types exposing [Semver]
 import semver.Semver
 
 PlatformDict : Dict Str (List PlatformRelease)
-PlatformRelease : { repo : Str, alias : Str, requires : Str, tag : Str, url : Str, semver : Semver }
+PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 
 # Downloading and caching
 # -----------------------------------------------------------------------------
