@@ -11,4 +11,5 @@
 !assets
 !.github/workflows/
 !ci/
+!src_new/
 .DS_Store
