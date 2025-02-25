@@ -177,14 +177,14 @@ do_app_command! = |app_args|
             platform_release =
                 RM.get_repo_release(platforms, platform_repo, arg_data.platform.version, Platform)
                 |> Result.on_err!(handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version))?
-            ["platform: ", platform_release.repo, " : ${platform_release.tag}"]
+            ["Platform: ", platform_release.repo, " : ${platform_release.tag}"]
             |> colorize([primary, secondary, primary])
             |> Stdout.line!?
             base_cmd_args = [arg_data.file_name, platform_release.alias, platform_release.url]
             cmd_args =
                 if !List.is_empty(arg_data.packages) then
                     _ =
-                        "packages:"
+                        "Packages:"
                         |> ANSI.color({ fg: primary })
                         |> Stdout.line!
                     List.join(
