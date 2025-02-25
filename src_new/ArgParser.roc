@@ -25,8 +25,18 @@ extended_usage =
             Err(NotFound) -> ""
     Str.join_with([usage_help_str, extended_usage_str], "\n\n")
 
+verbosity_to_log_level = |verbosity|
+    when verbosity is
+        Ok("verbose") -> Verbose
+        Ok("quiet") -> Quiet
+        Ok("silent") -> Silent
+        _ -> Verbose
+
 cli_parser =
-    SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand])
+    { Cli.weave <-
+        verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent."}) |> Cli.map(verbosity_to_log_level),
+        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand])
+    }
     |> Cli.finish(
         {
             name: "roc-start",
