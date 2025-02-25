@@ -85,7 +85,7 @@ dark_purple = Rgb((107,58,220))
 light_purple = Rgb((137, 101, 222))
 dark_cyan = Rgb((57, 171, 219)) 
 coral = Rgb((222,100,124))
-green = Rgb((185,222,100))
+green = Rgb((122,222,100))
 
 primary = light_purple
 secondary = dark_cyan
@@ -250,7 +250,7 @@ print_app_finish_message! = |file_name, num_packages, num_skipped, log_level|
         |> log!(log_level)
     else
         ["Created ", file_name, " with ", Num.to_str(num_packages), " packages and skipped ", Num.to_str(num_skipped), " packages ", "✔\n"]
-        |> colorize([primary, secondary, primary, secondary, primary, error, secondary, okay])
+        |> colorize([primary, secondary, primary, secondary, primary, error, primary, okay])
         |> Quiet
         |> log!(log_level)
 
