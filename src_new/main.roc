@@ -6,6 +6,7 @@ app [main!] {
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.4/jd2cTVkJeFFJIYwDSSzeFN7byd6QeLuozceWcLfFff8.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -24,7 +25,7 @@ import RepoManager {
         cmd_output!: Cmd.output!,
         cmd_new: Cmd.new,
         cmd_args: Cmd.args,
-    } exposing [PackageDict, PlatformDict, update_packages!, update_platforms!, get_packages_from_csv_text, get_platforms_from_csv_text]
+    } as RM exposing [PackageDict, PlatformDict, update_local_repos!, get_packages_from_csv_text, get_platforms_from_csv_text]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -157,12 +158,12 @@ do_app_command! = |app_args|
                 |> Result.on_err!(handle_get_repositories_error!)
                 |> Result.map_err(|_| GetRepositoriesFailed)?
             repo_names = List.join([Dict.keys(packages), Dict.keys(platforms)])
-            repo_name_map = RepoManager.build_repo_name_map(repo_names)
+            repo_name_map = RM.build_repo_name_map(repo_names)
             platform_repo =
-                RepoManager.get_full_platform_repo_name(repo_name_map, arg_data.platform.name)
+                RM.get_full_repo_name(repo_name_map, arg_data.platform.name, Platform)
                 |> Result.on_err!(handle_platform_repo_error(arg_data.platform.name))?
             platform_release =
-                RepoManager.get_platform_release(platforms, platform_repo, arg_data.platform.version)
+                RM.get_repo_release(platforms, platform_repo, arg_data.platform.version, Platform)
                 |> Result.on_err!(handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version))?
             ["platform: ", platform_release.repo, " : ${platform_release.tag}"]
             |> colorize([primary, secondary, primary])
@@ -257,12 +258,12 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
         [],
         |args_list, package|
             package_repo_res =
-                RepoManager.get_full_package_repo_name(repo_name_map, package.name)
+                RM.get_full_repo_name(repo_name_map, package.name, Package)
                 |> Result.on_err!(handle_package_repo_error(package.name))
             when package_repo_res is
                 Ok(package_repo) ->
                     pkg_res =
-                        RepoManager.get_package_release(packages, package_repo, package.version)
+                        RM.get_repo_release(packages, package_repo, package.version, Package)
                         |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version))
                     when pkg_res is
                         Ok(pkg) ->
@@ -280,14 +281,14 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args|
 handle_platform_repo_error = |name|
     |err|
         when err is
-            PlatformNotFound ->
+            RepoNotFound ->
                 _ =
                     ["platform: ", name, " : repo not found - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformRepoLookupErrorHandled)
 
-            PlatformNotFoundButMaybe(suggestion) ->
+            RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required"]
                     |> colorize([primary, secondary, error])
@@ -304,14 +305,14 @@ handle_platform_repo_error = |name|
 handle_package_repo_error = |name|
     |err|
         when err is
-            PackageNotFound ->
+            RepoNotFound ->
                 _ =
                     ["| ", name, " : package repo not found - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageRepoLookupErrorHandled)
 
-            PackageNotFoundButMaybe(suggestion) ->
+            RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping"]
                     |> colorize([error, secondary, error])
@@ -328,14 +329,14 @@ handle_package_repo_error = |name|
 handle_package_release_error = |packages, repo, name, version|
     |err|
         when err is
-            PackageNotFound ->
+            RepoNotFound ->
                 _ =
                     ["| ", name, " : package not found - skipping"]
                     |> colorize([error, secondary, error])
                     |> Stdout.line!
                 Err(PackageReleaseErrorHandled)
 
-            PackageNotFoundButMaybe(suggestion) ->
+            RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["| ", name, " : package not found; did you mean ${suggestion}? - skipping"]
                     |> colorize([error, secondary, error])
@@ -343,7 +344,7 @@ handle_package_release_error = |packages, repo, name, version|
                 Err(PackageReleaseErrorHandled)
 
             VersionNotFound ->
-                when RepoManager.get_package_release(packages, repo, "latest") is
+                when RM.get_repo_release(packages, repo, "latest", Package) is
                     Ok(suggestion) ->
                         _ =
                             ["| ", name, " : version not found; latest is ${suggestion.tag} - skipping"]
@@ -361,14 +362,14 @@ handle_package_release_error = |packages, repo, name, version|
 handle_platform_release_error = |platforms, repo, name, version|
     |err|
         when err is
-            PlatformNotFound ->
+            RepoNotFound ->
                 _ =
                     ["platform: ", name, " : not found - valid platform is required"]
                     |> colorize([primary, secondary, error])
                     |> Stdout.line!
                 Err(PlatformReleaseErrorHandled)
 
-            PlatformNotFoundButMaybe(suggestion) ->
+            RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["platform: ", name, " : not found; did you mean ${suggestion}? - valid platform is required"]
                     |> colorize([primary, secondary, error])
@@ -376,7 +377,7 @@ handle_platform_release_error = |platforms, repo, name, version|
                 Err(PlatformReleaseErrorHandled)
 
             VersionNotFound ->
-                when RepoManager.get_platform_release(platforms, repo, "latest") is
+                when RM.get_repo_release(platforms, repo, "latest", Platform) is
                     Ok(suggestion) ->
                         _ =
                             ["platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required"]
@@ -416,7 +417,7 @@ get_repositories! = |log_level|
                     ? |_| NetworkError
                     |> .body
                     |> Str.from_utf8_lossy
-                known_packages_text |> update_packages!(repo_dir)?
+                known_packages_text |> update_local_repos!("${repo_dir}/package-releases.csv")?
     platforms =
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
@@ -431,7 +432,7 @@ get_repositories! = |log_level|
                     ? |_| NetworkError
                     |> .body
                     |> Str.from_utf8_lossy
-                known_platforms_text |> update_platforms!(repo_dir)?
+                known_platforms_text |> update_local_repos!("${repo_dir}/platform-releases.csv")?
     Ok({ packages, platforms })
 
 do_package_update! : [Silent, Verbose] => Result PackageDict []_
@@ -442,7 +443,7 @@ do_package_update! = |log_level|
         Http.send!({ Http.default_request & uri: known_packages_url })?
         |> .body
         |> Str.from_utf8_lossy
-    packages = known_packages_csv |> update_packages!(repo_dir)?
+    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases.csv")?
     log!("Done.\n", log_level)
     Ok(packages)
 
@@ -454,7 +455,7 @@ do_platform_update! = |log_level|
         Http.send!({ Http.default_request & uri: known_platforms_url })?
         |> .body
         |> Str.from_utf8_lossy
-    platforms = known_platforms_csv |> update_platforms!(repo_dir)?
+    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases.csv")?
     log!("Done.\n", log_level)
     Ok(platforms)
 

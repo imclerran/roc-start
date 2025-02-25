@@ -1,22 +1,22 @@
 module { write_utf8!, cmd_output!, cmd_new, cmd_args } -> [
     PackageDict,
     PlatformDict,
-    update_packages!,
-    update_platforms!,
+    update_local_repos!,
     get_packages_from_csv_text,
     get_platforms_from_csv_text,
-    get_package_release,
-    get_platform_release,
+    get_repo_release,
     build_repo_name_map,
     get_full_repo_name,
-    get_full_package_repo_name,
-    get_full_platform_repo_name,
 ]
 
 import parse.CSV exposing [csv_string]
 import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip, zip_4, whitespace, finalize]
 import semver.Semver
 import semver.Types exposing [Semver]
+
+RepositoryDict : Dict Str (List RepositoryRelease)
+RepositoryRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
+RepositoryReleaseSerialized : { repo : Str, alias : Str, tag : Str, url : Str }
 
 PackageDict : Dict Str (List PackageRelease)
 PackageRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
@@ -32,96 +32,63 @@ PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semv
 get_packages_from_csv_text : Str -> Result PackageDict [ParsingError]
 get_packages_from_csv_text = |packages_text|
     packages_text
-    |> parse_package_releases
+    |> parse_repo_releases
     |> Result.map_err(|_| ParsingError)?
-    |> build_package_dict
+    |> build_repo_dict
     |> Ok
 
 get_platforms_from_csv_text : Str -> Result PlatformDict [ParsingError]
 get_platforms_from_csv_text = |platforms_text|
     platforms_text
-    |> parse_platform_releases
+    |> parse_repo_releases
     |> Result.map_err(|_| ParsingError)?
-    |> build_platform_dict
+    |> build_repo_dict
     |> Ok
 
 # Run updates
 # ------------------------------------------------------------------------------
 
-update_packages! : Str, Str => Result PackageDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
-update_packages! = |packages_csv_text, repo_dir|
-    parsed_packages = parse_known_packages(packages_csv_text) ? |_| ParsingError
-    all_releases = List.walk_try!(
-        parsed_packages,
-        "",
-        |releases, { repo, alias }|
-            new_releases =
-                get_package_releases_cmd(repo, alias)
+update_local_repos! : Str, Str => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
+update_local_repos! = |known_repos_csv_text, save_path|
+    parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
+    { releases_str: all_releases, releases: release_list } = List.walk_try!(
+        parsed_repos,
+        { releases_str: "", releases: [] },
+        |{ releases_str, releases }, { repo, alias }|
+            new_releases_str =
+                get_releases_cmd(repo, alias)
                 |> cmd_output!
                 |> get_gh_cmd_stdout?
                 |> Str.from_utf8_lossy
-            when new_releases is
+            when new_releases_str is
                 "" ->
-                    Ok(releases)
-
+                    Ok({ releases_str, releases }) 
                 _ ->
-                    when parse_package_releases(new_releases) is
-                        Ok(_) -> Ok(Str.join_with([releases, new_releases], ""))
-                        _ -> Ok(releases),
+                    when parse_repo_releases(new_releases_str) is
+                        Ok(new_releases) ->
+                            Ok(
+                                {
+                                    releases_str: Str.join_with([releases_str, new_releases_str], ""),
+                                    releases: List.join([releases, new_releases]),
+                                }
+                            )
+                        _ -> Ok({ releases_str, releases }),
     )?
-    file_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.csv")
-    package_releases_header = "repo,alias,tag,url\n"
-    all_releases 
-    |> Str.with_prefix(package_releases_header) 
-    |> write_utf8!(file_path) 
+    release_header = "repo,alias,tag,url\n"
+    all_releases
+    |> Str.with_prefix(release_header)
+    |> write_utf8!(save_path)
     |> Result.map_err(|_| FileWriteError)?
-    parse_package_releases(all_releases)
-    ? |_| ParsingError
-    |> build_package_dict
-    |> Ok
-
-update_platforms! : Str, Str => Result PlatformDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
-update_platforms! = |platforms_csv_text, repo_dir|
-    parsed_platforms = parse_known_platforms(platforms_csv_text) ? |_| ParsingError
-    all_releases = List.walk_try!(
-        parsed_platforms,
-        "",
-        |releases, { repo, alias }|
-            new_releases =
-                get_platform_releases_cmd(repo, alias)
-                |> cmd_output!
-                |> get_gh_cmd_stdout?
-                |> Str.from_utf8_lossy
-            when new_releases is
-                "" ->
-                    Ok(releases)
-
-                _ ->
-                    when parse_platform_releases(new_releases) is
-                        Ok(_) -> Ok(Str.join_with([releases, new_releases], ""))
-                        _ -> Ok(releases),
-    )?
-    file_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases.csv")
-    platform_releases_header = "repo,alias,tag,url\n"
-    all_releases 
-    |> Str.with_prefix(platform_releases_header) 
-    |> write_utf8!(file_path)
-    |> Result.map_err(|_| FileWriteError)?
-    parse_platform_releases(all_releases)
-    ? |_| ParsingError
-    |> build_platform_dict
+    release_list
+    |> build_repo_dict
     |> Ok
 
 # GitHub API Commands
 # ------------------------------------------------------------------------------
 
-get_package_releases_cmd = |repo, alias|
+get_releases_cmd = |repo, alias|
     cmd_new("gh")
-    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|endswith(\".tar.br\")) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
-
-get_platform_releases_cmd = |repo, alias|
-    cmd_new("gh")
-    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|endswith(\".tar.br\")) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
+    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|(endswith(\".tar.br\") or endswith(\".tar.gz\"))) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
 
 get_gh_cmd_stdout = |cmd_output|
     when cmd_output.status is
@@ -130,18 +97,18 @@ get_gh_cmd_stdout = |cmd_output|
         Ok(_) -> Ok([])
         Err(_) -> Err(GhNotInstalled)
 
-# Parse known packages
+# Parse known repositories csv
 # ------------------------------------------------------------------------------
 
-parse_known_packages = |csv_text|
-    parser = parse_package_header_line |> rhs(one_or_more(parse_package_line)) |> lhs(maybe(whitespace))
-    parser(csv_text) |> finalize |> Result.map_err(|_| BadKnownPackagesCSV)
+parse_known_repos = |csv_text|
+    parser = parse_known_repos_header |> rhs(one_or_more(parse_known_repos_line)) |> lhs(maybe(whitespace))
+    parser(csv_text) |> finalize |> Result.map_err(|_| BadKnownReposCSV)
 
-parse_package_header_line = |line|
+parse_known_repos_header = |line|
     parser = maybe(string("repo,alias") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
     parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
 
-parse_package_line = |line|
+parse_known_repos_line = |line|
     pattern =
         zip(
             csv_string |> lhs(string(",")),
@@ -149,42 +116,22 @@ parse_package_line = |line|
         )
         |> lhs(maybe(string("\n")))
     parser = pattern |> map(|(repo, alias)| Ok({ repo, alias }))
-    parser(line) |> Result.map_err(|_| KnownPackagesLineNotFound)
+    parser(line) |> Result.map_err(|_| KnownReposLineNotFound)
 
-# Parse known platforms
-# ------------------------------------------------------------------------------
-
-parse_known_platforms = |csv_text|
-    parser = parse_platform_header_line |> rhs(one_or_more(parse_platform_line)) |> lhs(maybe(whitespace))
-    parser(csv_text) |> finalize |> Result.map_err(|_| BadKnownPlatformsCSV)
-
-parse_platform_header_line = |line|
-    parser = maybe(string("repo,alias") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
-    parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
-
-parse_platform_line = |line|
-    pattern =
-        zip(
-            csv_string |> lhs(string(",")),
-            csv_string |> lhs(maybe(string(","))),
-        )
-        |> lhs(maybe(string("\n")))
-    parser = pattern |> map(|(repo, alias)| Ok({ repo, alias }))
-    parser(line) |> Result.map_err(|_| KnownPlatformsLineNotFound)
 
 # Parse package releases
 # ------------------------------------------------------------------------------
 
-parse_package_releases : Str -> Result (List { repo : Str, alias : Str, tag : Str, url : Str }) [BadPackageReleasesCSV]
-parse_package_releases = |csv_text|
-    parser = parse_release_header_line |> rhs(one_or_more(parse_package_releases_line)) |> lhs(maybe(whitespace))
-    parser(csv_text) |> finalize |> Result.map_err(|_| BadPackageReleasesCSV)
+parse_repo_releases : Str -> Result (List { repo : Str, alias : Str, tag : Str, url : Str }) [BadRepoReleasesCSV]
+parse_repo_releases = |csv_text|
+    parser = parse_repo_release_header |> rhs(one_or_more(parse_repo_releases_line)) |> lhs(maybe(whitespace))
+    parser(csv_text) |> finalize |> Result.map_err(|_| BadRepoReleasesCSV)
 
-parse_release_header_line = |line|
+parse_repo_release_header = |line|
     parser = maybe(string("repo,alias,tag,url") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
     parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
 
-parse_package_releases_line = |line|
+parse_repo_releases_line = |line|
     pattern =
         zip_4(
             csv_string |> lhs(string(",")),
@@ -194,38 +141,15 @@ parse_package_releases_line = |line|
         )
         |> lhs(maybe(string("\n")))
     parser = pattern |> map(|(repo, alias, tag, url)| Ok({ repo, alias, tag, url }))
-    parser(line) |> Result.map_err(|_| PackageReleaseLineNotFound)
-
-# Parse platform releases
-# ------------------------------------------------------------------------------
-
-parse_platform_releases = |csv_text|
-    parser = parse_platform_releases_header_line |> rhs(one_or_more(parse_platform_releases_line)) |> lhs(maybe(whitespace))
-    parser(csv_text) |> finalize |> Result.map_err(|_| BadPlatformReleasesCSV)
-
-parse_platform_releases_header_line = |line|
-    parser = maybe(string("repo,alias,tag,url") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
-    parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
-
-parse_platform_releases_line = |line|
-    pattern =
-        zip_4(
-            csv_string |> lhs(string(",")),
-            csv_string |> lhs(string(",")),
-            csv_string |> lhs(string(",")),
-            csv_string |> lhs(maybe(string(","))),
-        )
-        |> lhs(maybe(string("\n")))
-    parser = pattern |> map(|(repo, alias, tag, url)| Ok({ repo, alias, tag, url }))
-    parser(line) |> Result.map_err(|_| PlatformReleaseLineNotFound)
+    parser(line) |> Result.map_err(|_| RepoReleaseLineNotFound)
 
 # Build dictionaries from csv data
 # -----------------------------------------------------------------------------
 
-build_package_dict : List { repo : Str, alias : Str, tag : Str, url : Str } -> PackageDict
-build_package_dict = |package_list|
+build_repo_dict : List RepositoryReleaseSerialized -> RepositoryDict
+build_repo_dict = |repo_list|
     List.walk(
-        package_list,
+        repo_list,
         Dict.empty {},
         |dict, { repo, alias, tag, url }|
             when Dict.get(dict, repo) is
@@ -241,36 +165,24 @@ build_package_dict = |package_list|
                     Dict.insert(dict, repo, [{ repo, alias, tag, url, semver: semver_with_default(tag) }]),
     )
 
-build_platform_dict : List { repo : Str, alias : Str, tag : Str, url : Str } -> PlatformDict
-build_platform_dict = |platform_list|
-    List.walk(
-        platform_list,
-        Dict.empty {},
-        |dict, { repo, alias, tag, url }|
-            when Dict.get(dict, repo) is
-                Ok(releases) ->
-                    Dict.insert(
-                        dict,
-                        repo,
-                        List.append(releases, { repo, alias, tag, url, semver: semver_with_default(tag) }),
-                    )
-
-                Err(KeyNotFound) ->
-                    Dict.insert(dict, repo, [{ repo, alias, tag, url, semver: semver_with_default(tag) }]),
-    )
-
 semver_with_default = |s| Semver.parse(Str.drop_prefix(s, "v")) |> Result.with_default({ major: 0, minor: 0, patch: 0, pre_release: [s], build: [] })
 
-# Dict Lookup
-# ------------------------------------------------------------------------------
+# Release Lookup
+# -----------------------------------------------------------------------------
 
-get_package_release : PackageDict, Str, Str -> Result PackageRelease [PackageNotFound, VersionNotFound, PackageNotFoundButMaybe Str]
-get_package_release = |dict, repo, version|
+get_repo_release : RepositoryDict, Str, Str, [Package, Platform] -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe(Str)]
+get_repo_release = |dict, repo, version, type|
+    when type is
+        Package -> get_repo_release_help(dict, repo, version, "roc-")
+        Platform -> get_repo_release_help(dict, repo, version, "basic-")
+
+get_repo_release_help : RepositoryDict, Str, Str, Str -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe(Str)]
+get_repo_release_help = |dict, repo, version, try_prefix|
     when Dict.get(dict, repo) is
         Ok(releases) ->
             if version == "latest" or version == "" then
                 sorted = List.sort_with(releases, |{ semver: a }, { semver: b }| Semver.compare(a, b))
-                release = List.last(sorted) ? |_| PackageNotFound
+                release = List.last(sorted) ? |_| RepoNotFound
                 Ok(release)
             else
                 when Semver.parse(Str.drop_prefix(version, "v")) is
@@ -286,31 +198,16 @@ get_package_release = |dict, repo, version|
         Err(KeyNotFound) ->
             when Str.split_first(repo, "/") is
                 Ok({ before: owner, after: name }) ->
-                    if !Str.starts_with(name, "roc-") and Dict.contains(dict, "${owner}/roc-${name}") then
-                        Err(PackageNotFoundButMaybe("${owner}/roc-${name}"))
+                    if !Str.starts_with(name, try_prefix) and Dict.contains(dict, "${owner}/${try_prefix}${name}") then
+                        Err(RepoNotFoundButMaybe("${owner}/${try_prefix}${name}"))
                     else
-                        Err(PackageNotFound)
+                        Err(RepoNotFound)
 
-                Err(NotFound) -> Err(PackageNotFound)
+                Err(NotFound) -> Err(RepoNotFound)
 
-get_platform_release : PlatformDict, Str, Str -> Result PlatformRelease [PlatformNotFound, VersionNotFound]
-get_platform_release = |dict, repo, version|
-    when Dict.get(dict, repo) is
-        Ok(releases) ->
-            if version == "latest" or version == "" then
-                release = List.first(releases) ? |_| PlatformNotFound
-                Ok(release)
-            else
-                when Semver.parse(Str.drop_prefix(version, "v")) is
-                    Ok(sv) ->
-                        release = List.find_first(releases, |{ semver }| Semver.compare(semver, sv) == EQ) ? |_| VersionNotFound
-                        Ok(release)
 
-                    Err(_) ->
-                        release = List.find_first(releases, |{ tag }| tag == version) ? |_| VersionNotFound
-                        Ok(release)
-
-        Err(KeyNotFound) -> Err(PlatformNotFound)
+# Repository onwer/name lookup
+# -----------------------------------------------------------------------------
 
 RepoNameMap : Dict Str (List Str)
 
@@ -326,25 +223,13 @@ build_repo_name_map = |repos|
                 Err(KeyNotFound) -> Dict.insert(dict, name, [owner]),
     )
 
-get_full_repo_name : RepoNameMap, Str -> Result Str [NotFound, AmbiguousName, NotFoundButMaybe Str]
-get_full_repo_name = |dict, name|
-    if Str.contains(name, "/") then
-        Ok(name)
-    else
-        when Dict.get(dict, name) is
-            Ok([owner]) -> Ok("${owner}/${name}")
-            Ok(_) -> Err(AmbiguousName)
-            Err(KeyNotFound) ->
-                if !Str.starts_with(name, "roc-") then
-                    if Dict.contains(dict, "roc-${name}") then
-                        Err(NotFoundButMaybe("roc-${name}"))
-                    else
-                        Err(NotFound)
-                else
-                    Err(NotFound)
+get_full_repo_name : RepoNameMap, Str, [Package, Platform] -> Result Str [RepoNotFound, AmbiguousName, RepoNotFoundButMaybe Str]
+get_full_repo_name = |dict, name, type|
+    when type is
+        Package -> get_full_repo_name_help(dict, name, "roc-")
+        Platform -> get_full_repo_name_help(dict, name, "basic-")
 
-get_full_package_repo_name : RepoNameMap, Str -> Result Str [PackageNotFound, AmbiguousName, PackageNotFoundButMaybe Str]
-get_full_package_repo_name = |dict, name|
+get_full_repo_name_help = |dict, name, try_prefix|
     if Str.contains(name, "/") then
         Ok(name)
     else
@@ -352,27 +237,10 @@ get_full_package_repo_name = |dict, name|
             Ok([owner]) -> Ok("${owner}/${name}")
             Ok(_) -> Err(AmbiguousName)
             Err(KeyNotFound) ->
-                if !Str.starts_with(name, "roc-") then
-                    if Dict.contains(dict, "roc-${name}") then
-                        Err(PackageNotFoundButMaybe("roc-${name}"))
+                if !Str.starts_with(name, try_prefix) then
+                    if Dict.contains(dict, "${try_prefix}${name}") then
+                        Err(RepoNotFoundButMaybe("${try_prefix}${name}"))
                     else
-                        Err(PackageNotFound)
+                        Err(RepoNotFound)
                 else
-                    Err(PackageNotFound)
-
-get_full_platform_repo_name : RepoNameMap, Str -> Result Str [PlatformNotFound, AmbiguousName, PlatformNotFoundButMaybe Str]
-get_full_platform_repo_name = |dict, name|
-    if Str.contains(name, "/") then
-        Ok(name)
-    else
-        when Dict.get(dict, name) is
-            Ok([owner]) -> Ok("${owner}/${name}")
-            Ok(_) -> Err(AmbiguousName)
-            Err(KeyNotFound) ->
-                if !Str.starts_with(name, "basic-") then
-                    if Dict.contains(dict, "basic-${name}") then
-                        Err(PlatformNotFoundButMaybe("basic-${name}"))
-                    else
-                        Err(PlatformNotFound)
-                else
-                    Err(PlatformNotFound)
+                    Err(RepoNotFound)
