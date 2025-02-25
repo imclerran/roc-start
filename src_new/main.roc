@@ -72,15 +72,18 @@ main! = |args|
         Err(e) ->
             e |> ANSI.color({ fg: primary }) |> Stdout.line!
 
-# dark_purple = Rgb((107,58,220))
+
+dark_purple = Rgb((107,58,220))
 light_purple = Rgb((137, 101, 222))
-magenta = Rgb((219, 57, 171))
-dark_cyan = Rgb((57, 171, 219))
+dark_cyan = Rgb((57, 171, 219)) 
+coral = Rgb((222,100,124))
+green = Rgb((185,222,100))
 
 primary = light_purple
 secondary = dark_cyan
-# tertiary = dark_purple
-error = magenta
+tertiary = dark_purple
+error = coral
+okay = green
 
 colorize : List Str, List _ -> Str
 colorize = |parts, colors|
@@ -127,7 +130,6 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }|
                 when pf_res is
                     Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
                     _ -> None
-            # pfs = pf_res |> Result.with_default(Dict.empty({}))
             do_scripts_update!(maybe_pfs, Verbose)
             |> Result.map_err(|_| ScriptsUpdateFailed)
         else
@@ -145,18 +147,28 @@ do_app_command! = |app_args|
     when File.is_file!(arg_data.file_name) is
         Ok(bool) if bool and !app_args.force ->
             "File <${arg_data.file_name}> already exists. Choose a different name or use --force"
-            |> ANSI.color({ fg: magenta })
+            |> ANSI.color({ fg: error })
             |> Stdout.line!?
             Err(FileExists)
 
         _ ->
-            ["Creating ", "${arg_data.file_name}", "..."]
-            |> colorize([primary, secondary, primary])
-            |> Stdout.line!?
             { packages, platforms } =
                 get_repositories!(Verbose)
                 |> Result.on_err!(handle_get_repositories_error!)
                 |> Result.map_err(|_| GetRepositoriesFailed)?
+            _ = 
+                repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
+                scripts_exists = 
+                    when File.is_dir!("${repo_dir}/scripts") is
+                        Ok(bool) -> bool
+                        Err(_) -> Bool.false
+                if !(scripts_exists) then
+                    do_scripts_update!(Some(platforms), Verbose)
+                else
+                    Ok({})
+            ["Creating ", "${arg_data.file_name}", "..."]
+            |> colorize([primary, secondary, primary])
+            |> Stdout.line!?
             repo_names = List.join([Dict.keys(packages), Dict.keys(platforms)])
             repo_name_map = RM.build_repo_name_map(repo_names)
             platform_repo =
@@ -405,78 +417,83 @@ get_repositories! : [Silent, Verbose] => Result { packages : PackageDict, platfo
 get_repositories! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
-    packages_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.csv")
-    platforms_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases.csv")
+    packages_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.json")
+    platforms_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases.json")
     packages =
         when File.is_file!(packages_path) is
             Ok(bool) if bool ->
                 File.read_bytes!(packages_path)
                 ? |_| FileReadError
                 |> RM.get_repos_from_json_bytes?
-                # File.read_utf8!(packages_path)
-                # ? |_| FileReadError
-                # |> get_packages_from_csv_text?
 
             _ ->
-                log!("Downloading packages from remote...", log_level)
-                known_packages_text =
-                    Http.send!({ Http.default_request & uri: known_packages_url })
-                    ? |_| NetworkError
-                    |> .body
-                    |> Str.from_utf8_lossy
-                known_packages_text |> update_local_repos!("${repo_dir}/package-releases.csv")?
+                do_package_update!(log_level)?
+                # "Downloading package data from remote..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
+                # known_packages_text =
+                #     Http.send!({ Http.default_request & uri: known_packages_url })
+                #     ? |_| NetworkError
+                #     |> .body
+                #     |> Str.from_utf8_lossy
+                # repos = known_packages_text |> update_local_repos!("${repo_dir}/package-releases.json")?
+                # "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
+                # repos
     platforms =
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
                 File.read_bytes!(platforms_path)
                 ? |_| FileReadError
                 |> RM.get_repos_from_json_bytes?
-                # File.read_utf8!(platforms_path)
-                # ? |_| FileReadError
-                # |> get_platforms_from_csv_text?
 
             _ ->
-                log!("Downloading platforms from remote...", log_level)
-                known_platforms_text =
-                    Http.send!({ Http.default_request & uri: known_platforms_url })
-                    ? |_| NetworkError
-                    |> .body
-                    |> Str.from_utf8_lossy
-                known_platforms_text |> update_local_repos!("${repo_dir}/platform-releases.csv")?
+                # "Downloading platform data from remote..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
+                # known_platforms_text =
+                #     Http.send!({ Http.default_request & uri: known_platforms_url })
+                #     ? |_| NetworkError
+                #     |> .body
+                #     |> Str.from_utf8_lossy
+                # repos = known_platforms_text |> update_local_repos!("${repo_dir}/platform-releases.json")?
+                # "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
+                # repos
+                do_platform_update!(log_level)?
+
     Ok({ packages, platforms })
 
 do_package_update! : [Silent, Verbose] => Result PackageDict []_
 do_package_update! = |log_level|
-    repo_dir = get_repo_dir!({})?
-    log!("Updating packages...", log_level)
+    repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
+    "Updating packages..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     known_packages_csv =
-        Http.send!({ Http.default_request & uri: known_packages_url })?
+        Http.send!({ Http.default_request & uri: known_packages_url })
+        ? |_| NetworkError 
         |> .body
         |> Str.from_utf8_lossy
-    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases.csv")?
-    log!("Done.\n", log_level)
+    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases.json")?
+    "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
     Ok(packages)
 
 do_platform_update! : [Silent, Verbose] => Result PlatformDict []_
 do_platform_update! = |log_level|
-    repo_dir = get_repo_dir!({})?
-    log!("Updating platforms...", log_level)
+    repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
+    "Updating platforms..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     known_platforms_csv =
-        Http.send!({ Http.default_request & uri: known_platforms_url })?
+        Http.send!({ Http.default_request & uri: known_platforms_url })
+        ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
-    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases.csv")?
-    log!("Done.\n", log_level)
+    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases.json")?
+    "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
     Ok(platforms)
 
 do_scripts_update! : [Some PlatformDict, None], [Silent, Verbose] => Result {} []_
 do_scripts_update! = |maybe_pfs, log_level|
-    log!("Updating scripts...", log_level)
+    "Updating scripts..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
             None -> get_repositories!(log_level)? |> .platforms
-    cache_dir = get_repo_dir!({})? |> Str.concat("/scripts")
-    cache_scripts!(platforms, cache_dir)?
-    log!("Done.\n", log_level)
+    cache_dir = get_repo_dir!({})
+        ? |_| HomeVarNotSet 
+        |> Str.concat("/scripts")
+    cache_scripts!(platforms, cache_dir) ? |_| FileWriteError
+    "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
     Ok({})
