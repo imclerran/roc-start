@@ -1,14 +1,16 @@
-module { write_utf8!, cmd_output!, cmd_new, cmd_args } -> [
+module { write_bytes!, cmd_output!, cmd_new, cmd_args } -> [
     PackageDict,
     PlatformDict,
     update_local_repos!,
-    get_packages_from_csv_text,
-    get_platforms_from_csv_text,
+    get_repos_from_json_bytes,
     get_repo_release,
     build_repo_name_map,
     get_full_repo_name,
+    encode_repo_releases,
+    get_repos_from_json_bytes,
 ]
 
+import json.Json
 import parse.CSV exposing [csv_string]
 import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip, zip_4, whitespace, finalize]
 import semver.Semver
@@ -29,19 +31,9 @@ PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semv
 # Get packages and platforms from csv text
 # ------------------------------------------------------------------------------
 
-get_packages_from_csv_text : Str -> Result PackageDict [ParsingError]
-get_packages_from_csv_text = |packages_text|
-    packages_text
-    |> parse_repo_releases
-    |> Result.map_err(|_| ParsingError)?
-    |> build_repo_dict
-    |> Ok
-
-get_platforms_from_csv_text : Str -> Result PlatformDict [ParsingError]
-get_platforms_from_csv_text = |platforms_text|
-    platforms_text
-    |> parse_repo_releases
-    |> Result.map_err(|_| ParsingError)?
+get_repos_from_json_bytes : List U8 -> Result RepositoryDict [BadRepoReleasesData]
+get_repos_from_json_bytes = |bytes|
+    decode_repo_releases(bytes)?
     |> build_repo_dict
     |> Ok
 
@@ -51,10 +43,10 @@ get_platforms_from_csv_text = |platforms_text|
 update_local_repos! : Str, Str => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
 update_local_repos! = |known_repos_csv_text, save_path|
     parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
-    { releases_str: all_releases, releases: release_list } = List.walk_try!(
+    release_list = List.walk_try!(
         parsed_repos,
-        { releases_str: "", releases: [] },
-        |{ releases_str, releases }, { repo, alias }|
+        [],
+        |releases, { repo, alias }|
             new_releases_str =
                 get_releases_cmd(repo, alias)
                 |> cmd_output!
@@ -62,26 +54,23 @@ update_local_repos! = |known_repos_csv_text, save_path|
                 |> Str.from_utf8_lossy
             when new_releases_str is
                 "" ->
-                    Ok({ releases_str, releases }) 
+                    Ok(releases) 
                 _ ->
                     when parse_repo_releases(new_releases_str) is
-                        Ok(new_releases) ->
-                            Ok(
-                                {
-                                    releases_str: Str.join_with([releases_str, new_releases_str], ""),
-                                    releases: List.join([releases, new_releases]),
-                                }
-                            )
-                        _ -> Ok({ releases_str, releases }),
+                        Ok(new_releases) -> Ok(List.join([releases, new_releases]))
+                        _ -> Ok(releases),
     )?
-    release_header = "repo,alias,tag,url\n"
-    all_releases
-    |> Str.with_prefix(release_header)
-    |> write_utf8!(save_path)
-    |> Result.map_err(|_| FileWriteError)?
+    save_repo_releases!(release_list, save_path)?
     release_list
     |> build_repo_dict
     |> Ok
+
+save_repo_releases! : List RepositoryReleaseSerialized, Str => Result {} [FileWriteError]
+save_repo_releases! = |releases, save_path|
+    releases
+    |> encode_repo_releases
+    |> write_bytes!(save_path)
+    |> Result.map_err(|_| FileWriteError)
 
 # GitHub API Commands
 # ------------------------------------------------------------------------------
@@ -118,6 +107,20 @@ parse_known_repos_line = |line|
     parser = pattern |> map(|(repo, alias)| Ok({ repo, alias }))
     parser(line) |> Result.map_err(|_| KnownReposLineNotFound)
 
+# encode and decode releases
+# ------------------------------------------------------------------------------
+
+encode_repo_releases : List RepositoryReleaseSerialized -> List U8
+encode_repo_releases = |releases|
+    encoder = Json.utf8_with({ field_name_mapping: SnakeCase })
+    Encode.to_bytes(releases, encoder)
+
+decode_repo_releases : List U8 -> Result (List RepositoryReleaseSerialized) [BadRepoReleasesData]
+decode_repo_releases = |bytes|
+    decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
+    decoded : Decode.DecodeResult (List RepositoryReleaseSerialized)
+    decoded = Decode.from_bytes_partial(bytes, decoder) 
+    decoded.result |> Result.map_err(|_| BadRepoReleasesData)
 
 # Parse package releases
 # ------------------------------------------------------------------------------

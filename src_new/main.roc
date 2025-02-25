@@ -21,11 +21,11 @@ import ansi.ANSI
 import ArgParser exposing [parse_or_display_message]
 import ArgHandler
 import RepoManager {
-        write_utf8!: File.write_utf8!,
+        write_bytes!: File.write_bytes!,
         cmd_output!: Cmd.output!,
         cmd_new: Cmd.new,
         cmd_args: Cmd.args,
-    } as RM exposing [PackageDict, PlatformDict, update_local_repos!, get_packages_from_csv_text, get_platforms_from_csv_text]
+    } as RM exposing [PackageDict, PlatformDict, update_local_repos!]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -221,7 +221,7 @@ build_default_app! = |file_name, platform, packages|
     |> Result.map_err(|_| FileWriteError)?
     Ok({})
 
-handle_get_repositories_error! : [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError] => Result * _
+handle_get_repositories_error! : [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData] => Result * _
 handle_get_repositories_error! = |e|
     when e is
         HomeVarNotSet ->
@@ -246,6 +246,10 @@ handle_get_repositories_error! = |e|
 
         NetworkError ->
             _ = "Network error" |> ANSI.color({ fg: error }) |> Stdout.line!
+            Err(e)
+
+        BadRepoReleasesData ->
+            _ = "Local repo data is corrupted" |> ANSI.color({ fg: error }) |> Stdout.line!
             Err(e)
 
         ParsingError ->
@@ -397,7 +401,7 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.roc-start") |> Ok
 
-get_repositories! : [Silent, Verbose] => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError]
+get_repositories! : [Silent, Verbose] => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
 get_repositories! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
@@ -406,9 +410,12 @@ get_repositories! = |log_level|
     packages =
         when File.is_file!(packages_path) is
             Ok(bool) if bool ->
-                File.read_utf8!(packages_path)
+                File.read_bytes!(packages_path)
                 ? |_| FileReadError
-                |> get_packages_from_csv_text?
+                |> RM.get_repos_from_json_bytes?
+                # File.read_utf8!(packages_path)
+                # ? |_| FileReadError
+                # |> get_packages_from_csv_text?
 
             _ ->
                 log!("Downloading packages from remote...", log_level)
@@ -421,9 +428,12 @@ get_repositories! = |log_level|
     platforms =
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
-                File.read_utf8!(platforms_path)
+                File.read_bytes!(platforms_path)
                 ? |_| FileReadError
-                |> get_platforms_from_csv_text?
+                |> RM.get_repos_from_json_bytes?
+                # File.read_utf8!(platforms_path)
+                # ? |_| FileReadError
+                # |> get_platforms_from_csv_text?
 
             _ ->
                 log!("Downloading platforms from remote...", log_level)
