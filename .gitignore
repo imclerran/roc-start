@@ -12,4 +12,5 @@
 !.github/workflows/
 !ci/
 !src_new/
+src_new/test.roc
 .DS_Store
