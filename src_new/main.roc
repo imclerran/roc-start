@@ -426,17 +426,8 @@ get_repositories! = |log_level|
                 ? |_| FileReadError
                 |> RM.get_repos_from_json_bytes?
 
-            _ ->
-                do_package_update!(log_level)?
-                # "Downloading package data from remote..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
-                # known_packages_text =
-                #     Http.send!({ Http.default_request & uri: known_packages_url })
-                #     ? |_| NetworkError
-                #     |> .body
-                #     |> Str.from_utf8_lossy
-                # repos = known_packages_text |> update_local_repos!("${repo_dir}/package-releases.json")?
-                # "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
-                # repos
+            _ -> do_package_update!(log_level)?
+
     platforms =
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
@@ -444,24 +435,14 @@ get_repositories! = |log_level|
                 ? |_| FileReadError
                 |> RM.get_repos_from_json_bytes?
 
-            _ ->
-                # "Downloading platform data from remote..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
-                # known_platforms_text =
-                #     Http.send!({ Http.default_request & uri: known_platforms_url })
-                #     ? |_| NetworkError
-                #     |> .body
-                #     |> Str.from_utf8_lossy
-                # repos = known_platforms_text |> update_local_repos!("${repo_dir}/platform-releases.json")?
-                # "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
-                # repos
-                do_platform_update!(log_level)?
+            _ -> do_platform_update!(log_level)?
 
     Ok({ packages, platforms })
 
 do_package_update! : [Silent, Verbose] => Result PackageDict []_
 do_package_update! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating packages..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
+    "Updating packages... " |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
         ? |_| NetworkError 
@@ -474,7 +455,7 @@ do_package_update! = |log_level|
 do_platform_update! : [Silent, Verbose] => Result PlatformDict []_
 do_platform_update! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating platforms..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
+    "Updating platforms... " |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
         ? |_| NetworkError
@@ -486,7 +467,7 @@ do_platform_update! = |log_level|
 
 do_scripts_update! : [Some PlatformDict, None], [Silent, Verbose] => Result {} []_
 do_scripts_update! = |maybe_pfs, log_level|
-    "Updating scripts..." |> ANSI.color({ fg: tertiary }) |> log!(log_level)
+    "Updating scripts... " |> ANSI.color({ fg: tertiary }) |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
