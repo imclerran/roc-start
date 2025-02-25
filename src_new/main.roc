@@ -411,14 +411,14 @@ handle_platform_release_error = |platforms, repo, name, version|
 known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-packages.csv"
 known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-platforms.csv"
 
-get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.roc-start") |> Ok
+get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
 get_repositories! : [Silent, Verbose] => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
 get_repositories! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
-    packages_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases.json")
-    platforms_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases.json")
+    packages_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/package-releases")
+    platforms_path = repo_dir |> Str.drop_suffix("/") |> Str.concat("/platform-releases")
     packages =
         when File.is_file!(packages_path) is
             Ok(bool) if bool ->
@@ -448,7 +448,7 @@ do_package_update! = |log_level|
         ? |_| NetworkError 
         |> .body
         |> Str.from_utf8_lossy
-    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases.json")?
+    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases")?
     "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
     Ok(packages)
 
@@ -461,7 +461,7 @@ do_platform_update! = |log_level|
         ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
-    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases.json")?
+    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases")?
     "✔\n" |> ANSI.color({ fg: okay }) |> log!(log_level)
     Ok(platforms)
 
