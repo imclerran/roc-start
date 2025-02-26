@@ -1,8 +1,6 @@
 module { write_bytes!, cmd_output!, cmd_new, cmd_args } -> [
     RepositoryRelease,
     RepositoryDict,
-    # PackageDict,
-    # PlatformDict,
     update_local_repos!,
     get_repos_from_json_bytes,
     get_repo_release,
