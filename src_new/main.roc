@@ -25,7 +25,7 @@ import RepoManager {
         cmd_output!: Cmd.output!,
         cmd_new: Cmd.new,
         cmd_args: Cmd.args,
-    } as RM exposing [PackageDict, PlatformDict, update_local_repos!]
+    } as RM exposing [RepositoryDict, RepositoryRelease]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -195,23 +195,15 @@ do_app_command! = |app_args, log_level|
             |> colorize([primary, secondary, primary])
             |> Verbose
             |> log!(log_level)
-            base_cmd_args = [arg_data.file_name, platform_release.alias, platform_release.url]
-            cmd_args =
-                if !List.is_empty(arg_data.packages) then
-                    _ =
-                        "Packages\n"
-                        |> ANSI.color({ fg: primary })
-                        |> Verbose
-                        |> log!(log_level)
-                    List.join(
-                        [
-                            base_cmd_args,
-                            build_pacakge_arg_list!(packages, repo_name_map, arg_data, log_level),
-                        ],
-                    )
-                else
-                    base_cmd_args
-            num_packages = (List.len(cmd_args) |> Num.sub_saturated(3)) |> Num.div_trunc(2)
+            if !List.is_empty(arg_data.packages) then
+                "Packages:\n"
+                |> ANSI.color({ fg: primary })
+                |> Verbose
+                |> log!(log_level)
+            else {}
+            package_releases = resolve_package_releases!(packages, repo_name_map, arg_data, log_level)
+            cmd_args = build_script_args(arg_data.file_name, platform_release, package_releases)
+            num_packages = List.len(package_releases)
             num_skipped = List.len(arg_data.packages) - num_packages
             cache_dir = get_repo_dir!({})? |> Str.concat("/scripts/")
             scripts = ScriptManager.get_available_scripts!(cache_dir, platform_repo)
@@ -229,18 +221,19 @@ do_app_command! = |app_args, log_level|
                     Ok({})
 
                 Err(_) ->
-                    pkg_alias_url_list =
-                        List.drop_first(cmd_args, 3)
-                        |> List.chunks_of(2)
-                        |> List.map(
-                            |pair|
-                                when pair is
-                                    [alias, url] -> { alias, url }
-                                    _ -> crash "List should alway be pairs.",
-                        )
-                    build_default_app!(arg_data.file_name, platform_release, pkg_alias_url_list)?
+                    build_default_app!(arg_data.file_name, platform_release, package_releases)?
                     print_app_finish_message!(arg_data.file_name, num_packages, num_skipped, Verbose)
                     Ok({})
+
+build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
+build_script_args = |filename, platform, packages|
+    List.join([
+        [filename, platform.alias, platform.url],
+        alias_url_pairs(packages),
+    ])
+
+alias_url_pairs = |releases| 
+    List.map(releases, |release| [release.alias, release.url]) |> List.join
 
 print_app_finish_message! = |file_name, num_packages, num_skipped, log_level|
     if num_skipped == 0 then
@@ -302,11 +295,11 @@ handle_get_repositories_error = |log_level|
                 _ = "Error parsing data" |> ANSI.color({ fg: error }) |> Quiet |> log!(log_level)
                 Err(e)
 
-build_pacakge_arg_list! = |packages, repo_name_map, processed_args, log_level|
+resolve_package_releases! = |packages, repo_name_map, processed_args, log_level|
     List.walk_try!(
         processed_args.packages,
         [],
-        |args_list, package|
+        |releases, package|
             package_repo_res =
                 RM.get_full_repo_name(repo_name_map, package.name, Package)
                 |> Result.on_err!(handle_package_repo_error(package.name, log_level))
@@ -316,16 +309,16 @@ build_pacakge_arg_list! = |packages, repo_name_map, processed_args, log_level|
                         RM.get_repo_release(packages, package_repo, package.version, Package)
                         |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version, log_level))
                     when pkg_res is
-                        Ok(pkg) ->
-                            ["| ", pkg.repo, " : ${pkg.tag}\n"]
+                        Ok(release) ->
+                            ["| ", release.repo, " : ${release.tag}\n"]
                             |> colorize([primary, secondary, primary])
                             |> Verbose
                             |> log!(log_level)
-                            List.join([args_list, [pkg.alias, pkg.url]]) |> Ok
+                            List.append(releases, release) |> Ok
 
-                        Err(PackageReleaseErrorHandled) -> Ok(args_list)
+                        Err(PackageReleaseErrorHandled) -> Ok(releases)
 
-                Err(PackageRepoLookupErrorHandled) -> Ok(args_list),
+                Err(PackageRepoLookupErrorHandled) -> Ok(releases),
     )
     |> Result.with_default([])
 
@@ -476,7 +469,7 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
-get_repositories! : LogLevel => Result { packages : PackageDict, platforms : PlatformDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
+get_repositories! : LogLevel => Result { packages : RepositoryDict, platforms : RepositoryDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
 get_repositories! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
@@ -502,7 +495,7 @@ get_repositories! = |log_level|
 
     Ok({ packages, platforms })
 
-do_package_update! : LogLevel => Result PackageDict []_
+do_package_update! : LogLevel => Result RepositoryDict []_
 do_package_update! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     "Updating packages... " |> ANSI.color({ fg: tertiary }) |> Quiet |> log!(log_level)
@@ -511,11 +504,11 @@ do_package_update! = |log_level|
         ? |_| NetworkError 
         |> .body
         |> Str.from_utf8_lossy
-    packages = known_packages_csv |> update_local_repos!("${repo_dir}/package-releases")?
+    packages = known_packages_csv |> RM.update_local_repos!("${repo_dir}/package-releases")?
     "✔\n" |> ANSI.color({ fg: okay }) |> Quiet |> log!(log_level)
     Ok(packages)
 
-do_platform_update! : LogLevel => Result PlatformDict []_
+do_platform_update! : LogLevel => Result RepositoryDict []_
 do_platform_update! = |log_level|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     "Updating platforms... " |> ANSI.color({ fg: tertiary }) |> Quiet |> log!(log_level)
@@ -524,11 +517,11 @@ do_platform_update! = |log_level|
         ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
-    platforms = known_platforms_csv |> update_local_repos!("${repo_dir}/platform-releases")?
+    platforms = known_platforms_csv |> RM.update_local_repos!("${repo_dir}/platform-releases")?
     "✔\n" |> ANSI.color({ fg: okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
-do_scripts_update! : [Some PlatformDict, None], LogLevel => Result {} []_
+do_scripts_update! : [Some RepositoryDict, None], LogLevel => Result {} []_
 do_scripts_update! = |maybe_pfs, log_level|
     "Updating scripts... " |> ANSI.color({ fg: tertiary }) |> Quiet |> log!(log_level)
     platforms =

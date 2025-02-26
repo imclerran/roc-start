@@ -1,6 +1,8 @@
 module { write_bytes!, cmd_output!, cmd_new, cmd_args } -> [
-    PackageDict,
-    PlatformDict,
+    RepositoryRelease,
+    RepositoryDict,
+    # PackageDict,
+    # PlatformDict,
     update_local_repos!,
     get_repos_from_json_bytes,
     get_repo_release,
@@ -19,11 +21,6 @@ import semver.Types exposing [Semver]
 RepositoryDict : Dict Str (List RepositoryRelease)
 RepositoryRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 RepositoryReleaseSerialized : { repo : Str, alias : Str, tag : Str, url : Str }
-
-PackageDict : Dict Str (List PackageRelease)
-PackageRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
-PlatformDict : Dict Str (List PlatformRelease)
-PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 
 # Get packages and platforms from local or remote
 # ------------------------------------------------------------------------------
