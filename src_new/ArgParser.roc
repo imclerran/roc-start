@@ -5,6 +5,10 @@ import weaver.Help
 import weaver.Opt
 import weaver.Param
 import weaver.SubCmd
+import rtils.StrUtils
+
+## Usage messages
+# -----------------------------------------------------------------------------
 
 parse_or_display_message = |args, to_os| Cli.parse_or_display_message(cli_parser, args, to_os)
 
@@ -25,17 +29,13 @@ extended_usage =
             Err(NotFound) -> ""
     Str.join_with([usage_help_str, extended_usage_str], "\n\n")
 
-verbosity_to_log_level = |verbosity|
-    when verbosity is
-        Ok("verbose") -> Verbose
-        Ok("quiet") -> Quiet
-        Ok("silent") -> Silent
-        _ -> Verbose
+# Base CLI parser
+# -----------------------------------------------------------------------------
 
 cli_parser =
     { Cli.weave <-
-        verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent."}) |> Cli.map(verbosity_to_log_level),
-        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand])
+        verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
+        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand]),
     }
     |> Cli.finish(
         {
@@ -48,12 +48,26 @@ cli_parser =
     )
     |> Cli.assert_valid
 
+verbosity_to_log_level = |verbosity|
+    when verbosity is
+        Ok("verbose") -> Verbose
+        Ok("quiet") -> Quiet
+        Ok("silent") -> Silent
+        _ -> Verbose
+
+# App and package subcommands
+# -----------------------------------------------------------------------------
+
 app_subcommand =
     { Cli.weave <-
         force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
-        out_name: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." }),
-        platform: Opt.maybe_str({ short: "p", long: "platform", help: "The platform to use (Defaults to `basic-cli=latest`). Set the version with `--platform <platform>=<version>`." }),
-        packages: Param.str_list({ name: "packages", help: "Any packages to use." }),
+        file_name: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." })
+        |> Cli.map(default_filename)
+        |> Cli.map(with_extension),
+        platform: Opt.maybe_str({ short: "p", long: "platform", help: "The platform to use (Defaults to `basic-cli=latest`). Set the version with `--platform <platform>=<version>`." })
+        |> Cli.map(platform_name_and_version_with_default),
+        packages: Param.str_list({ name: "packages", help: "Any packages to use." })
+        |> Cli.map(package_names_and_versions),
     }
     |> SubCmd.finish(
         {
@@ -61,6 +75,28 @@ app_subcommand =
             description: "Create a new roc app with the specified name, platform, and packages.",
             mapper: App,
         },
+    )
+default_filename = |filename_res| Result.with_default(filename_res, "main.roc")
+with_extension = |filename| if Str.ends_with(filename, ".roc") then filename else "${filename}.roc"
+
+platform_name_and_version_with_default = |platform_res|
+    when platform_res is
+        Ok(s) ->
+            { before: name, after: version } =
+                StrUtils.split_first_if(s, |c| List.contains([':', '='], c))
+                |> Result.with_default({ before: s, after: "latest" })
+            { name, version }
+
+        Err(_) -> { name: "basic-cli", version: "latest" }
+
+package_names_and_versions = |packages|
+    List.map(
+        packages,
+        |package|
+            { before: name, after: version } =
+                StrUtils.split_first_if(package, |c| List.contains([':', '='], c))
+                |> Result.with_default({ before: package, after: "latest" })
+            { name, version },
     )
 
 pkg_subcommand =
@@ -72,6 +108,9 @@ pkg_subcommand =
             mapper: Pkg,
         },
     )
+
+# Other subcommands
+# -----------------------------------------------------------------------------
 
 tui_subcommand =
     Opt.flag({ short: "s", long: "secret" })

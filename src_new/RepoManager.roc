@@ -20,9 +20,6 @@ RepositoryDict : Dict Str (List RepositoryRelease)
 RepositoryRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semver }
 RepositoryReleaseSerialized : { repo : Str, alias : Str, tag : Str, url : Str }
 
-# Get packages and platforms from local or remote
-# ------------------------------------------------------------------------------
-
 # Get packages and platforms from csv text
 # ------------------------------------------------------------------------------
 
@@ -49,7 +46,8 @@ update_local_repos! = |known_repos_csv_text, save_path|
                 |> Str.from_utf8_lossy
             when new_releases_str is
                 "" ->
-                    Ok(releases) 
+                    Ok(releases)
+
                 _ ->
                     when parse_repo_releases(new_releases_str) is
                         Ok(new_releases) -> Ok(List.join([releases, new_releases]))
@@ -114,7 +112,7 @@ decode_repo_releases : List U8 -> Result (List RepositoryReleaseSerialized) [Bad
 decode_repo_releases = |bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult (List RepositoryReleaseSerialized)
-    decoded = Decode.from_bytes_partial(bytes, decoder) 
+    decoded = Decode.from_bytes_partial(bytes, decoder)
     decoded.result |> Result.map_err(|_| BadRepoReleasesData)
 
 # Parse package releases
@@ -168,13 +166,13 @@ semver_with_default = |s| Semver.parse(Str.drop_prefix(s, "v")) |> Result.with_d
 # Release Lookup
 # -----------------------------------------------------------------------------
 
-get_repo_release : RepositoryDict, Str, Str, [Package, Platform] -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe(Str)]
+get_repo_release : RepositoryDict, Str, Str, [Package, Platform] -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe Str]
 get_repo_release = |dict, repo, version, type|
     when type is
         Package -> get_repo_release_help(dict, repo, version, "roc-")
         Platform -> get_repo_release_help(dict, repo, version, "basic-")
 
-get_repo_release_help : RepositoryDict, Str, Str, Str -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe(Str)]
+get_repo_release_help : RepositoryDict, Str, Str, Str -> Result RepositoryRelease [RepoNotFound, VersionNotFound, RepoNotFoundButMaybe Str]
 get_repo_release_help = |dict, repo, version, try_prefix|
     when Dict.get(dict, repo) is
         Ok(releases) ->
@@ -202,7 +200,6 @@ get_repo_release_help = |dict, repo, version, try_prefix|
                         Err(RepoNotFound)
 
                 Err(NotFound) -> Err(RepoNotFound)
-
 
 # Repository onwer/name lookup
 # -----------------------------------------------------------------------------

@@ -18,8 +18,7 @@ import cli.Http
 import cli.Env
 import cli.Path
 import ansi.ANSI
-import ArgParser exposing [parse_or_display_message]
-import ArgHandler
+import ArgParser
 import RepoManager {
         write_bytes!: File.write_bytes!,
         cmd_output!: Cmd.output!,
@@ -35,7 +34,7 @@ import ScriptManager {
     } exposing [cache_scripts!]
 
 main! = |args|
-    when parse_or_display_message(args, to_os_raw) is
+    when ArgParser.parse_or_display_message(args, to_os_raw) is
         Ok({ verbosity, subcommand }) ->
             when subcommand is
                 Ok(Update(update_args)) ->
@@ -80,12 +79,11 @@ main! = |args|
         Err(e) ->
             "${e}\n" |> ANSI.color({ fg: primary }) |> Quiet |> log!(Verbose) |> Ok
 
-
-dark_purple = Rgb((107,58,220))
+dark_purple = Rgb((107, 58, 220))
 light_purple = Rgb((137, 101, 222))
-dark_cyan = Rgb((57, 171, 219)) 
-coral = Rgb((222,100,124))
-green = Rgb((122,222,100))
+dark_cyan = Rgb((57, 171, 219))
+coral = Rgb((222, 100, 124))
+green = Rgb((122, 222, 100))
 
 primary = light_purple
 secondary = dark_cyan
@@ -108,13 +106,13 @@ colorize = |parts, colors|
         |> Str.concat(rest)
 
 LogLevel : [Silent, Quiet, Verbose]
-LogStr : [Quiet(Str), Verbose(Str)]
+LogStr : [Quiet Str, Verbose Str]
 
 log! : LogStr, LogLevel => {}
 log! = |log_str, level|
     _ =
         when (log_str, level) is
-            (Verbose(str), Verbose) ->  Stdout.write!(str)
+            (Verbose(str), Verbose) -> Stdout.write!(str)
             (Quiet(str), Verbose) -> Stdout.write!(str)
             (Quiet(str), Quiet) -> Stdout.write!(str)
             _ -> Ok({})
@@ -153,11 +151,10 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }, log_level|
         (_, Err(e), _) -> Err(e)
         (_, _, Err(e)) -> Err(e)
 
-do_app_command! : { force : Bool, out_name : [Err [NoValue], Ok Str], packages : List Str, platform : [Err [NoValue], Ok Str] }, LogLevel => Result {} _
-do_app_command! = |app_args, log_level|
-    arg_data = ArgHandler.handle_app(app_args)
+do_app_command! : { file_name : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, LogLevel => Result {} _
+do_app_command! = |arg_data, log_level|
     when File.is_file!(arg_data.file_name) is
-        Ok(bool) if bool and !app_args.force ->
+        Ok(bool) if bool and !arg_data.force ->
             "File <${arg_data.file_name}> already exists. Choose a different name or use --force\n"
             |> ANSI.color({ fg: error })
             |> Quiet
@@ -169,9 +166,9 @@ do_app_command! = |app_args, log_level|
                 get_repositories!(log_level)
                 |> Result.on_err!(handle_get_repositories_error(log_level))
                 |> Result.map_err(|_| GetRepositoriesFailed)?
-            _ = 
+            _ =
                 repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-                scripts_exists = 
+                scripts_exists =
                     when File.is_dir!("${repo_dir}/scripts") is
                         Ok(bool) -> bool
                         Err(_) -> Bool.false
@@ -200,7 +197,8 @@ do_app_command! = |app_args, log_level|
                 |> ANSI.color({ fg: primary })
                 |> Verbose
                 |> log!(log_level)
-            else {}
+            else
+                {}
             package_releases = resolve_package_releases!(packages, repo_name_map, arg_data, log_level)
             cmd_args = build_script_args(arg_data.file_name, platform_release, package_releases)
             num_packages = List.len(package_releases)
@@ -227,12 +225,14 @@ do_app_command! = |app_args, log_level|
 
 build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
 build_script_args = |filename, platform, packages|
-    List.join([
-        [filename, platform.alias, platform.url],
-        alias_url_pairs(packages),
-    ])
+    List.join(
+        [
+            [filename, platform.alias, platform.url],
+            alias_url_pairs(packages),
+        ],
+    )
 
-alias_url_pairs = |releases| 
+alias_url_pairs = |releases|
     List.map(releases, |release| [release.alias, release.url]) |> List.join
 
 print_app_finish_message! = |file_name, num_packages, num_skipped, log_level|
@@ -327,7 +327,7 @@ handle_platform_repo_error = |name, log_level|
         when err is
             RepoNotFound ->
                 log_strs = ["Platform: ", name, " : repo not found - valid platform is required\n"]
-                message = 
+                message =
                     when log_level is
                         Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                         Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -337,7 +337,7 @@ handle_platform_repo_error = |name, log_level|
 
             RepoNotFoundButMaybe(suggestion) ->
                 log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required\n"]
-                message = 
+                message =
                     when log_level is
                         Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                         Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -347,7 +347,7 @@ handle_platform_repo_error = |name, log_level|
 
             AmbiguousName ->
                 log_strs = ["Platform: ", name, " : ambiguous; use <owner>/${name} - valid platform is required\n"]
-                message = 
+                message =
                     when log_level is
                         Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                         Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -424,7 +424,7 @@ handle_platform_release_error = |platforms, repo, name, version, log_level|
         when err is
             RepoNotFound ->
                 log_strs = ["Platform: ", name, " : repo not found - valid platform is required\n"]
-                message = 
+                message =
                     when log_level is
                         Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                         Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -434,7 +434,7 @@ handle_platform_release_error = |platforms, repo, name, version, log_level|
 
             RepoNotFoundButMaybe(suggestion) ->
                 log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required\n"]
-                message = 
+                message =
                     when log_level is
                         Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                         Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -446,7 +446,7 @@ handle_platform_release_error = |platforms, repo, name, version, log_level|
                 when RM.get_repo_release(platforms, repo, "latest", Platform) is
                     Ok(suggestion) ->
                         log_strs = ["Platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required\n"]
-                        message = 
+                        message =
                             when log_level is
                                 Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                                 Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -456,7 +456,7 @@ handle_platform_release_error = |platforms, repo, name, version, log_level|
 
                     Err(_) ->
                         log_strs = ["Platform: ", name, " : version ${version} not found - valid platform is required\n"]
-                        message = 
+                        message =
                             when log_level is
                                 Verbose -> log_strs |> colorize([primary, secondary, error]) |> Verbose
                                 Quiet -> log_strs |> colorize([error]) |> Quiet
@@ -501,7 +501,7 @@ do_package_update! = |log_level|
     "Updating packages... " |> ANSI.color({ fg: tertiary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
-        ? |_| NetworkError 
+        ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
     packages = known_packages_csv |> RM.update_local_repos!("${repo_dir}/package-releases")?
@@ -528,8 +528,9 @@ do_scripts_update! = |maybe_pfs, log_level|
         when maybe_pfs is
             Some(pfs) -> pfs
             None -> get_repositories!(log_level)? |> .platforms
-    cache_dir = get_repo_dir!({})
-        ? |_| HomeVarNotSet 
+    cache_dir =
+        get_repo_dir!({})
+        ? |_| HomeVarNotSet
         |> Str.concat("/scripts")
     cache_scripts!(platforms, cache_dir) ? |_| FileWriteError
     "✔\n" |> ANSI.color({ fg: okay }) |> Quiet |> log!(log_level)
