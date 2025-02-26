@@ -6,6 +6,7 @@ import weaver.Opt
 import weaver.Param
 import weaver.SubCmd
 import rtils.StrUtils
+import Theme
 
 ## Usage messages
 # -----------------------------------------------------------------------------
@@ -35,6 +36,8 @@ extended_usage =
 cli_parser =
     { Cli.weave <-
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
+        theme: Opt.maybe_str({ short: "c", long: "color", help: "Set the color to use one of: default, warn, or none." }) 
+            |> Cli.map(color_to_theme),
         subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand]),
     }
     |> Cli.finish(
@@ -47,6 +50,12 @@ cli_parser =
         },
     )
     |> Cli.assert_valid
+
+color_to_theme = |color|
+    when color is
+        Ok("warn") -> Theme.warn_only
+        Ok("none") -> Theme.no_color
+        _ -> Theme.default
 
 verbosity_to_log_level = |verbosity|
     when verbosity is
