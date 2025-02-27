@@ -45,7 +45,6 @@ import Logger {
 
 main! = |args|
     config = get_config!({})
-    dbg config
     when ArgParser.parse_or_display_message(args, to_os_raw) is
         Ok({ verbosity, color, subcommand }) ->
             theme =
