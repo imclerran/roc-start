@@ -24,22 +24,47 @@ script_url : Str, Str -> Str
 script_url = |repo, tag|
     "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${repo}/${tag}.sh"
 
-cache_scripts! : PlatformDict, Str => Result _ _
-cache_scripts! = |platforms, cache_dir|
+cache_scripts! : PlatformDict, Str, (Str => {}) => Result _ _
+cache_scripts! = |platforms, cache_dir, logger!|
     create_all_dirs!(cache_dir)?
-    List.for_each_try!(
-        Dict.to_list(platforms),
-        |(repo, releases)|
-            List.for_each_try!(
-                releases,
-                |release|
-                    url = script_url(repo, release.tag)
-                    dir_no_slash = cache_dir |> Str.drop_suffix("/")
-                    dir_path = "${dir_no_slash}/${repo}"
-                    filename = "${release.tag}.sh"
-                    download_script!(url, dir_path, filename),
-            ),
+    release_list = 
+        Dict.to_list(platforms) 
+        |> List.map(|(_, rs)| rs)
+        |> List.join
+    num_releases = List.len(release_list)
+    logger!(" [")
+    logger!(Str.repeat("=",  Num.sub_saturated(5, num_releases)))
+    _ = List.walk_try!(
+        release_list,
+        (0, 0),
+        |(n, last_fifth), release|
+            next_n = n + 1
+            current_fifth = Num.div_trunc(next_n * 5, num_releases)
+            next_fifth = if current_fifth > last_fifth then current_fifth else last_fifth
+            url = script_url(release.repo, release.tag)
+            dir_no_slash = cache_dir |> Str.drop_suffix("/")
+            dir_path = "${dir_no_slash}/${release.repo}"
+            filename = "${release.tag}.sh"
+            download_script!(url, dir_path, filename)?
+            if current_fifth > last_fifth then logger!("=") else {}
+            Ok((next_n, next_fifth)),
     )
+    # _ = List.walk_try!(
+    #     Dict.to_list(platforms),
+    #     (0, 0),
+    #     |(n, n2), (repo, releases)|
+    #         List.for_each_try!(
+    #             releases,
+    #             |release|
+    #                 url = script_url(repo, release.tag)
+    #                 dir_no_slash = cache_dir |> Str.drop_suffix("/")
+    #                 dir_path = "${dir_no_slash}/${repo}"
+    #                 filename = "${release.tag}.sh"
+    #                 download_script!(url, dir_path, filename, logger!)
+    #                 Ok((0, 0)),
+    #         ),
+    # )
+    logger!("] ") |> Ok
 
 download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError]
 download_script! = |url, dir_path, filename|

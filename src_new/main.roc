@@ -535,32 +535,34 @@ get_repositories! = |logging|
 do_package_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
 do_package_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating packages... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating packages" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
         ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
-    packages = known_packages_csv |> RM.update_local_repos!("${repo_dir}/package-releases")?
+    logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
+    packages = known_packages_csv |> RM.update_local_repos!("${repo_dir}/package-releases", logger!)?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(packages)
 
 do_platform_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
 do_platform_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating platforms... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating platforms" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
         ? |_| NetworkError
         |> .body
         |> Str.from_utf8_lossy
-    platforms = known_platforms_csv |> RM.update_local_repos!("${repo_dir}/platform-releases")?
+    logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
+    platforms = known_platforms_csv |> RM.update_local_repos!("${repo_dir}/platform-releases", logger!)?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
 do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} []_
 do_scripts_update! = |maybe_pfs, { log_level, theme }|
-    "Updating scripts... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating scripts" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
@@ -569,6 +571,7 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
         get_repo_dir!({})
         ? |_| HomeVarNotSet
         |> Str.concat("/scripts")
-    cache_scripts!(platforms, cache_dir) ? |_| FileWriteError
+    logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
+    cache_scripts!(platforms, cache_dir, logger!) ? |_| FileWriteError
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})

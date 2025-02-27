@@ -32,27 +32,36 @@ get_repos_from_json_bytes = |bytes|
 # Run updates
 # ------------------------------------------------------------------------------
 
-update_local_repos! : Str, Str => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
-update_local_repos! = |known_repos_csv_text, save_path|
+update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
+update_local_repos! = |known_repos_csv_text, save_path, logger!|
     parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
+    num_repos = List.len(parsed_repos)
+    logger!(" [")
+    logger!(Str.repeat("=",  Num.sub_saturated(5, num_repos))) 
     release_list = List.walk_try!(
         parsed_repos,
-        [],
-        |releases, { repo, alias }|
+        ([], 0, 0),
+        |(releases, n, last_fifth), { repo, alias }|
+            next_n = n + 1
+            current_fifth = (next_n * 5) // num_repos
+            next_fifth = if current_fifth > last_fifth then current_fifth else last_fifth
             new_releases_str =
                 get_releases_cmd(repo, alias)
                 |> cmd_output!
                 |> get_gh_cmd_stdout?
                 |> Str.from_utf8_lossy
+            if current_fifth > last_fifth then logger!("=") else {}
             when new_releases_str is
                 "" ->
-                    Ok(releases)
+                    Ok((releases, next_n, next_fifth))
 
                 _ ->
                     when parse_repo_releases(new_releases_str) is
-                        Ok(new_releases) -> Ok(List.join([releases, new_releases]))
-                        _ -> Ok(releases),
-    )?
+                        Ok(new_releases) -> 
+                            Ok((List.join([releases, new_releases]), next_n, next_fifth))
+                        _ -> Ok((releases, next_n, next_fifth)),
+    )? |> .0
+    logger!("] ")
     save_repo_releases!(release_list, save_path)?
     release_list
     |> build_repo_dict
