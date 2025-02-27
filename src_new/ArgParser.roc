@@ -35,7 +35,7 @@ extended_usage =
 
 cli_parser =
     separator = ", "
-    color_choices = [Theme.roc.name, Theme.warn_only.name, Theme.no_color.name] |> Str.join_with(separator)
+    color_choices = Theme.theme_names |> Str.join_with(separator)
     { Cli.weave <-
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
         color: Opt.maybe_str({ short: "c", long: "colors", help: "Set the color theme to use one of: ${color_choices}." })
@@ -54,14 +54,9 @@ cli_parser =
     |> Cli.assert_valid
 
 color_to_theme = |color|
-    if color == Ok(Theme.roc.name) then
-        Ok(Theme.roc)
-    else if color == Ok(Theme.warn_only.name) then
-        Ok(Theme.warn_only)
-    else if color == Ok(Theme.no_color.name) then
-        Ok(Theme.no_color)
-    else
-        Err(NoTheme)
+    when color is
+        Ok(name) -> Theme.from_name(name) |> Result.map_err(|_| NoTheme)
+        Err(NoValue) -> Err(NoTheme)
 
 verbosity_to_log_level = |verbosity|
     when verbosity is
@@ -176,7 +171,7 @@ config_subcommand =
 
 config_colors_subcommand =
     separator = ", "
-    color_choices = [Theme.roc.name, Theme.warn_only.name, Theme.no_color.name] |> Str.join_with(separator)
+    color_choices = Theme.theme_names |> Str.join_with(separator)
     Param.str({ name: "theme", help: "The default color theme to use in the CLI." })
     |> SubCmd.finish(
         {

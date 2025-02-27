@@ -69,19 +69,7 @@ parse_dotfile = |str|
 parse_theme = |str|
     themes = [Theme.roc.name, Theme.warn_only.name, Theme.no_color.name] |> List.map(|s| P.string(s))
     pattern = P.string("theme:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(P.one_of(themes))
-    parser =
-        pattern
-        |> P.map(
-            |s|
-                if s == Theme.warn_only.name then
-                    Ok(Theme.warn_only)
-                else if s == Theme.no_color.name then
-                    Ok(Theme.no_color)
-                else if s == Theme.roc.name then
-                    Ok(Theme.roc)
-                else
-                    Err(InvalidTheme),
-        )
+    parser = pattern |> P.map(Theme.from_name)
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidTheme)
 
 parse_verbosity = |str|
