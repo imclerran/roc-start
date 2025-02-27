@@ -69,7 +69,7 @@ main! = |args|
                         Err(FileExists) -> Ok({})
                         any_other -> any_other
 
-                Ok(Pkg(_pkg_args)) ->
+                Ok(Package(_pkg_args)) ->
                     "Pkg: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
@@ -106,21 +106,18 @@ main! = |args|
 get_config! : {} => DF.Config
 get_config! = |{}|
     when DF.load_dotfile!({}) is
-        Ok(df) -> df
+        Ok(config) -> config
         Err(NoDotFileFound) ->
             new = DF.create_default_dotfile!({})
             when new is
-                Ok(df) -> df
+                Ok(config) -> config
                 Err(_) -> DF.default_config
 
         Err(_) -> DF.default_config
 
 app_args_with_defaults = |app_args, config|
     when app_args.platform.name is
-        "" ->
-            platform = { name: config.platform, version: "latest" }
-            { app_args & platform }
-
+        "" -> { app_args & platform: config.platform }
         _ -> app_args
 
 colorize : List Str, List _ -> Str

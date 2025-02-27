@@ -40,12 +40,12 @@ cli_parser =
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
         color: Opt.maybe_str({ short: "c", long: "colors", help: "Set the color theme to use one of: ${color_choices}." })
         |> Cli.map(color_to_theme),
-        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, pkg_subcommand, upgrade_subcommand, config_subcommand]),
+        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, package_subcommand, upgrade_subcommand, config_subcommand]),
     }
     |> Cli.finish(
         {
             name: "roc-start",
-            version: "v0.6.0",
+            version: "v0.6.0-unreleased",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
             description: "A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.",
             text_style: Color,
@@ -114,13 +114,13 @@ package_names_and_versions = |packages|
             { name, version },
     )
 
-pkg_subcommand =
+package_subcommand =
     Param.str_list({ name: "packages", help: "Any packages to use." })
     |> SubCmd.finish(
         {
-            name: "pkg",
-            description: "Create a new roc package main file with any other specified packages dependencies.",
-            mapper: Pkg,
+            name: "package",
+            description: "Create a new roc package main file with all specified packages dependencies.",
+            mapper: Package,
         },
     )
 
@@ -177,7 +177,7 @@ config_subcommand =
 config_colors_subcommand =
     separator = ", "
     color_choices = [Theme.roc.name, Theme.warn_only.name, Theme.no_color.name] |> Str.join_with(separator)
-    Param.str({ name: "theme", help: "The default theme to use when initializing a new app." })
+    Param.str({ name: "theme", help: "The default color theme to use in the CLI." })
     |> SubCmd.finish(
         {
             name: "colors",

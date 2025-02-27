@@ -6,11 +6,12 @@ module
         write_utf8!,
     } -> [Config, load_dotfile!, create_default_dotfile!, default_config, save_to_dotfile!, save_config!]
 
+import rtils.StrUtils
 import parse.Parse as P
 import Theme exposing [Theme]
 LogLevel : [Silent, Quiet, Verbose]
 
-Config : { verbosity : LogLevel, theme : Theme, platform : Str }
+Config : { verbosity : LogLevel, theme : Theme, platform : { name: Str, version: Str } }
 
 config_to_str : Config -> Str
 config_to_str = |config|
@@ -19,10 +20,15 @@ config_to_str = |config|
             Verbose -> "verbose"
             Quiet -> "quiet"
             Silent -> "silent"
+    platform_str =
+        if config.platform.version == "" then
+            config.platform.name
+        else
+            "${config.platform.name}=${config.platform.version}"
     """
     verbosity: ${verbosity}
     theme: ${config.theme.name}
-    platform: ${config.platform}
+    platform: ${platform_str}\n
     """
 
 load_dotfile! : {} => Result Config [HomeVarNotSet, NoDotFileFound, InvalidDotFile, FileReadError]
@@ -94,12 +100,23 @@ parse_verbosity = |str|
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidLogLevel)
 
 parse_platform = |str|
-    parser = P.string("platform:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(platform_string)
+    pattern = P.string("platform:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(platform_string)
+    parser = pattern |> P.map(|s|
+        when s |> StrUtils.split_first_if(|c| List.contains([':', '='], c)) is
+            Ok({ before: name, after: version }) -> Ok({name, version})
+            _ -> Ok({ name: s, version: "latest" }),
+    )
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidPlatform)
 
 platform_string = P.one_or_more(platform_chars) |> P.map(|chars| Str.from_utf8_lossy(chars) |> Ok)
 
-platform_chars = P.char |> P.filter(|c| (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (List.contains(['-', '_', '/'], c)))
+platform_chars = 
+    P.char |> P.filter(|c| 
+        (c >= 'a' and c <= 'z') or 
+        (c >= 'A' and c <= 'Z') or 
+        (c >= '0' and c <= '9') or
+        (List.contains(['-', '_', '/', '=', ':', '-', '+', '.'], c))
+    )
 
 create_default_dotfile! : {} => Result Config [HomeVarNotSet, FileWriteError]
 create_default_dotfile! = |{}|
@@ -113,7 +130,7 @@ save_config! = |config|
     contents = config_to_str(config)
     write_utf8!(contents, file_path) |> Result.map_err(|_| FileWriteError)
 
-default_config = { verbosity: Verbose, theme: Theme.roc, platform: "basic-cli" }
+default_config = { verbosity: Verbose, theme: Theme.roc, platform: { name: "basic-cli", version: "latest" } }
 
 save_to_dotfile! : { key : Str, value : Str } => Result {} [HomeVarNotSet, FileWriteError, FileReadError]
 save_to_dotfile! = |{ key, value }|
