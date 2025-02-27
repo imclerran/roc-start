@@ -28,7 +28,7 @@ roc build $SRC_DIR/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
 # If build succeeds, copy the executable to $LOCAL_BIN and notify user
 if [ $? -eq 0 ]; then
     mv ./roc-start $LOCAL_BIN
-    echo -e "${MAGENTA}roc-start${RESET} installed to $LOCAL_BIN"
+    echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
 fi
 
 # Check if the GitHub CLI (gh) is installed
