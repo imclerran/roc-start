@@ -33,17 +33,37 @@ import ScriptManager {
         list_dir!: Dir.list!,
         path_to_str: Path.display,
     } exposing [cache_scripts!]
+import Dotfile {
+    env_var!: Env.var!,
+    is_file!: File.is_file!,
+    read_utf8!: File.read_utf8!,
+    write_utf8!: File.write_utf8!,
+} as DF
+import Logger {
+        write!: Stdout.write!,
+    } exposing [LogLevel, log!]
 
 main! = |args|
+    config = get_config!({})
+    dbg config
     when ArgParser.parse_or_display_message(args, to_os_raw) is
-        Ok({ verbosity, theme, subcommand }) ->
-            logging = { log_level: verbosity, theme }
+        Ok({ verbosity, color, subcommand }) ->
+            theme =
+                when color is
+                    Ok(th) -> th
+                    Err(NoTheme) -> config.theme
+            log_level =
+                when verbosity is
+                    Ok(v) -> v
+                    Err(NoLogLevel) -> config.verbosity
+            logging = { log_level, theme }
             when subcommand is
                 Ok(Update(update_args)) ->
                     do_update_command!(update_args, logging)
 
                 Ok(App(app_args)) ->
-                    when do_app_command!(app_args, logging) is
+                    args_with_defaults = app_args_with_defaults(app_args, config)
+                    when do_app_command!(args_with_defaults, logging) is
                         Err(PlatformRepoLookupErrorHandled) -> Ok({})
                         Err(PlatformReleaseErrorHandled) -> Ok({})
                         Err(GetRepositoriesFailed) -> Ok({})
@@ -54,32 +74,55 @@ main! = |args|
                     "Pkg: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
-                    |> log!(verbosity)
+                    |> log!(log_level)
                     |> Ok
 
                 Ok(Upgrade(_upgrade_args)) ->
                     "Upgrade: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
-                    |> log!(verbosity)
+                    |> log!(log_level)
                     |> Ok
 
                 Ok(Tui(_tui_args)) ->
                     "Tui: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
-                    |> log!(verbosity)
+                    |> log!(log_level)
                     |> Ok
+
+                Ok(Config(config_args)) ->
+                    do_config_command!(config_args, logging)
 
                 Err(NoSubcommand) ->
                     "TUI: not yet implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
-                    |> log!(verbosity)
+                    |> log!(log_level)
                     |> Ok
 
         Err(e) ->
             "${e}\n" |> Quiet |> log!(Verbose) |> Ok
+
+get_config! : {} => DF.Config
+get_config! = |{}|
+    when DF.load_dotfile!({}) is
+        Ok(df) -> df
+        Err(NoDotFileFound) ->
+            new = DF.create_default_dotfile!({})
+            when new is
+                Ok(df) -> df
+                Err(_) -> DF.default_config
+
+        Err(_) -> DF.default_config
+
+app_args_with_defaults = |app_args, config|
+    when app_args.platform.name is
+        "" ->
+            platform = { name: config.platform, version: "latest" }
+            { app_args & platform }
+
+        _ -> app_args
 
 colorize : List Str, List _ -> Str
 colorize = |parts, colors|
@@ -95,20 +138,26 @@ colorize = |parts, colors|
         |> Str.join_with("")
         |> Str.concat(rest)
 
-LogLevel : [Silent, Quiet, Verbose]
-LogStr : [Quiet Str, Verbose Str]
+do_config_command! = |config_args, logging|
+    theme = logging.theme
+    log_level = logging.log_level
+    when config_args is
+        ConfigVerbosity(verbosity) ->
+            when DF.save_to_dotfile!({ key: "verbosity", value: verbosity }) is
+                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
+                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
 
-log! : LogStr, LogLevel => {}
-log! = |log_str, level|
-    _ =
-        when (log_str, level) is
-            (Verbose(str), Verbose) -> Stdout.write!(str)
-            (Quiet(str), Verbose) -> Stdout.write!(str)
-            (Quiet(str), Quiet) -> Stdout.write!(str)
-            _ -> Ok({})
-    {}
+        ConfigColors(colors) ->
+            when DF.save_to_dotfile!({ key: "theme", value: colors }) is
+                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
+                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
 
-do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool }, { log_level: LogLevel, theme: Theme } => Result {} _
+        ConfigPlatform(platform) ->
+            when DF.save_to_dotfile!({ key: "platform", value: platform }) is
+                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
+                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
+
+do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
 do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
     pf_res =
         if do_platforms or !(do_platforms or do_packages or do_scripts) then
@@ -141,7 +190,7 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
         (_, Err(e), _) -> Err(e)
         (_, _, Err(e)) -> Err(e)
 
-do_app_command! : { file_name : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level: LogLevel, theme: Theme } => Result {} _
+do_app_command! : { file_name : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
     log_level = logging.log_level
     theme = logging.theme
@@ -227,7 +276,7 @@ build_script_args = |filename, platform, packages|
 alias_url_pairs = |releases|
     List.map(releases, |release| [release.alias, release.url]) |> List.join
 
-print_app_finish_message! = |file_name, num_packages, num_skipped, {log_level, theme}|
+print_app_finish_message! = |file_name, num_packages, num_skipped, { log_level, theme }|
     if num_skipped == 0 then
         ["Created ", file_name, " with ", Num.to_str(num_packages), " packages ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
@@ -251,7 +300,7 @@ build_default_app! = |file_name, platform, packages|
     |> Result.map_err(|_| FileWriteError)?
     Ok({})
 
-handle_get_repositories_error : { log_level: LogLevel, theme: Theme } -> ([FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData] => Result * _)
+handle_get_repositories_error : { log_level : LogLevel, theme : Theme } -> ([FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData] => Result * _)
 handle_get_repositories_error = |{ log_level, theme }|
     |e|
         when e is
@@ -287,19 +336,19 @@ handle_get_repositories_error = |{ log_level, theme }|
                 _ = "Error parsing data" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
                 Err(e)
 
-resolve_package_releases! = |packages, repo_name_map, processed_args, {log_level, theme}|
+resolve_package_releases! = |packages, repo_name_map, processed_args, { log_level, theme }|
     List.walk_try!(
         processed_args.packages,
         [],
         |releases, package|
             package_repo_res =
                 RM.get_full_repo_name(repo_name_map, package.name, Package)
-                |> Result.on_err!(handle_package_repo_error(package.name, {log_level, theme}))
+                |> Result.on_err!(handle_package_repo_error(package.name, { log_level, theme }))
             when package_repo_res is
                 Ok(package_repo) ->
                     pkg_res =
                         RM.get_repo_release(packages, package_repo, package.version, Package)
-                        |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version, {log_level, theme}))
+                        |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version, { log_level, theme }))
                     when pkg_res is
                         Ok(release) ->
                             ["| ", release.repo, " : ${release.tag}\n"]
@@ -314,7 +363,7 @@ resolve_package_releases! = |packages, repo_name_map, processed_args, {log_level
     )
     |> Result.with_default([])
 
-handle_platform_repo_error = |name, {log_level, theme}|
+handle_platform_repo_error = |name, { log_level, theme }|
     |err|
         when err is
             RepoNotFound ->
@@ -347,7 +396,7 @@ handle_platform_repo_error = |name, {log_level, theme}|
                 log!(message, log_level)
                 Err(PlatformRepoLookupErrorHandled)
 
-handle_package_repo_error = |name, {log_level, theme}|
+handle_package_repo_error = |name, { log_level, theme }|
     |err|
         when err is
             RepoNotFound ->
@@ -374,7 +423,7 @@ handle_package_repo_error = |name, {log_level, theme}|
                     |> log!(log_level)
                 Err(PackageRepoLookupErrorHandled)
 
-handle_package_release_error = |packages, repo, name, version, {log_level, theme}|
+handle_package_release_error = |packages, repo, name, version, { log_level, theme }|
     |err|
         when err is
             RepoNotFound ->
@@ -411,7 +460,7 @@ handle_package_release_error = |packages, repo, name, version, {log_level, theme
                             |> log!(log_level)
                         Err(PackageReleaseErrorHandled)
 
-handle_platform_release_error = |platforms, repo, name, version, {log_level, theme}|
+handle_platform_release_error = |platforms, repo, name, version, { log_level, theme }|
     |err|
         when err is
             RepoNotFound ->
@@ -461,7 +510,7 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
-get_repositories! : { log_level: LogLevel, theme: Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
+get_repositories! : { log_level : LogLevel, theme : Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData]
 get_repositories! = |logging|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     Dir.create_all!(repo_dir) ? |_| FileWriteError
@@ -487,8 +536,8 @@ get_repositories! = |logging|
 
     Ok({ packages, platforms })
 
-do_package_update! : {log_level: LogLevel, theme: Theme } => Result RepositoryDict []_
-do_package_update! = |{log_level, theme}|
+do_package_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
+do_package_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     "Updating packages... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     known_packages_csv =
@@ -500,8 +549,8 @@ do_package_update! = |{log_level, theme}|
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(packages)
 
-do_platform_update! : { log_level: LogLevel, theme: Theme } => Result RepositoryDict []_
-do_platform_update! = |{log_level, theme}|
+do_platform_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
+do_platform_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
     "Updating platforms... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
@@ -513,13 +562,13 @@ do_platform_update! = |{log_level, theme}|
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
-do_scripts_update! : [Some RepositoryDict, None], { log_level: LogLevel, theme: Theme } => Result {} []_
-do_scripts_update! = |maybe_pfs, {log_level, theme}|
+do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} []_
+do_scripts_update! = |maybe_pfs, { log_level, theme }|
     "Updating scripts... " |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
-            None -> get_repositories!({log_level, theme})? |> .platforms
+            None -> get_repositories!({ log_level, theme })? |> .platforms
     cache_dir =
         get_repo_dir!({})
         ? |_| HomeVarNotSet
