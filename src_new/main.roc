@@ -20,12 +20,13 @@ import cli.Path
 import ansi.ANSI
 import Theme exposing [Theme]
 import ArgParser
-import RepoManager {
-        write_bytes!: File.write_bytes!,
-        cmd_output!: Cmd.output!,
-        cmd_new: Cmd.new,
-        cmd_args: Cmd.args,
-    } as RM exposing [RepositoryDict, RepositoryRelease]
+import RepoUpdater {
+    write_bytes!: File.write_bytes!,
+    cmd_output!: Cmd.output!,
+    cmd_new: Cmd.new,
+    cmd_args: Cmd.args,
+} as RU
+import RepoManager as RM exposing [RepositoryDict, RepositoryRelease]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -38,13 +39,18 @@ import Dotfile {
     is_file!: File.is_file!,
     read_utf8!: File.read_utf8!,
     write_utf8!: File.write_utf8!,
-} as DF
+} as Df
 import Logger {
         write!: Stdout.write!,
-    } exposing [LogLevel, log!]
+    } exposing [LogLevel, log!, colorize]
+import RocParser as RP
+import ErrorHandlers as E
+
+known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-packages.csv"
+known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-platforms.csv"
 
 main! = |args|
-    config = get_config!({})
+    config = Df.get_config!({})
     when ArgParser.parse_or_display_message(args, to_os_raw) is
         Ok({ verbosity, color, subcommand }) ->
             theme =
@@ -62,33 +68,26 @@ main! = |args|
 
                 Ok(App(app_args)) ->
                     args_with_defaults = app_args_with_defaults(app_args, config)
-                    when do_app_command!(args_with_defaults, logging) is
-                        Err(PlatformRepoLookupErrorHandled) -> Ok({})
-                        Err(PlatformReleaseErrorHandled) -> Ok({})
-                        Err(GetRepositoriesFailed) -> Ok({})
-                        Err(FileExists) -> Ok({})
-                        any_other -> any_other
+                    do_app_command!(args_with_defaults, logging)
+                    |> Result.map_err(|_| Exit(1, ""))
 
                 Ok(Package(_pkg_args)) ->
                     "Pkg: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
                     |> log!(log_level)
-                    |> Ok
+                    Err(Exit(1, ""))
 
-                Ok(Upgrade(_upgrade_args)) ->
-                    "Upgrade: not implemented\n"
-                    |> ANSI.color({ fg: theme.error })
-                    |> Quiet
-                    |> log!(log_level)
-                    |> Ok
+                Ok(Upgrade(upgrade_args)) ->
+                    do_upgrade_command!(upgrade_args, logging)
+                    |> Result.map_err(|_| Exit(1, ""))
 
                 Ok(Tui(_tui_args)) ->
                     "Tui: not implemented\n"
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
                     |> log!(log_level)
-                    |> Ok
+                    Err(Exit(1, ""))
 
                 Ok(Config(config_args)) ->
                     do_config_command!(config_args, logging)
@@ -98,58 +97,33 @@ main! = |args|
                     |> ANSI.color({ fg: theme.error })
                     |> Quiet
                     |> log!(log_level)
-                    |> Ok
+                    Err(Exit(1, ""))
 
         Err(e) ->
-            "${e}\n" |> Quiet |> log!(Verbose) |> Ok
-
-get_config! : {} => DF.Config
-get_config! = |{}|
-    when DF.load_dotfile!({}) is
-        Ok(config) -> config
-        Err(NoDotFileFound) ->
-            new = DF.create_default_dotfile!({})
-            when new is
-                Ok(config) -> config
-                Err(_) -> DF.default_config
-
-        Err(_) -> DF.default_config
+            "${e}\n" |> Quiet |> log!(Verbose)
+            Err(Exit(1, ""))
 
 app_args_with_defaults = |app_args, config|
     when app_args.platform.name is
         "" -> { app_args & platform: config.platform }
         _ -> app_args
 
-colorize : List Str, List _ -> Str
-colorize = |parts, colors|
-    if List.len(parts) <= List.len(colors) then
-        List.map2(parts, colors, |part, color| ANSI.color(part, { fg: color })) |> Str.join_with("")
-    else
-        rest =
-            List.split_at(parts, List.len(colors))
-            |> .others
-            |> Str.join_with("")
-            |> ANSI.color({ fg: List.last(colors) |> Result.with_default(Default) })
-        List.map2(parts, colors, |part, color| ANSI.color(part, { fg: color }))
-        |> Str.join_with("")
-        |> Str.concat(rest)
-
 do_config_command! = |config_args, logging|
     theme = logging.theme
     log_level = logging.log_level
     when config_args is
         ConfigVerbosity(verbosity) ->
-            when DF.save_to_dotfile!({ key: "verbosity", value: verbosity }) is
+            when Df.save_to_dotfile!({ key: "verbosity", value: verbosity }) is
                 Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
                 Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
 
         ConfigColors(colors) ->
-            when DF.save_to_dotfile!({ key: "theme", value: colors }) is
+            when Df.save_to_dotfile!({ key: "theme", value: colors }) is
                 Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
                 Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
 
         ConfigPlatform(platform) ->
-            when DF.save_to_dotfile!({ key: "platform", value: platform }) is
+            when Df.save_to_dotfile!({ key: "platform", value: platform }) is
                 Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
                 Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
 
@@ -186,23 +160,22 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
         (_, Err(e), _) -> Err(e)
         (_, _, Err(e)) -> Err(e)
 
-do_app_command! : { file_name : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
+do_app_command! : { filename : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
     log_level = logging.log_level
     theme = logging.theme
-    when File.is_file!(arg_data.file_name) is
+    when File.is_file!(arg_data.filename) is
         Ok(bool) if bool and !arg_data.force ->
-            "File <${arg_data.file_name}> already exists. Choose a different name or use --force\n"
+            "File <${arg_data.filename}> already exists. Choose a different name or use --force\n"
             |> ANSI.color({ fg: theme.error })
             |> Quiet
             |> log!(log_level)
-            Err(FileExists)
+            Err(Handled)
 
         _ ->
             { packages, platforms } =
                 get_repositories!(logging)
-                |> Result.on_err!(handle_get_repositories_error(logging))
-                |> Result.map_err(|_| GetRepositoriesFailed)?
+                |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
             _ =
                 repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
                 scripts_exists =
@@ -213,18 +186,17 @@ do_app_command! = |arg_data, logging|
                     do_scripts_update!(Some(platforms), logging)
                 else
                     Ok({})
-            ["Creating ", "${arg_data.file_name}", "...\n"]
+            ["Creating ", "${arg_data.filename}", "...\n"]
             |> colorize([theme.primary, theme.secondary, theme.primary])
             |> Verbose
             |> log!(log_level)
-            repo_names = List.join([Dict.keys(packages), Dict.keys(platforms)])
-            repo_name_map = RM.build_repo_name_map(repo_names)
+            repo_name_map = List.join([Dict.keys(packages), Dict.keys(platforms)]) |> RM.build_repo_name_map
             platform_repo =
                 RM.get_full_repo_name(repo_name_map, arg_data.platform.name, Platform)
-                |> Result.on_err!(handle_platform_repo_error(arg_data.platform.name, logging))?
+                |> Result.on_err!(E.handle_platform_repo_error(arg_data.platform.name, { log_level, theme, log!, colorize }))?
             platform_release =
                 RM.get_repo_release(platforms, platform_repo, arg_data.platform.version, Platform)
-                |> Result.on_err!(handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version, logging))?
+                |> Result.on_err!(E.handle_platform_release_error(platforms, platform_repo, arg_data.platform.name, arg_data.platform.version, { log_level, theme, log!, colorize }))?
             ["Platform: ", platform_release.repo, " : ${platform_release.tag}\n"]
             |> colorize([theme.primary, theme.secondary, theme.primary])
             |> Verbose
@@ -236,8 +208,8 @@ do_app_command! = |arg_data, logging|
                 |> log!(log_level)
             else
                 {}
-            package_releases = resolve_package_releases!(packages, repo_name_map, arg_data, logging)
-            cmd_args = build_script_args(arg_data.file_name, platform_release, package_releases)
+            package_releases = resolve_package_releases!(packages, repo_name_map, arg_data.packages, logging)
+            cmd_args = build_script_args(arg_data.filename, platform_release, package_releases)
             num_packages = List.len(package_releases)
             num_skipped = List.len(arg_data.packages) - num_packages
             cache_dir = get_repo_dir!({})? |> Str.concat("/scripts/")
@@ -247,18 +219,22 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) ->
-                    Cmd.exec!("chmod", ["+x", script_path])?
-                    _ =
+                    Cmd.exec!("chmod", ["+x", script_path]) ? |_| Exit(1, ["Failed to make generation script executable."] |> colorize([theme.error]))
+                    res =
                         Cmd.new(script_path)
                         |> Cmd.args(cmd_args)
                         |> Cmd.output!
-                    print_app_finish_message!(arg_data.file_name, num_packages, num_skipped, logging)
-                    Ok({})
+                    when res.status is
+                        Ok(_) ->
+                            print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
+
+                        Err(_) ->
+                            Err(Exit(1, ["Failed to run generation script."] |> colorize([theme.error])))
 
                 Err(_) ->
-                    build_default_app!(arg_data.file_name, platform_release, package_releases)?
-                    print_app_finish_message!(arg_data.file_name, num_packages, num_skipped, logging)
-                    Ok({})
+                    build_default_app!(arg_data.filename, platform_release, package_releases)
+                    |> Result.map_err(|_| Exit(1, ["Error writing to ${arg_data.filename}."] |> colorize([theme.error])))?
+                    print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
 build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
 build_script_args = |filename, platform, packages|
@@ -272,19 +248,19 @@ build_script_args = |filename, platform, packages|
 alias_url_pairs = |releases|
     List.map(releases, |release| [release.alias, release.url]) |> List.join
 
-print_app_finish_message! = |file_name, num_packages, num_skipped, { log_level, theme }|
+print_app_finish_message! = |filename, num_packages, num_skipped, { log_level, theme }|
     if num_skipped == 0 then
-        ["Created ", file_name, " with ", Num.to_str(num_packages), " packages ", "✔\n"]
+        ["Created ", filename, " with ", Num.to_str(num_packages), " packages ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
     else
-        ["Created ", file_name, " with ", Num.to_str(num_packages), " packages and skipped ", Num.to_str(num_skipped), " packages ", "✔\n"]
+        ["Created ", filename, " with ", Num.to_str(num_packages), " packages and skipped ", Num.to_str(num_skipped), " packages ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
 
-build_default_app! = |file_name, platform, packages|
+build_default_app! = |filename, platform, packages|
     "app [main!] {\n"
     |> Str.concat("    ${platform.alias}: platform \"${platform.url}\",\n")
     |> Str.concat(
@@ -292,59 +268,23 @@ build_default_app! = |file_name, platform, packages|
         |> Str.join_with(""),
     )
     |> Str.concat("}\n")
-    |> File.write_utf8!(file_name)
+    |> File.write_utf8!(filename)
     |> Result.map_err(|_| FileWriteError)?
     Ok({})
 
-handle_get_repositories_error : { log_level : LogLevel, theme : Theme } -> ([FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData] => Result * _)
-handle_get_repositories_error = |{ log_level, theme }|
-    |e|
-        when e is
-            HomeVarNotSet ->
-                _ = "HOME environment variable not set" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            FileWriteError ->
-                _ = "Error writing to file" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            FileReadError ->
-                _ = "Error reading from file" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            GhAuthError ->
-                _ = "GitHub CLI tool not authenticated" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            GhNotInstalled ->
-                _ = "GitHub CLI tool not installed" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            NetworkError ->
-                _ = "Network error" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            BadRepoReleasesData ->
-                _ = "Local repo data is corrupted" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-            ParsingError ->
-                _ = "Error parsing data" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
-                Err(e)
-
-resolve_package_releases! = |packages, repo_name_map, processed_args, { log_level, theme }|
+resolve_package_releases! = |packages, repo_name_map, requested_packages, { log_level, theme }|
     List.walk_try!(
-        processed_args.packages,
+        requested_packages,
         [],
         |releases, package|
             package_repo_res =
                 RM.get_full_repo_name(repo_name_map, package.name, Package)
-                |> Result.on_err!(handle_package_repo_error(package.name, { log_level, theme }))
+                |> Result.on_err!(E.handle_package_repo_error(package.name, { log_level, theme, log!, colorize }))
             when package_repo_res is
                 Ok(package_repo) ->
                     pkg_res =
                         RM.get_repo_release(packages, package_repo, package.version, Package)
-                        |> Result.on_err!(handle_package_release_error(packages, package_repo, package.name, package.version, { log_level, theme }))
+                        |> Result.on_err!(E.handle_package_release_error(packages, package_repo, package.name, package.version, { log_level, theme, log!, colorize }))
                     when pkg_res is
                         Ok(release) ->
                             ["| ", release.repo, " : ${release.tag}\n"]
@@ -353,156 +293,11 @@ resolve_package_releases! = |packages, repo_name_map, processed_args, { log_leve
                             |> log!(log_level)
                             List.append(releases, release) |> Ok
 
-                        Err(PackageReleaseErrorHandled) -> Ok(releases)
+                        Err(Handled) -> Ok(releases)
 
-                Err(PackageRepoLookupErrorHandled) -> Ok(releases),
+                Err(Handled) -> Ok(releases),
     )
     |> Result.with_default([])
-
-handle_platform_repo_error = |name, { log_level, theme }|
-    |err|
-        when err is
-            RepoNotFound ->
-                log_strs = ["Platform: ", name, " : repo not found - valid platform is required\n"]
-                message =
-                    when log_level is
-                        Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                        Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                        _ -> Verbose("")
-                log!(message, log_level)
-                Err(PlatformRepoLookupErrorHandled)
-
-            RepoNotFoundButMaybe(suggestion) ->
-                log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required\n"]
-                message =
-                    when log_level is
-                        Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                        Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                        _ -> Verbose("")
-                log!(message, log_level)
-                Err(PlatformRepoLookupErrorHandled)
-
-            AmbiguousName ->
-                log_strs = ["Platform: ", name, " : ambiguous; use <owner>/${name} - valid platform is required\n"]
-                message =
-                    when log_level is
-                        Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                        Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                        _ -> Verbose("")
-                log!(message, log_level)
-                Err(PlatformRepoLookupErrorHandled)
-
-handle_package_repo_error = |name, { log_level, theme }|
-    |err|
-        when err is
-            RepoNotFound ->
-                _ =
-                    ["| ", name, " : package repo not found - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
-                    |> Verbose
-                    |> log!(log_level)
-                Err(PackageRepoLookupErrorHandled)
-
-            RepoNotFoundButMaybe(suggestion) ->
-                _ =
-                    ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
-                    |> Verbose
-                    |> log!(log_level)
-                Err(PackageRepoLookupErrorHandled)
-
-            AmbiguousName ->
-                _ =
-                    ["| ", name, " : ambiguous; use <owner>/${name} - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
-                    |> Verbose
-                    |> log!(log_level)
-                Err(PackageRepoLookupErrorHandled)
-
-handle_package_release_error = |packages, repo, name, version, { log_level, theme }|
-    |err|
-        when err is
-            RepoNotFound ->
-                _ =
-                    ["| ", name, " : package not found - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
-                    |> Verbose
-                    |> log!(log_level)
-                Err(PackageReleaseErrorHandled)
-
-            RepoNotFoundButMaybe(suggestion) ->
-                _ =
-                    ["| ", name, " : package not found; did you mean ${suggestion}? - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
-                    |> Verbose
-                    |> log!(log_level)
-                Err(PackageReleaseErrorHandled)
-
-            VersionNotFound ->
-                when RM.get_repo_release(packages, repo, "latest", Package) is
-                    Ok(suggestion) ->
-                        _ =
-                            ["| ", name, " : version not found; latest is ${suggestion.tag} - skipping\n"]
-                            |> colorize([theme.error, theme.secondary, theme.error])
-                            |> Verbose
-                            |> log!(log_level)
-                        Err(PackageReleaseErrorHandled)
-
-                    Err(_) ->
-                        _ =
-                            ["| ", name, " : version ${version} not found - skipping\n"]
-                            |> colorize([theme.error, theme.secondary, theme.error])
-                            |> Verbose
-                            |> log!(log_level)
-                        Err(PackageReleaseErrorHandled)
-
-handle_platform_release_error = |platforms, repo, name, version, { log_level, theme }|
-    |err|
-        when err is
-            RepoNotFound ->
-                log_strs = ["Platform: ", name, " : repo not found - valid platform is required\n"]
-                message =
-                    when log_level is
-                        Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                        Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                        _ -> Verbose("")
-                log!(message, log_level)
-                Err(PlatformReleaseErrorHandled)
-
-            RepoNotFoundButMaybe(suggestion) ->
-                log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - valid platform is required\n"]
-                message =
-                    when log_level is
-                        Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                        Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                        _ -> Verbose("")
-                log!(message, log_level)
-                Err(PlatformReleaseErrorHandled)
-
-            VersionNotFound ->
-                when RM.get_repo_release(platforms, repo, "latest", Platform) is
-                    Ok(suggestion) ->
-                        log_strs = ["Platform: ", name, " : version not found; latest is ${suggestion.tag} - valid platform is required\n"]
-                        message =
-                            when log_level is
-                                Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                                Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                                _ -> Verbose("")
-                        log!(message, log_level)
-                        Err(PlatformReleaseErrorHandled)
-
-                    Err(_) ->
-                        log_strs = ["Platform: ", name, " : version ${version} not found - valid platform is required\n"]
-                        message =
-                            when log_level is
-                                Verbose -> log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose
-                                Quiet -> log_strs |> colorize([theme.error]) |> Quiet
-                                _ -> Verbose("")
-                        log!(message, log_level)
-                        Err(PlatformReleaseErrorHandled)
-
-known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-packages.csv"
-known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-platforms.csv"
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
@@ -542,7 +337,7 @@ do_package_update! = |{ log_level, theme }|
         |> .body
         |> Str.from_utf8_lossy
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    packages = known_packages_csv |> RM.update_local_repos!("${repo_dir}/package-releases", logger!)?
+    packages = known_packages_csv |> RU.update_local_repos!("${repo_dir}/package-releases", logger!)?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(packages)
 
@@ -556,7 +351,7 @@ do_platform_update! = |{ log_level, theme }|
         |> .body
         |> Str.from_utf8_lossy
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    platforms = known_platforms_csv |> RM.update_local_repos!("${repo_dir}/platform-releases", logger!)?
+    platforms = known_platforms_csv |> RU.update_local_repos!("${repo_dir}/platform-releases", logger!)?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
@@ -575,3 +370,140 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     cache_scripts!(platforms, cache_dir, logger!) ? |_| FileWriteError
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
+
+# do_upgrade_command! : { log_level : LogLevel, theme : Theme } => Result {} _
+do_upgrade_command! = |args, { log_level, theme }|
+    "Upgrading... WIP\n" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
+    ["Upgrading ", args.filename, "...\n"] |> colorize([theme.primary, theme.secondary, theme.primary]) |> Verbose |> log!(log_level)
+    file_text =
+        File.read_utf8!(args.filename)
+        |> Result.on_err!(E.handle_upgrade_file_read_error(args.filename, { log_level, theme, log!, colorize }))?
+    { packages, platforms } =
+        get_repositories!({ log_level, theme })
+        |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
+    repo_name_map = List.join([Dict.keys(packages), Dict.keys(platforms)]) |> RM.build_repo_name_map
+    file_parts =
+        split_file(file_text)
+        |> Result.on_err!(E.handle_upgrade_split_file_error(args.filename, { log_level, theme, log!, colorize }))?
+    platform_repo =
+        when args.platform is
+            Ok { name: pf_name } ->
+                RM.get_full_repo_name(repo_name_map, pf_name, Platform)
+                |> Result.on_err!(E.handle_upgrade_platform_repo_error(pf_name, { log_level, theme, log!, colorize }))
+
+            Err(_) -> Err(NoPlatformRepo)
+    platform_release =
+        when args.platform is
+            Ok { name: pf_name, version: pf_version } ->
+                when platform_repo is
+                    Ok(repo) ->
+                        release =
+                            RM.get_repo_release(platforms, repo, pf_version, Platform)
+                            |> Result.on_err!(E.handle_upgrade_platform_release_error(platforms, repo, pf_name, pf_version, { log_level, theme, log!, colorize }))
+                        when release is
+                            Ok(r) ->
+                                ["Platform: ", r.repo, " : ${r.tag}\n"]
+                                |> colorize([theme.primary, theme.secondary, theme.primary])
+                                |> Verbose
+                                |> log!(log_level)
+                                release
+
+                            Err(_) -> Err(NoPlatformRelease)
+
+                    Err(_) -> Err(NoPlatformRelease)
+
+            Err(_) -> Err(NoPlatformRelease)
+
+    if !List.is_empty(args.packages) then
+        "Packages:\n"
+        |> ANSI.color({ fg: theme.primary })
+        |> Verbose
+        |> log!(log_level)
+    else
+        {}
+    package_releases = resolve_package_releases!(packages, repo_name_map, args.packages, { log_level, theme })
+    upgraded =
+        List.walk(
+            file_parts.dependencies,
+            { not_found: package_releases, updated: [] },
+            |acc, dep_line|
+                if dep_line |> Str.contains("platform") then
+                    when RP.parse_platform_line(dep_line) is
+                        Ok({ alias, path }) ->
+                            when platform_release is
+                                Ok(release) ->
+                                    dep_str = "${file_parts.indent}${alias}: \"${release.url}\","
+                                    { acc & updated: List.append(acc.updated, dep_str) }
+
+                                Err(_) ->
+                                    dep_str = "${file_parts.indent}${alias}: \"${path}\","
+                                    { acc & updated: List.append(acc.updated, dep_str) }
+
+                        Err(InvalidPlatformLine) ->
+                            dep_str = "${file_parts.indent}${Str.trim_start(dep_line)}"
+                            { acc & updated: List.append(acc.updated, dep_str) }
+                else
+                    when RP.parse_package_line(dep_line) is
+                        Ok({ alias, path }) ->
+                            when RP.parse_repo_owner_name(path) is
+                                Ok({ owner, name }) ->
+                                    when List.find_first(acc.not_found, |{ repo }| repo == "${owner}/${name}") is
+                                        Ok(release) ->
+                                            dep_str = "${file_parts.indent}${alias}: \"${release.url}\","
+                                            new_updated = List.append(acc.updated, dep_str)
+                                            new_not_found = List.drop_if(acc.not_found, |{ repo: r }| r == release.repo)
+                                            { not_found: new_not_found, updated: new_updated }
+
+                                        Err(_) ->
+                                            dep_str = "${file_parts.indent}${alias}: \"${path}\","
+                                            { acc & updated: List.append(acc.updated, dep_str) }
+
+                                Err(InvalidRepoUrl) ->
+                                    dep_str = "${file_parts.indent}${alias}: \"${path}\","
+                                    { acc & updated: List.append(acc.updated, dep_str) }
+
+                        Err(InvalidPackageLine) ->
+                            dep_str = "${file_parts.indent}${Str.trim_start(dep_line)}"
+                            { acc & updated: List.append(acc.updated, dep_str) },
+        )
+        |> |{ not_found, updated }|
+            rest = List.map(not_found, |release| "${file_parts.indent}${release.alias}: \"${release.url}\",")
+            List.join([updated, rest])
+    Str.join_with(upgraded, "\n") |> Quiet |> log!(log_level) |> Ok
+
+split_file : Str -> Result { prefix : Str, indent : Str, dependencies : List Str, rest : Str } [InvalidRocFile]
+split_file = |text|
+    { before: prefix, after: most } = Str.split_first(text, "{") ? |_| InvalidRocFile
+    { before: deps, after: rest } = Str.split_first(most, "}") ? |_| InvalidRocFile
+    dependencies =
+        deps
+        |> Str.split_on("\n")
+        |> List.drop_if(|s| s |> Str.trim |> Str.is_empty)
+    indent = get_indent(dependencies)
+    trimmed = dependencies |> List.map(Str.trim_start)
+    Ok { prefix, indent, dependencies: trimmed, rest }
+
+get_indent : List Str -> Str
+get_indent = |lines|
+    when lines is
+        [_, second_line, ..] -> get_line_indent(second_line)
+        [firstLine] ->
+            firstLine
+            |> get_line_indent
+            |> |ind| if Str.count_utf8_bytes(ind) < 2 then (" " |> Str.repeat(4)) else ind
+
+        [] -> ""
+
+get_line_indent : Str -> Str
+get_line_indent = |text|
+    whitespace = [' ', '\t']
+    List.walk_until(
+        Str.to_utf8(text),
+        [],
+        |indent, byte|
+            if List.contains(whitespace, byte) then
+                Continue(List.append(indent, byte))
+            else
+                Break(indent),
+    )
+    |> Str.from_utf8_lossy

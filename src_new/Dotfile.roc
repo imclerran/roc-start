@@ -4,14 +4,26 @@ module
         is_file!,
         read_utf8!,
         write_utf8!,
-    } -> [Config, load_dotfile!, create_default_dotfile!, default_config, save_to_dotfile!, save_config!]
+    } -> [Config, get_config!, load_dotfile!, create_default_dotfile!, default_config, save_to_dotfile!, save_config!]
 
 import rtils.StrUtils
 import parse.Parse as P
 import Theme exposing [Theme]
 LogLevel : [Silent, Quiet, Verbose]
 
-Config : { verbosity : LogLevel, theme : Theme, platform : { name: Str, version: Str } }
+Config : { verbosity : LogLevel, theme : Theme, platform : { name : Str, version : Str } }
+
+get_config! : {} => Config
+get_config! = |{}|
+    when load_dotfile!({}) is
+        Ok(config) -> config
+        Err(NoDotFileFound) ->
+            new = create_default_dotfile!({})
+            when new is
+                Ok(config) -> config
+                Err(_) -> default_config
+
+        Err(_) -> default_config
 
 config_to_str : Config -> Str
 config_to_str = |config|
@@ -89,21 +101,29 @@ parse_verbosity = |str|
 
 parse_platform = |str|
     pattern = P.string("platform:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(platform_string)
-    parser = pattern |> P.map(|s|
-        when s |> StrUtils.split_first_if(|c| List.contains([':', '='], c)) is
-            Ok({ before: name, after: version }) -> Ok({name, version})
-            _ -> Ok({ name: s, version: "latest" }),
-    )
+    parser =
+        pattern
+        |> P.map(
+            |s|
+                when s |> StrUtils.split_first_if(|c| List.contains([':', '='], c)) is
+                    Ok({ before: name, after: version }) -> Ok({ name, version })
+                    _ -> Ok({ name: s, version: "latest" }),
+        )
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidPlatform)
 
 platform_string = P.one_or_more(platform_chars) |> P.map(|chars| Str.from_utf8_lossy(chars) |> Ok)
 
-platform_chars = 
-    P.char |> P.filter(|c| 
-        (c >= 'a' and c <= 'z') or 
-        (c >= 'A' and c <= 'Z') or 
-        (c >= '0' and c <= '9') or
-        (List.contains(['-', '_', '/', '=', ':', '-', '+', '.'], c))
+platform_chars =
+    P.char
+    |> P.filter(
+        |c|
+            (c >= 'a' and c <= 'z')
+            or
+            (c >= 'A' and c <= 'Z')
+            or
+            (c >= '0' and c <= '9')
+            or
+            (List.contains(['-', '_', '/', '=', ':', '-', '+', '.'], c)),
     )
 
 create_default_dotfile! : {} => Result Config [HomeVarNotSet, FileWriteError]

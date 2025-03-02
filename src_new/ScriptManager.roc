@@ -27,13 +27,13 @@ script_url = |repo, tag|
 cache_scripts! : PlatformDict, Str, (Str => {}) => Result _ _
 cache_scripts! = |platforms, cache_dir, logger!|
     create_all_dirs!(cache_dir)?
-    release_list = 
-        Dict.to_list(platforms) 
+    release_list =
+        Dict.to_list(platforms)
         |> List.map(|(_, rs)| rs)
         |> List.join
     num_releases = List.len(release_list)
     logger!(" [")
-    logger!(Str.repeat("=",  Num.sub_saturated(5, num_releases)))
+    logger!(Str.repeat("=", Num.sub_saturated(5, num_releases)))
     _ = List.walk_try!(
         release_list,
         (0, 0),

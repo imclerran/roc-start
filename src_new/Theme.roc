@@ -48,7 +48,7 @@ roc =
         error: coral,
     }
 
-roc_mono = 
+roc_mono =
     light_purple = Rgb((137, 101, 222))
     orange = Rgb((222, 136, 100))
     coral = Rgb((222, 100, 124))

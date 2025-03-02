@@ -71,7 +71,7 @@ verbosity_to_log_level = |verbosity|
 app_subcommand =
     { Cli.weave <-
         force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
-        file_name: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." })
+        filename: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." })
         |> Cli.map(default_filename)
         |> Cli.map(with_extension),
         platform: Opt.maybe_str({ short: "p", long: "platform", help: "The platform to use (Defaults to `basic-cli=latest` unless otherwise configured). Set the version with `--platform <platform>:<version>`." })
@@ -91,13 +91,23 @@ with_extension = |filename| if Str.ends_with(filename, ".roc") then filename els
 
 platform_name_and_version_with_default = |platform_res|
     when platform_res is
-        Ok(s) ->
+        Ok(platform) ->
             { before: name, after: version } =
-                StrUtils.split_first_if(s, |c| List.contains([':', '='], c))
-                |> Result.with_default({ before: s, after: "latest" })
+                StrUtils.split_first_if(platform, |c| List.contains([':', '='], c))
+                |> Result.with_default({ before: platform, after: "latest" })
             { name, version }
 
         Err(_) -> { name: "", version: "" }
+
+maybe_platform_name_and_version = |platform_res|
+    when platform_res is
+        Ok(platform) ->
+            { before: name, after: version } =
+                StrUtils.split_first_if(platform, |c| List.contains([':', '='], c))
+                |> Result.with_default({ before: platform, after: "latest" })
+            Ok({ name, version })
+        
+        Err(_) -> Err(NoPLatformSpecified)
 
 package_names_and_versions = |packages|
     List.map(
@@ -107,6 +117,24 @@ package_names_and_versions = |packages|
                 StrUtils.split_first_if(package, |c| List.contains([':', '='], c))
                 |> Result.with_default({ before: package, after: "latest" })
             { name, version },
+    )
+
+upgrade_subcommand =
+    { Cli.weave <-
+        filename: Opt.maybe_str({ short: "i", long: "in", help: "The name of the input file who's platforms and/or packages should be upgraded." })
+        |> Cli.map(default_filename)
+        |> Cli.map(with_extension),
+        platform: Opt.maybe_str({ short: "p", long: "platform", help: "Specify the platform and version to upgrade to. If ommitted, the platform will not be upgraded. If the specified platform is different than the platform in the upgraded file, the platform will be replaced with the specified one." })
+        |> Cli.map(maybe_platform_name_and_version),
+        packages: Param.str_list({ name: "packages", help: "List of packages upgrade. If ommitted, all will be upgraded. Version may be specified, or left out to upgrade to the latest version." })
+        |> Cli.map(package_names_and_versions),
+    }
+    |> SubCmd.finish(
+        {
+            name: "upgrade",
+            description: "Upgrade the platform and/or packages in an app or package",
+            mapper: Upgrade,
+        },
     )
 
 package_subcommand =
@@ -143,19 +171,6 @@ update_subcommand =
             name: "update",
             description: "Update the platform and package repositories and scripts. Update all, or specify which to update.",
             mapper: Update,
-        },
-    )
-
-upgrade_subcommand =
-    { Cli.weave <-
-        filename: Param.str({ name: "filename", help: "The name of the file who's platforms and/or packages should be upgraded." }),
-        to_upgrade: Param.str_list({ name: "to-upgrade", help: "List of platform and package names to upgrade. If ommitted, all will be upgraded." }),
-    }
-    |> SubCmd.finish(
-        {
-            name: "upgrade",
-            description: "Upgrade the platform and/or packages in an app or package",
-            mapper: Upgrade,
         },
     )
 
