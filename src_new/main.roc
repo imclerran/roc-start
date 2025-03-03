@@ -371,9 +371,7 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
 
-# do_upgrade_command! : { log_level : LogLevel, theme : Theme } => Result {} _
 do_upgrade_command! = |args, { log_level, theme }|
-    "Upgrading... WIP\n" |> ANSI.color({ fg: theme.error }) |> Quiet |> log!(log_level)
     ["Upgrading ", args.filename, "...\n"] |> colorize([theme.primary, theme.secondary, theme.primary]) |> Verbose |> log!(log_level)
     file_text =
         File.read_utf8!(args.filename)
@@ -432,11 +430,11 @@ do_upgrade_command! = |args, { log_level, theme }|
                         Ok({ alias, path }) ->
                             when platform_release is
                                 Ok(release) ->
-                                    dep_str = "${file_parts.indent}${alias}: \"${release.url}\","
+                                    dep_str = "${file_parts.indent}${alias}: platform \"${release.url}\","
                                     { acc & updated: List.append(acc.updated, dep_str) }
 
                                 Err(_) ->
-                                    dep_str = "${file_parts.indent}${alias}: \"${path}\","
+                                    dep_str = "${file_parts.indent}${alias}: platform \"${path}\","
                                     { acc & updated: List.append(acc.updated, dep_str) }
 
                         Err(InvalidPlatformLine) ->
@@ -469,7 +467,12 @@ do_upgrade_command! = |args, { log_level, theme }|
         |> |{ not_found, updated }|
             rest = List.map(not_found, |release| "${file_parts.indent}${release.alias}: \"${release.url}\",")
             List.join([updated, rest])
-    Str.join_with(upgraded, "\n") |> Quiet |> log!(log_level) |> Ok
+
+    new_file = "${file_parts.prefix}{\n${Str.join_with(upgraded, "\n")}\n}${file_parts.rest}"
+
+    File.write_utf8!(new_file, args.filename)
+    |> Result.map_err(|_| Exit(1, ["Error writing to ${args.filename}."] |> colorize([theme.error])))?
+    Ok({})
 
 split_file : Str -> Result { prefix : Str, indent : Str, dependencies : List Str, rest : Str } [InvalidRocFile]
 split_file = |text|
