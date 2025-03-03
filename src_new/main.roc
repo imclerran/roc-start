@@ -62,25 +62,44 @@ main! = |args|
                     Ok(v) -> v
                     Err(NoLogLevel) -> config.verbosity
             logging = { log_level, theme }
+
             when subcommand is
                 Ok(Update(update_args)) ->
                     do_update_command!(update_args, logging)
+                    |> Result.map_err(
+                        |e|
+                            when e is
+                                Exit(_, _) -> e
+                                _ -> Exit(1, ""),
+                    )
 
                 Ok(App(app_args)) ->
                     args_with_defaults = app_args_with_defaults(app_args, config)
                     do_app_command!(args_with_defaults, logging)
-                    |> Result.map_err(|_| Exit(1, ""))
+                    |> Result.map_err(
+                        |e|
+                            when e is
+                                Exit(_, _) -> e
+                                _ -> Exit(1, ""),
+                    )
 
-                Ok(Package(_pkg_args)) ->
-                    "Pkg: not implemented\n"
-                    |> ANSI.color({ fg: theme.error })
-                    |> Quiet
-                    |> log!(log_level)
-                    Err(Exit(1, ""))
+                Ok(Package(pkg_args)) ->
+                    do_package_command!(pkg_args, logging)
+                    |> Result.map_err(
+                        |e|
+                            when e is
+                                Exit(_, _) -> e
+                                _ -> Exit(1, ""),
+                    )
 
                 Ok(Upgrade(upgrade_args)) ->
                     do_upgrade_command!(upgrade_args, logging)
-                    |> Result.map_err(|_| Exit(1, ""))
+                    |> Result.map_err(
+                        |e|
+                            when e is
+                                Exit(_, _) -> e
+                                _ -> Exit(1, ""),
+                    )
 
                 Ok(Tui(_tui_args)) ->
                     "Tui: not implemented\n"
@@ -91,6 +110,12 @@ main! = |args|
 
                 Ok(Config(config_args)) ->
                     do_config_command!(config_args, logging)
+                    |> Result.map_err(
+                        |e|
+                            when e is
+                                Exit(_, _) -> e
+                                _ -> Exit(1, ""),
+                    )
 
                 Err(NoSubcommand) ->
                     "TUI: not yet implemented\n"
@@ -245,17 +270,54 @@ build_script_args = |filename, platform, packages|
         ],
     )
 
+do_package_command! = |args, logging|
+    log_level = logging.log_level
+    theme = logging.theme
+    when File.is_file!("main.roc") is
+        Ok(exists) if exists and !args.force ->
+            "File <main.roc> already exists. Use `--force` to overwrite, or `upgrade` instead of `package` to upgrade or add dependencies.\n"
+            |> ANSI.color({ fg: theme.error })
+            |> Quiet
+            |> log!(log_level)
+            Err(Exit(1, ""))
+
+        _ ->
+            { packages } =
+                get_repositories!(logging)
+                |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
+            ["Creating ", "main.roc", "...\n"]
+            |> colorize([theme.primary, theme.secondary, theme.primary])
+            |> Verbose
+            |> log!(log_level)
+            repo_name_map = Dict.keys(packages) |> RM.build_repo_name_map
+            if !List.is_empty(args.packages) then
+                "Packages:\n"
+                |> ANSI.color({ fg: theme.primary })
+                |> Verbose
+                |> log!(log_level)
+            else
+                {}
+            package_releases = resolve_package_releases!(packages, repo_name_map, args.packages, logging)
+            num_packages = List.len(package_releases)
+            num_skipped = List.len(args.packages) - num_packages
+
+            build_package!(package_releases)
+            |> Result.map_err(|_| Exit(1, ["Error writing to main.roc."] |> colorize([theme.error])))?
+            print_app_finish_message!("main.roc", num_packages, num_skipped, logging) |> Ok
+
 alias_url_pairs = |releases|
     List.map(releases, |release| [release.alias, release.url]) |> List.join
 
 print_app_finish_message! = |filename, num_packages, num_skipped, { log_level, theme }|
+    package_s = if num_packages == 1 then "package" else "packages"
+    skipped_package_s = if num_skipped == 1 then "package" else "packages"
     if num_skipped == 0 then
-        ["Created ", filename, " with ", Num.to_str(num_packages), " packages ", "✔\n"]
+        ["Created ", filename, " with ", Num.to_str(num_packages), " ${package_s} ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
     else
-        ["Created ", filename, " with ", Num.to_str(num_packages), " packages and skipped ", Num.to_str(num_skipped), " packages ", "✔\n"]
+        ["Created ", filename, " with ", Num.to_str(num_packages), " ${package_s} and skipped ", Num.to_str(num_skipped), " ${skipped_package_s} ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
@@ -269,6 +331,17 @@ build_default_app! = |filename, platform, packages|
     )
     |> Str.concat("}\n")
     |> File.write_utf8!(filename)
+    |> Result.map_err(|_| FileWriteError)?
+    Ok({})
+
+build_package! = |packages|
+    "package [] {\n"
+    |> Str.concat(
+        List.map(packages, |pkg| "    ${pkg.alias}: \"${pkg.url}\",\n")
+        |> Str.join_with(""),
+    )
+    |> Str.concat("}\n")
+    |> File.write_utf8!("main.roc")
     |> Result.map_err(|_| FileWriteError)?
     Ok({})
 
@@ -420,10 +493,12 @@ do_upgrade_command! = |args, { log_level, theme }|
     else
         {}
     package_releases = resolve_package_releases!(packages, repo_name_map, args.packages, { log_level, theme })
-    upgraded =
+    num_packages = List.len(package_releases)
+    num_skipped = List.len(args.packages) - num_packages
+    { upgraded, pf_upgraded } =
         List.walk(
             file_parts.dependencies,
-            { not_found: package_releases, updated: [] },
+            { pf_updated: Bool.false, not_found: package_releases, updated: [] },
             |acc, dep_line|
                 if dep_line |> Str.contains("platform") then
                     when RP.parse_platform_line(dep_line) is
@@ -431,7 +506,8 @@ do_upgrade_command! = |args, { log_level, theme }|
                             when platform_release is
                                 Ok(release) ->
                                     dep_str = "${file_parts.indent}${alias}: platform \"${release.url}\","
-                                    { acc & updated: List.append(acc.updated, dep_str) }
+
+                                    { acc & pf_updated: Bool.true, updated: List.append(acc.updated, dep_str) }
 
                                 Err(_) ->
                                     dep_str = "${file_parts.indent}${alias}: platform \"${path}\","
@@ -450,7 +526,7 @@ do_upgrade_command! = |args, { log_level, theme }|
                                             dep_str = "${file_parts.indent}${alias}: \"${release.url}\","
                                             new_updated = List.append(acc.updated, dep_str)
                                             new_not_found = List.drop_if(acc.not_found, |{ repo: r }| r == release.repo)
-                                            { not_found: new_not_found, updated: new_updated }
+                                            { acc & not_found: new_not_found, updated: new_updated }
 
                                         Err(_) ->
                                             dep_str = "${file_parts.indent}${alias}: \"${path}\","
@@ -464,15 +540,60 @@ do_upgrade_command! = |args, { log_level, theme }|
                             dep_str = "${file_parts.indent}${Str.trim_start(dep_line)}"
                             { acc & updated: List.append(acc.updated, dep_str) },
         )
-        |> |{ not_found, updated }|
+        |> |{ not_found, updated, pf_updated }|
             rest = List.map(not_found, |release| "${file_parts.indent}${release.alias}: \"${release.url}\",")
-            List.join([updated, rest])
+            { upgraded: List.join([updated, rest]), pf_upgraded: pf_updated }
 
     new_file = "${file_parts.prefix}{\n${Str.join_with(upgraded, "\n")}\n}${file_parts.rest}"
 
     File.write_utf8!(new_file, args.filename)
     |> Result.map_err(|_| Exit(1, ["Error writing to ${args.filename}."] |> colorize([theme.error])))?
-    Ok({})
+
+    print_upgrade_finish_message!(args.filename, args.platform, pf_upgraded, num_packages, num_skipped, { log_level, theme })
+    |> Ok
+
+print_upgrade_finish_message! = |filename, platform, pf_upgraded, num_packages, num_skipped, { log_level, theme }|
+    pf_requested =
+        when platform is
+            Ok(_) -> Bool.true
+            _ -> Bool.false
+    num_packages_str = Num.to_str(num_packages)
+    num_skipped_str = Num.to_str(num_skipped)
+
+    package_s = if num_packages == 1 then "package" else "packages"
+    skipped_package_s = if num_skipped == 1 then "package" else "packages"
+
+    if num_skipped == 0 and pf_upgraded then
+        ["Upgraded ", filename, " with ", "1", " platform and ", num_packages_str, " ${package_s} ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
+    else if num_skipped == 0 and pf_requested and !pf_upgraded then
+        ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", "1", " platform ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
+    else if num_skipped == 0 and !pf_requested then
+        ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
+    else if num_skipped > 0 and pf_upgraded then
+        ["Upgraded ", filename, " with ", "1", " platform and ", num_packages_str, " ${package_s} and skipped ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
+    else if num_skipped > 0 and pf_requested and !pf_upgraded then
+        ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", "1", " platform and ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.secondary, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
+    else
+        # num_skipped > 0 and !pf_requested
+        ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> Quiet
+        |> log!(log_level)
 
 split_file : Str -> Result { prefix : Str, indent : Str, dependencies : List Str, rest : Str } [InvalidRocFile]
 split_file = |text|

@@ -106,7 +106,7 @@ maybe_platform_name_and_version = |platform_res|
                 StrUtils.split_first_if(platform, |c| List.contains([':', '='], c))
                 |> Result.with_default({ before: platform, after: "latest" })
             Ok({ name, version })
-        
+
         Err(_) -> Err(NoPLatformSpecified)
 
 package_names_and_versions = |packages|
@@ -138,7 +138,11 @@ upgrade_subcommand =
     )
 
 package_subcommand =
-    Param.str_list({ name: "packages", help: "Any packages to use." })
+    { Cli.weave <-
+        force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
+        packages: Param.str_list({ name: "packages", help: "Any packages to use. Set the version of the package with `<package>:<version>`. If version is not set packages will default to the latest version." })
+        |> Cli.map(package_names_and_versions),
+    }
     |> SubCmd.finish(
         {
             name: "package",
