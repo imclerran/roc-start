@@ -372,10 +372,10 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     Ok({})
 
 do_upgrade_command! = |args, { log_level, theme }|
-    ["Upgrading ", args.filename, "...\n"] |> colorize([theme.primary, theme.secondary, theme.primary]) |> Verbose |> log!(log_level)
     file_text =
         File.read_utf8!(args.filename)
         |> Result.on_err!(E.handle_upgrade_file_read_error(args.filename, { log_level, theme, log!, colorize }))?
+    ["Upgrading ", args.filename, "...\n"] |> colorize([theme.primary, theme.secondary, theme.primary]) |> Verbose |> log!(log_level)
     { packages, platforms } =
         get_repositories!({ log_level, theme })
         |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?

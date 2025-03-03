@@ -237,21 +237,21 @@ handle_upgrade_file_read_error = |filename, { log_level, theme, log!, colorize }
     |err|
         when err is
             FileReadErr _path NotFound ->
-                ["Target file not found: ", filename] |> colorize([theme.error]) |> Quiet |> log!(log_level)
+                ["Target file not found: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
             FileReadErr _path PermissionDenied ->
-                ["Permission denied reading file: ", filename] |> colorize([theme.error]) |> Quiet |> log!(log_level)
+                ["Permission denied reading file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
             FileReadErr _path _ioerr ->
-                ["Error reading file: ", filename] |> colorize([theme.error]) |> Quiet |> log!(log_level)
+                ["Error reading file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
             FileReadUtf8Err _path BadUtf8(_) ->
-                ["Error reading file: ", filename, " - invalid utf8"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
+                ["Error reading file: ", filename, " - invalid utf8\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
 
 handle_upgrade_split_file_error = |filename, { log_level, theme, log!, colorize }|
     |_err|
-        ["Invalid roc file: ", filename] |> colorize([theme.error]) |> Quiet |> log!(log_level)
+        ["Invalid roc file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
         Err(Handled)
         
         
