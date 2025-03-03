@@ -1,7 +1,7 @@
 module [
     handle_platform_repo_error,
     handle_upgrade_platform_repo_error,
-    handle_package_repo_error, 
+    handle_package_repo_error,
     handle_get_repositories_error,
     handle_package_release_error,
     handle_platform_release_error,
@@ -62,7 +62,7 @@ handle_upgrade_platform_repo_error = |name, { log_level, theme, log!, colorize }
                 log_strs = ["Platform: ", name, " : ambiguous; use <owner>/${name} - skipping\n"]
                 log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
                 Err(Handled)
- 
+
 handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
     |err|
         when err is
@@ -239,12 +239,15 @@ handle_upgrade_file_read_error = |filename, { log_level, theme, log!, colorize }
             FileReadErr _path NotFound ->
                 ["Target file not found: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
+
             FileReadErr _path PermissionDenied ->
                 ["Permission denied reading file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
+
             FileReadErr _path _ioerr ->
                 ["Error reading file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
+
             FileReadUtf8Err _path BadUtf8(_) ->
                 ["Error reading file: ", filename, " - invalid utf8\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
                 Err(Handled)
@@ -253,5 +256,4 @@ handle_upgrade_split_file_error = |filename, { log_level, theme, log!, colorize 
     |_err|
         ["Invalid roc file: ", filename, "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
         Err(Handled)
-        
-        
+
