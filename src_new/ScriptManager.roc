@@ -45,28 +45,14 @@ cache_scripts! = |platforms, cache_dir, logger!|
             dir_no_slash = cache_dir |> Str.drop_suffix("/")
             dir_path = "${dir_no_slash}/${release.repo}"
             filename = "${release.tag}.sh"
-            download_script!(url, dir_path, filename)?
+            download_script!(url, dir_path, filename)
+                |> Result.on_err(|e|  if e == ScriptNotFound then Ok({}) else Err(e))?
             if current_fifth > last_fifth then logger!("=") else {}
             Ok((next_n, next_fifth)),
     )
-    # _ = List.walk_try!(
-    #     Dict.to_list(platforms),
-    #     (0, 0),
-    #     |(n, n2), (repo, releases)|
-    #         List.for_each_try!(
-    #             releases,
-    #             |release|
-    #                 url = script_url(repo, release.tag)
-    #                 dir_no_slash = cache_dir |> Str.drop_suffix("/")
-    #                 dir_path = "${dir_no_slash}/${repo}"
-    #                 filename = "${release.tag}.sh"
-    #                 download_script!(url, dir_path, filename, logger!)
-    #                 Ok((0, 0)),
-    #         ),
-    # )
     logger!("] ") |> Ok
 
-download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError]
+download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError, ScriptNotFound]
 download_script! = |url, dir_path, filename|
     req = {
         method: GET,
@@ -77,7 +63,7 @@ download_script! = |url, dir_path, filename|
     }
     resp = http_send!(req) ? |_| NetworkError
     if resp.status != 200 then
-        Ok({})
+        Err(ScriptNotFound)
     else
         text = resp.body |> Str.from_utf8_lossy
         create_all_dirs!("${dir_path}") ? |_| FileWriteError
