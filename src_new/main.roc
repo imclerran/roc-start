@@ -175,7 +175,6 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
                     Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
                     _ -> None
             do_scripts_update!(maybe_pfs, logging)
-            |> Result.map_err(|_| ScriptsUpdateFailed)
         else
             Ok({})
 
@@ -200,7 +199,7 @@ do_app_command! = |arg_data, logging|
         _ ->
             { packages, platforms } =
                 get_repositories!(logging)
-                |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
+                |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
             _ =
                 repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
                 scripts_exists =
@@ -284,7 +283,7 @@ do_package_command! = |args, logging|
         _ ->
             { packages } =
                 get_repositories!(logging)
-                |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
+                |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
             ["Creating ", "main.roc", "...\n"]
             |> colorize([theme.primary, theme.secondary, theme.primary])
             |> Verbose
@@ -428,19 +427,24 @@ do_platform_update! = |{ log_level, theme }|
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
-do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} []_
+do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
 do_scripts_update! = |maybe_pfs, { log_level, theme }|
     "Updating scripts" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
-            None -> get_repositories!({ log_level, theme })? |> .platforms
+            None -> 
+                get_repositories!({ log_level, theme })
+                |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
+                |> .platforms
     cache_dir =
         get_repo_dir!({})
-        ? |_| HomeVarNotSet
+        ? |_| Exit(1, ["HOME variable not set."] |> colorize([theme.error]))
         |> Str.concat("/scripts")
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    cache_scripts!(platforms, cache_dir, logger!) ? |_| FileWriteError
+    cache_scripts!(platforms, cache_dir, logger!)
+    |> Result.on_err(E.handle_cache_scripts_error({ log_level, theme, log!, colorize }))?
+        #? |_| Exit(1, ["File write error while caching scripts."] |> colorize([theme.error]))
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
 
@@ -451,11 +455,11 @@ do_upgrade_command! = |args, { log_level, theme }|
     ["Upgrading ", args.filename, "...\n"] |> colorize([theme.primary, theme.secondary, theme.primary]) |> Verbose |> log!(log_level)
     { packages, platforms } =
         get_repositories!({ log_level, theme })
-        |> Result.on_err!(E.handle_get_repositories_error({ log_level, theme, log!, colorize }))?
+        |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
     repo_name_map = List.join([Dict.keys(packages), Dict.keys(platforms)]) |> RM.build_repo_name_map
     file_parts =
         split_file(file_text)
-        |> Result.on_err!(E.handle_upgrade_split_file_error(args.filename, { log_level, theme, log!, colorize }))?
+        |> Result.on_err(E.handle_upgrade_split_file_error(args.filename, { log_level, theme, colorize }))?
     platform_repo =
         when args.platform is
             Ok { name: pf_name } ->

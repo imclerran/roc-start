@@ -24,9 +24,9 @@ script_url : Str, Str -> Str
 script_url = |repo, tag|
     "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${repo}/${tag}.sh"
 
-cache_scripts! : PlatformDict, Str, (Str => {}) => Result _ _
+cache_scripts! : PlatformDict, Str, (Str => {}) => Result {} [FileWriteError, NetworkError]
 cache_scripts! = |platforms, cache_dir, logger!|
-    create_all_dirs!(cache_dir)?
+    create_all_dirs!(cache_dir) ? |_| FileWriteError
     release_list =
         Dict.to_list(platforms)
         |> List.map(|(_, rs)| rs)
@@ -34,7 +34,7 @@ cache_scripts! = |platforms, cache_dir, logger!|
     num_releases = List.len(release_list)
     logger!(" [")
     logger!(Str.repeat("=", Num.sub_saturated(5, num_releases)))
-    _ = List.walk_try!(
+    res = List.walk_try!(
         release_list,
         (0, 0),
         |(n, last_fifth), release|
@@ -46,11 +46,18 @@ cache_scripts! = |platforms, cache_dir, logger!|
             dir_path = "${dir_no_slash}/${release.repo}"
             filename = "${release.tag}.sh"
             download_script!(url, dir_path, filename)
-                |> Result.on_err(|e|  if e == ScriptNotFound then Ok({}) else Err(e))?
+                |> Result.on_err(|e|  
+                    when e is
+                        ScriptNotFound -> Ok({})
+                        FileWriteError -> Err(FileWriteError)
+                        NetworkError -> Err(NetworkError)
+                )?
             if current_fifth > last_fifth then logger!("=") else {}
             Ok((next_n, next_fifth)),
     )
-    logger!("] ") |> Ok
+    logger!("] ")
+    res 
+    |> Result.map_ok(|_| {})
 
 download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError, ScriptNotFound]
 download_script! = |url, dir_path, filename|
@@ -62,8 +69,10 @@ download_script! = |url, dir_path, filename|
         timeout_ms: NoTimeout,
     }
     resp = http_send!(req) ? |_| NetworkError
-    if resp.status != 200 then
+    if resp.status == 404 then
         Err(ScriptNotFound)
+    else if resp.status != 200 then
+        Err(NetworkError)
     else
         text = resp.body |> Str.from_utf8_lossy
         create_all_dirs!("${dir_path}") ? |_| FileWriteError
