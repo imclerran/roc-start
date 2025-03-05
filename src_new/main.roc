@@ -5,7 +5,6 @@ app [main!] {
     parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
-    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
 }
 
@@ -110,11 +109,6 @@ main! = |args|
                 Ok(Tui(_tui_args)) ->
                     do_tui_command!(logging)
 
-                # "Tui: not implemented\n"
-                # |> ANSI.color({ fg: theme.error })
-                # |> Quiet
-                # |> log!(log_level)
-                # Err(Exit(1, ""))
                 Ok(Config(config_args)) ->
                     do_config_command!(config_args, logging)
                     |> Result.map_err(
@@ -127,11 +121,6 @@ main! = |args|
                 Err(NoSubcommand) ->
                     do_tui_command!(logging)
 
-        # "TUI: not yet implemented\n"
-        # |> ANSI.color({ fg: theme.error })
-        # |> Quiet
-        # |> log!(log_level)
-        # Err(Exit(1, ""))
         Err(e) ->
             "${e}\n" |> Quiet |> log!(Verbose)
             Err(Exit(1, ""))
@@ -680,10 +669,7 @@ ui_loop! = |prev_model|
     terminal_size = get_terminal_size!({})?
     model = Controller.paginate({ prev_model & screen: terminal_size })
     ANSI.draw_screen(model, render(model)) |> Stdout.write!?
-
     input = Stdin.bytes!({}) |> Result.map_ok(ANSI.parse_raw_stdin)?
-    # model_with_input = { model & inputs: List.append model.inputs input }
-
     when handle_input(model, input) is
         Step(next_model) -> ui_loop!(next_model)
         Done(next_model) -> Ok(next_model)

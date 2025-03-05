@@ -8,26 +8,61 @@ module [
     get_packages,
     set_app_platform,
     get_app_platform,
+    to_app,
+    to_upgrade
 ]
 
 import rtils.StrUtils
 
 Choices : [
-    App { filename : Str, force : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } }, 
-    Package { force : Bool, packages : List { name : Str, version : Str } }, 
+    App { filename : Str, force : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
+    Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
-    Config [ConfigColors Str, ConfigPlatform Str, ConfigVerbosity Str], 
+    Config [ConfigColors Str, ConfigPlatform Str, ConfigVerbosity Str],
     Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool },
     NothingToDo,
 ]
 
+to_app : Choices -> Choices
+to_app = |choices|
+    when choices is
+        App(config) ->
+            App(config)
+
+        Package({ force, packages }) ->
+            App({ filename: "main.roc", force, packages, platform: { name: "", version: "" } })
+
+        Upgrade({ filename, packages, platform: maybe_pf }) ->
+            platform =
+                when maybe_pf is
+                    Ok(pf) -> pf
+                    Err(_) -> { name: "", version: "" }
+            App({ filename, force: Bool.false, packages, platform })
+
+        _ ->
+            App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" } })
+
+to_upgrade : Choices -> Choices
+to_upgrade = |choices|
+    when choices is
+        App({ filename, packages, platform }) ->
+            Upgrade({ filename, packages, platform: Ok(platform) })
+
+        Package({ packages }) ->
+            Upgrade({ filename: "main.roc", packages, platform: Err(NoPLatformSpecified) })
+
+        Upgrade(config) ->
+            Upgrade(config)
+
+        _ ->
+            Upgrade({ filename: "main.roc", packages: [], platform: Err(NoPLatformSpecified) })
 
 set_filename : Choices, Str -> Choices
 set_filename = |choices, f|
     filename = f |> default_filename |> with_extension
     when choices is
-        App(config) -> App({ config & filename})
-        Upgrade(config) -> Upgrade({ config & filename})
+        App(config) -> App({ config & filename })
+        Upgrade(config) -> Upgrade({ config & filename })
         _ -> choices
 
 get_filename : Choices -> Str
@@ -59,7 +94,7 @@ set_packages = |choices, packages|
         Upgrade(config) -> Upgrade({ config & packages: package_names_and_versions(packages) })
         _ -> choices
 
-get_packages : Choices -> List { name: Str, version: Str }
+get_packages : Choices -> List { name : Str, version : Str }
 get_packages = |choices|
     when choices is
         App(config) -> config.packages
@@ -73,7 +108,7 @@ set_app_platform = |choices, platform|
         App(config) -> App({ config & platform: platform_name_and_version_with_default(platform) })
         _ -> choices
 
-get_app_platform : Choices -> { name: Str, version: Str }
+get_app_platform : Choices -> { name : Str, version : Str }
 get_app_platform = |choices|
     when choices is
         App(config) -> config.platform
@@ -97,5 +132,5 @@ package_names_and_versions = |packages|
 platform_name_and_version_with_default = |platform|
     { before: name, after: version } =
         StrUtils.split_first_if(platform, |c| List.contains([':', '='], c))
-        |> Result.with_default({ before: platform, after: "latest" })
+        |> Result.with_default({ before: platform, after: "" })
     { name, version }

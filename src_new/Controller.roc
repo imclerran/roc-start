@@ -75,7 +75,7 @@ apply_action = |{ model, action, key_press ?? None }|
             PlatformSelect(_) -> platform_select_handler(model, action)
             PackageSelect(_) -> package_select_handler(model, action)
             Confirmation(_) -> confirmation_handler(model, action)
-            Search({ sender }) -> search_handler(model, action, { sender, char })
+            Search(_) -> search_handler(model, action, { char })
             Splash(_) -> splash_handler(model, action)
             _ -> default_handler(model, action)
     else
@@ -159,14 +159,15 @@ package_select_handler = |model, action|
         _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Search state
-search_handler : Model, UserAction, { sender : [Platform, Package], char ?? [Char Str, None] } -> [Step Model, Done Model]
-search_handler = |model, action, { sender, char ?? None }|
+search_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
+search_handler = |model, action, { char ?? None }|
     when action is
         Exit -> Done(to_user_exited_state(model))
         SearchGo ->
-            when sender is
-                Platform -> Step(to_platform_select_state(model))
-                Package -> Step(to_package_select_state(model))
+            when model.sender is
+                PlatformSelect(_) -> Step(to_platform_select_state(model))
+                PackageSelect(_) -> Step(to_package_select_state(model))
+                _ -> Step(model)
 
         TextBackspace -> Step(backspace_buffer(model))
         TextInput ->
@@ -175,9 +176,10 @@ search_handler = |model, action, { sender, char ?? None }|
                 None -> Step(model)
 
         Cancel ->
-            when sender is
-                Platform -> Step((model |> clear_buffer |> to_platform_select_state))
-                Package -> Step((model |> clear_buffer |> to_package_select_state))
+            when model.sender is
+                PlatformSelect(_) -> Step(model |> clear_buffer |> to_platform_select_state)
+                PackageSelect(_) -> Step(model |> clear_buffer |> to_package_select_state)
+                _ -> Step(model)
 
         _ -> Step(model)
 
@@ -215,7 +217,7 @@ splash_handler = |model, action|
 
 ## Transition to the UserExited state
 to_user_exited_state : Model -> Model
-to_user_exited_state = |model| { model & state: UserExited }
+to_user_exited_state = |model| { model & state: UserExited, sender: model.state }
 
 ## Transition to the MainMenu state
 to_main_menu_state : Model -> Model
@@ -224,32 +226,21 @@ to_main_menu_state = |model|
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main")
             new_choices = choices |> Choices.set_filename(filename)
-                #{ choices & file_name }
             { model &
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
                 state: MainMenu({ choices: new_choices }),
+                sender: model.state,
             }
 
         PackageSelect({ choices }) ->
-            # config_with_packages =
-            #     when (add_selected_packages_to_config(model)).state is
-            #         PackageSelect(data) -> data.config
-            #         _ -> config
-            # if config.type == Pkg then
-                # { model &
-                #     full_menu: ["App", "Package"],
-                #     cursor: { row: 2, col: 2 },
-                #     state: MainMenu({ choices: new_choices }),
-                # }
-            # else
-            #     model
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos)
             { model &
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
                 state: MainMenu({ choices: new_choices }),
+                sender: model.state,
             }
 
 
@@ -258,6 +249,7 @@ to_main_menu_state = |model|
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
                 state: MainMenu({ choices }),
+                sender: model.state,
             }
 
         _ -> model
@@ -267,29 +259,22 @@ to_input_app_name_state : Model -> Model
 to_input_app_name_state = |model|
     when model.state is
         MainMenu({ choices }) ->
-            type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
-            when type is
-                Pkg -> model
-                App -> 
-                    new_choices = 
-                        when choices is
-                            App(_) -> choices
-                            Package({ force, packages }) -> App({ filename: "main", force, packages, platform: { name: "basic-cli", version: "latest" } })
-                            _ -> App({ filename: "main", force: Bool.false, packages: [], platform: { name: "basic-cli", version: "latest" } })
-                    filename = Choices.get_filename(new_choices) |> Str.drop_suffix(".roc")
+            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "App" then App else if s == "Upgrade" then Upgrade else Invalid
+            new_choices =
+                when menu_choice is
+                    App -> Choices.to_app(choices)
+                    Upgrade -> Choices.to_upgrade(choices)
+                    Invalid -> choices
+            when menu_choice is
+                Invalid -> model
+                App | Upgrade ->
                     { model &
                         cursor: { row: 2, col: 2 },
                         menu: [],
                         full_menu: [],
-                        state: InputAppName({ choices: new_choices, name_buffer: filename |> Str.to_utf8 }),
+                        state: InputAppName({ choices: new_choices, name_buffer: [] }),
+                        sender: model.state,
                     }
-            # type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
-            # { model &
-            #     cursor: { row: 2, col: 2 },
-            #     menu: [],
-            #     full_menu: [],
-            #     state: InputAppName({ config: { config & type }, name_buffer: config.file_name |> Str.to_utf8 }),
-            # }
 
         PlatformSelect({ choices }) ->
             filename = Choices.get_filename(choices) |> Str.drop_suffix(".roc")
@@ -298,6 +283,7 @@ to_input_app_name_state = |model|
                 menu: [],
                 full_menu: [],
                 state: InputAppName({ choices, name_buffer: filename |> Str.to_utf8 }),
+                sender: model.state,
             }
 
         Splash({ choices }) ->
@@ -305,6 +291,7 @@ to_input_app_name_state = |model|
             { model &
                 cursor: { row: 2, col: 2 },
                 state: InputAppName({ choices, name_buffer: filename |> Str.to_utf8 }),
+                sender: model.state,
             }
 
         _ -> model
@@ -316,6 +303,7 @@ to_splash_state = |model|
         MainMenu({ choices }) ->
             { model &
                 state: Splash({ choices }),
+                sender: model.state,
             }
 
         _ -> model
@@ -326,13 +314,14 @@ to_platform_select_state = |model|
     when model.state is
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main") |> |name| if Str.is_empty(name) then "main" else name
-            new_choices = choices |> Choices.set_filename(filename) #{ choices & file_name }
+            new_choices = choices |> Choices.set_filename(filename)
             { model &
                 page_first_item: 0,
                 menu: model.platform_menu,
                 full_menu: model.platform_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
+                sender: model.state,
             }
 
         Search({ choices, search_buffer }) ->
@@ -345,13 +334,10 @@ to_platform_select_state = |model|
                 full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices }),
+                sender: model.state,
             }
 
         PackageSelect({ choices }) ->
-            # config_with_packages =
-            #     when (add_selected_packages_to_config(model)).state is
-            #         PackageSelect(data) -> data.config
-            #         _ -> config
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos)
             { model &
@@ -360,6 +346,7 @@ to_platform_select_state = |model|
                 full_menu: model.platform_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
+                sender: model.state,
             }
 
         _ -> model
@@ -369,15 +356,14 @@ to_package_select_state : Model -> Model
 to_package_select_state = |model|
     when model.state is
         MainMenu({ choices }) ->
-            type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
-            when type is
+            menu_choice = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
+            when menu_choice is
                 App -> model
                 Pkg ->
                     force = Choices.get_force(choices)
                     package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
                     new_choices = Package({ force, packages: [] }) |> Choices.set_packages(package_repos)
                     menu_items = List.map(package_repos, repo_to_menu_item)
-                    # file_name = "main"
                     { model &
                         page_first_item: 0,
                         menu: model.package_menu,
@@ -385,12 +371,14 @@ to_package_select_state = |model|
                         cursor: { row: 2, col: 2 },
                         selected: menu_items,
                         state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
                     }
 
         PlatformSelect({ choices }) ->
             platform = Model.get_highlighted_item(model)
             new_choices = choices |> Choices.set_app_platform(platform)
-            menu_items = Choices.get_packages(new_choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
+            package_repos = Choices.get_packages(new_choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+            menu_items = List.map(package_repos, repo_to_menu_item)
             { model &
                 page_first_item: 0,
                 menu: model.package_menu,
@@ -398,13 +386,15 @@ to_package_select_state = |model|
                 cursor: { row: 2, col: 2 },
                 selected: menu_items,
                 state: PackageSelect({ choices: new_choices }),
+                sender: model.state,
             }
 
         Search({ choices, search_buffer }) ->
             filtered_menu =
                 model.package_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
-            menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
+            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+            menu_items = List.map(package_repos, repo_to_menu_item)
             { model &
                 page_first_item: 0,
                 menu: filtered_menu,
@@ -412,10 +402,13 @@ to_package_select_state = |model|
                 cursor: { row: 2, col: 2 },
                 selected: menu_items,
                 state: PackageSelect({ choices }),
+                sender: model.state,
             }
 
         Confirmation({ choices }) ->
-            menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
+            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+            menu_items = List.map(package_repos, repo_to_menu_item)
+            # menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
             { model &
                 page_first_item: 0,
                 menu: model.package_menu,
@@ -423,6 +416,7 @@ to_package_select_state = |model|
                 selected: menu_items,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect({ choices }),
+                sender: model.state,
             }
 
         _ -> model
@@ -432,9 +426,9 @@ to_finished_state : Model -> Model
 to_finished_state = |model|
     model_with_packages = add_selected_packages_to_config(model)
     when model_with_packages.state is
-        PlatformSelect({ choices }) -> { model & state: Finished({ choices }) }
-        PackageSelect({ choices }) -> { model & state: Finished({ choices }) }
-        Confirmation({ choices }) -> { model & state: Finished({ choices }) }
+        PlatformSelect({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
+        PackageSelect({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
+        Confirmation({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
         _ -> model
 
 ## Transition to the Confirmation state
@@ -442,8 +436,8 @@ to_confirmation_state : Model -> Model
 to_confirmation_state = |model|
     model_with_packages = add_selected_packages_to_config(model)
     when model_with_packages.state is
-        PlatformSelect({ choices }) -> { model & state: Confirmation({ choices }) }
-        PackageSelect({ choices }) -> { model & state: Confirmation({ choices }) }
+        PlatformSelect({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
+        PackageSelect({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
         _ -> model
 
 ## Transition to the Search state
@@ -453,15 +447,18 @@ to_search_state = |model|
         PlatformSelect({ choices }) ->
             { model &
                 cursor: { row: model.menu_row, col: 2 },
-                state: Search({ choices, search_buffer: [], sender: Platform }),
+                state: Search({ choices, search_buffer: [] }), # sender: Platform
+                sender: model.state,
             }
 
         PackageSelect({ choices }) ->
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos) #{ config & packages: model.selected }
+
             { model &
                 cursor: { row: model.menu_row, col: 2 },
-                state: Search({ choices: new_choices, search_buffer: [], sender: Package }),
+                state: Search({ choices: new_choices, search_buffer: [] }), # sender: Package
+                sender: model.state,
             }
 
         _ -> model
@@ -488,9 +485,9 @@ clear_search_filter = |model|
 append_to_buffer : Model, Str -> Model
 append_to_buffer = |model, str|
     when model.state is
-        Search({ search_buffer, choices, sender }) ->
+        Search({ search_buffer, choices }) -> # sender
             new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
-            { model & state: Search({ choices, sender, search_buffer: new_buffer }) }
+            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
@@ -502,9 +499,9 @@ append_to_buffer = |model, str|
 backspace_buffer : Model -> Model
 backspace_buffer = |model|
     when model.state is
-        Search({ search_buffer, choices, sender }) ->
+        Search({ search_buffer, choices }) -> # sender
             new_buffer = List.drop_last(search_buffer, 1)
-            { model & state: Search({ choices, sender, search_buffer: new_buffer }) }
+            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.drop_last(name_buffer, 1)
@@ -516,8 +513,8 @@ backspace_buffer = |model|
 clear_buffer : Model -> Model
 clear_buffer = |model|
     when model.state is
-        Search({ choices, sender }) ->
-            { model & state: Search({ choices, sender, search_buffer: [] }) }
+        Search({ choices }) -> # sender
+            { model & state: Search({ choices, search_buffer: [] }) } # sender
 
         InputAppName({ choices }) ->
             { model & state: InputAppName({ choices, name_buffer: [] }) }

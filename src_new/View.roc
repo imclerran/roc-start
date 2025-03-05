@@ -203,8 +203,13 @@ render_input_app_name = |model|
 render_search : Model -> List ANSI.DrawFn
 render_search = |model|
     when model.state is
-        Search({ sender, search_buffer }) ->
-            search_prompt = if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
+        Search({ search_buffer }) ->
+            search_prompt = 
+                when model.sender is
+                    PackageSelect(_) -> "SEARCH FOR A PACKAGE:"
+                    PlatformSelect(_) -> "SEARCH FOR A PLATFORM:"
+                    _ -> "SEARCH:"
+                #if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
             buffer_text = search_buffer |> Str.from_utf8_lossy
             List.join(
                 [

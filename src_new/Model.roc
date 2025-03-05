@@ -35,7 +35,7 @@ Model : {
 State : [
     MainMenu { choices : Choices },
     InputAppName { name_buffer : List U8, choices : Choices },
-    Search { search_buffer : List U8, choices : Choices, sender : [Platform, Package] },
+    Search { search_buffer : List U8, choices : Choices }, #sender : [Platform, Package]
     PlatformSelect { choices : Choices },
     PackageSelect { choices : Choices },
     Confirmation { choices : Choices },
