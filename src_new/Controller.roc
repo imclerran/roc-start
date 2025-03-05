@@ -4,6 +4,7 @@ import Choices
 import Keys exposing [Key]
 import Model exposing [Model]
 import Utils
+import rtils.StrUtils
 
 UserAction : [
     Cancel,
@@ -45,7 +46,7 @@ get_actions = |model|
             |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
             |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
 
-        TypeSelect(_) ->
+        MainMenu(_) ->
             [Exit, SingleSelect, CursorUp, CursorDown, Secret]
             |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
             |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
@@ -69,7 +70,7 @@ apply_action = |{ model, action, key_press ?? None }|
     char = key_press |> Keys.key_to_str |> |str| if Str.is_empty(str) then None else Char(str)
     if action_is_available(model, action) then
         when model.state is
-            TypeSelect(_) -> type_select_handler(model, action)
+            MainMenu(_) -> main_menu_handler(model, action)
             InputAppName(_) -> input_app_name_handler(model, action, { char })
             PlatformSelect(_) -> platform_select_handler(model, action)
             PackageSelect(_) -> package_select_handler(model, action)
@@ -87,9 +88,9 @@ default_handler = |model, action|
         Exit -> Done(to_user_exited_state(model))
         _ -> Step(model)
 
-## Map the user action to the appropriate state transition from the TypeSelect state
-type_select_handler : Model, UserAction -> [Step Model, Done Model]
-type_select_handler = |model, action|
+## Map the user action to the appropriate state transition from the MainMenu state
+main_menu_handler : Model, UserAction -> [Step Model, Done Model]
+main_menu_handler = |model, action|
     when action is
         Exit -> Done(to_user_exited_state(model))
         SingleSelect ->
@@ -150,7 +151,7 @@ package_select_handler = |model, action|
                         _ -> App
                 when type is
                     App -> Step(to_platform_select_state(model))
-                    Pkg -> Step(to_type_select_state(model))
+                    Pkg -> Step(to_main_menu_state(model))
 
         ClearFilter -> Step(clear_search_filter(model))
         NextPage -> Step(next_page(model))
@@ -192,7 +193,7 @@ input_app_name_handler = |model, action, { char ?? None }|
                 None -> Step(model)
 
         TextBackspace -> Step(backspace_buffer(model))
-        GoBack -> Step(to_type_select_state(model))
+        GoBack -> Step(to_main_menu_state(model))
         _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Confirmation state
@@ -209,16 +210,16 @@ splash_handler : Model, UserAction -> [Step Model, Done Model]
 splash_handler = |model, action|
     when action is
         Exit -> Done(to_user_exited_state(model))
-        GoBack -> Step(to_type_select_state(model))
+        GoBack -> Step(to_main_menu_state(model))
         _ -> Step(model)
 
 ## Transition to the UserExited state
 to_user_exited_state : Model -> Model
 to_user_exited_state = |model| { model & state: UserExited }
 
-## Transition to the TypeSelect state
-to_type_select_state : Model -> Model
-to_type_select_state = |model|
+## Transition to the MainMenu state
+to_main_menu_state : Model -> Model
+to_main_menu_state = |model|
     when model.state is
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main")
@@ -227,7 +228,7 @@ to_type_select_state = |model|
             { model &
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
-                state: TypeSelect({ choices: new_choices }),
+                state: MainMenu({ choices: new_choices }),
             }
 
         PackageSelect({ choices }) ->
@@ -239,15 +240,16 @@ to_type_select_state = |model|
                 # { model &
                 #     full_menu: ["App", "Package"],
                 #     cursor: { row: 2, col: 2 },
-                #     state: TypeSelect({ choices: new_choices }),
+                #     state: MainMenu({ choices: new_choices }),
                 # }
             # else
             #     model
-            new_choices = choices |> Choices.set_packages(model.selected)
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
             { model &
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
-                state: TypeSelect({ choices: new_choices }),
+                state: MainMenu({ choices: new_choices }),
             }
 
 
@@ -255,7 +257,7 @@ to_type_select_state = |model|
             { model &
                 cursor: { row: 2, col: 2 },
                 full_menu: ["App", "Package"],
-                state: TypeSelect({ choices }),
+                state: MainMenu({ choices }),
             }
 
         _ -> model
@@ -264,7 +266,7 @@ to_type_select_state = |model|
 to_input_app_name_state : Model -> Model
 to_input_app_name_state = |model|
     when model.state is
-        TypeSelect({ choices }) ->
+        MainMenu({ choices }) ->
             type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
             when type is
                 Pkg -> model
@@ -274,7 +276,7 @@ to_input_app_name_state = |model|
                             App(_) -> choices
                             Package({ force, packages }) -> App({ filename: "main", force, packages, platform: { name: "basic-cli", version: "latest" } })
                             _ -> App({ filename: "main", force: Bool.false, packages: [], platform: { name: "basic-cli", version: "latest" } })
-                    filename = Choices.get_filename(new_choices)
+                    filename = Choices.get_filename(new_choices) |> Str.drop_suffix(".roc")
                     { model &
                         cursor: { row: 2, col: 2 },
                         menu: [],
@@ -290,7 +292,7 @@ to_input_app_name_state = |model|
             # }
 
         PlatformSelect({ choices }) ->
-            filename = Choices.get_filename(choices)
+            filename = Choices.get_filename(choices) |> Str.drop_suffix(".roc")
             { model &
                 cursor: { row: 2, col: 2 },
                 menu: [],
@@ -299,7 +301,7 @@ to_input_app_name_state = |model|
             }
 
         Splash({ choices }) ->
-            filename = Choices.get_filename(choices)
+            filename = Choices.get_filename(choices) |> Str.drop_suffix(".roc")
             { model &
                 cursor: { row: 2, col: 2 },
                 state: InputAppName({ choices, name_buffer: filename |> Str.to_utf8 }),
@@ -311,7 +313,7 @@ to_input_app_name_state = |model|
 to_splash_state : Model -> Model
 to_splash_state = |model|
     when model.state is
-        TypeSelect({ choices }) ->
+        MainMenu({ choices }) ->
             { model &
                 state: Splash({ choices }),
             }
@@ -327,15 +329,15 @@ to_platform_select_state = |model|
             new_choices = choices |> Choices.set_filename(filename) #{ choices & file_name }
             { model &
                 page_first_item: 0,
-                menu: model.platform_list,
-                full_menu: model.platform_list,
+                menu: model.platform_menu,
+                full_menu: model.platform_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
             }
 
         Search({ choices, search_buffer }) ->
             filtered_menu =
-                model.platform_list
+                model.platform_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
             { model &
                 page_first_item: 0,
@@ -350,11 +352,12 @@ to_platform_select_state = |model|
             #     when (add_selected_packages_to_config(model)).state is
             #         PackageSelect(data) -> data.config
             #         _ -> config
-            new_choices = choices |> Choices.set_packages(model.selected)
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
             { model &
                 page_first_item: 0,
-                menu: model.platform_list,
-                full_menu: model.platform_list,
+                menu: model.platform_menu,
+                full_menu: model.platform_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
             }
@@ -365,55 +368,59 @@ to_platform_select_state = |model|
 to_package_select_state : Model -> Model
 to_package_select_state = |model|
     when model.state is
-        TypeSelect({ choices }) ->
+        MainMenu({ choices }) ->
             type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
             when type is
                 App -> model
                 Pkg ->
                     force = Choices.get_force(choices)
-                    packages = Choices.get_packages(choices)
-                    new_choices = Package({ force, packages: [] }) |> Choices.set_packages(packages)
+                    package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+                    new_choices = Package({ force, packages: [] }) |> Choices.set_packages(package_repos)
+                    menu_items = List.map(package_repos, repo_to_menu_item)
                     # file_name = "main"
                     { model &
                         page_first_item: 0,
-                        menu: model.package_list,
-                        full_menu: model.package_list,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
                         cursor: { row: 2, col: 2 },
-                        selected: packages,
+                        selected: menu_items,
                         state: PackageSelect({ choices: new_choices }),
                     }
 
         PlatformSelect({ choices }) ->
             platform = Model.get_highlighted_item(model)
             new_choices = choices |> Choices.set_app_platform(platform)
+            menu_items = Choices.get_packages(new_choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
             { model &
                 page_first_item: 0,
-                menu: model.package_list,
-                full_menu: model.package_list,
+                menu: model.package_menu,
+                full_menu: model.package_menu,
                 cursor: { row: 2, col: 2 },
-                selected: Choices.get_packages(new_choices),
+                selected: menu_items,
                 state: PackageSelect({ choices: new_choices }),
             }
 
         Search({ choices, search_buffer }) ->
             filtered_menu =
-                model.package_list
+                model.package_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
+            menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
             { model &
                 page_first_item: 0,
                 menu: filtered_menu,
                 full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
-                selected: Choices.get_packages(choices),
+                selected: menu_items,
                 state: PackageSelect({ choices }),
             }
 
         Confirmation({ choices }) ->
+            menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
             { model &
                 page_first_item: 0,
-                menu: model.package_list,
-                full_menu: model.package_list,
-                selected: Choices.get_packages(choices),
+                menu: model.package_menu,
+                full_menu: model.package_menu,
+                selected: menu_items,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect({ choices }),
             }
@@ -450,7 +457,8 @@ to_search_state = |model|
             }
 
         PackageSelect({ choices }) ->
-            new_choices = choices |> Choices.set_packages(model.selected) #{ config & packages: model.selected }
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos) #{ config & packages: model.selected }
             { model &
                 cursor: { row: model.menu_row, col: 2 },
                 state: Search({ choices: new_choices, search_buffer: [], sender: Package }),
@@ -464,13 +472,13 @@ clear_search_filter = |model|
     when model.state is
         PackageSelect(_) ->
             { model &
-                full_menu: model.package_list,
+                full_menu: model.package_menu,
                 # cursor: { row: model.menuRow, col: 2 },
             }
 
         PlatformSelect(_) ->
             { model &
-                full_menu: model.platform_list,
+                full_menu: model.platform_menu,
                 # cursor: { row: model.menuRow, col: 2 },
             }
 
@@ -530,8 +538,8 @@ add_selected_packages_to_config : Model -> Model
 add_selected_packages_to_config = |model|
     when model.state is
         PackageSelect(data) ->
-            packages = Model.get_selected_items(model)
-            new_choices = data.choices |> Choices.set_packages(packages)
+            package_repos = Model.get_selected_items(model) |> List.map(menu_item_to_repo)
+            new_choices = data.choices |> Choices.set_packages(package_repos)
             { model & state: PackageSelect({ data & choices: new_choices }) }
 
         _ -> model
@@ -600,3 +608,50 @@ move_cursor = |model, direction|
                     { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
     else
         model
+
+repo_to_menu_item : Str -> Str
+repo_to_menu_item = |repo|
+    when Str.split_first(repo, "/") is
+        Ok({ before: owner, after: name_maybe_version }) -> 
+            when Str.split_first(name_maybe_version, ":") is
+                Ok({ before: name, after: version }) -> "${name} (${owner}) : ${version}"
+                _ -> "${name_maybe_version} (${owner})"
+        _ -> 
+            when Str.split_first(repo, ":") is
+                Ok({ before: name, after: version }) -> "${name} : ${version}"
+                _ -> repo
+
+expect repo_to_menu_item("owner/name:version") == "name (owner) : version"
+expect repo_to_menu_item("owner/name") == "name (owner)"
+expect repo_to_menu_item("name:version") == "name : version"
+expect repo_to_menu_item("name") == "name"
+
+menu_item_to_repo : Str -> Str
+menu_item_to_repo = |item|
+    when StrUtils.split_if(item, |c| List.contains(['(', ')'], c)) is
+        [name_dirty, owner, version_dirty] -> 
+            name = Str.trim(name_dirty)
+            version = Str.drop_prefix(version_dirty, " : ") |> Str.trim
+            "${owner}/${name}:${version}"
+        [name_dirty, owner] -> 
+            name = Str.trim(name_dirty)
+            "${owner}/${name}"
+        _ -> 
+            when Str.split_first(item, " : ") is
+                Ok({ before: name, after: version }) -> "${name}:${version}"
+                _ -> item
+
+expect menu_item_to_repo("name (owner) : version") == "owner/name:version"
+expect menu_item_to_repo("name (owner)") == "owner/name"
+expect menu_item_to_repo("name : version") == "name:version"
+expect menu_item_to_repo("name") == "name"
+
+expect menu_item_to_repo(repo_to_menu_item("owner/name:version")) == "owner/name:version"
+expect menu_item_to_repo(repo_to_menu_item("owner/name")) == "owner/name"
+expect menu_item_to_repo(repo_to_menu_item("name:version")) == "name:version"
+expect menu_item_to_repo(repo_to_menu_item("name")) == "name"
+
+expect repo_to_menu_item(menu_item_to_repo("name (owner) : version")) == "name (owner) : version"
+expect repo_to_menu_item(menu_item_to_repo("name (owner)")) == "name (owner)"
+expect repo_to_menu_item(menu_item_to_repo("name : version")) == "name : version"
+expect repo_to_menu_item(menu_item_to_repo("name")) == "name"

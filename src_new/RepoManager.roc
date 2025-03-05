@@ -2,6 +2,7 @@ module [
     RepositoryRelease,
     RepositoryDict,
     RepositoryReleaseSerialized,
+    RepoNameMap,
     get_repos_from_json_bytes,
     get_repo_release,
     build_repo_name_map,

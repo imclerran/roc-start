@@ -7,6 +7,7 @@ module [
     set_packages,
     get_packages,
     set_app_platform,
+    get_app_platform,
 ]
 
 import rtils.StrUtils
@@ -58,12 +59,12 @@ set_packages = |choices, packages|
         Upgrade(config) -> Upgrade({ config & packages: package_names_and_versions(packages) })
         _ -> choices
 
-get_packages : Choices -> List Str
+get_packages : Choices -> List { name: Str, version: Str }
 get_packages = |choices|
     when choices is
-        App(config) -> List.map(config.packages, |p| p.name)
-        Package(config) -> List.map(config.packages, |p| p.name)
-        Upgrade(config) -> List.map(config.packages, |p| p.name)
+        App(config) -> config.packages
+        Package(config) -> config.packages
+        Upgrade(config) -> config.packages
         _ -> []
 
 set_app_platform : Choices, Str -> Choices
@@ -72,6 +73,11 @@ set_app_platform = |choices, platform|
         App(config) -> App({ config & platform: platform_name_and_version_with_default(platform) })
         _ -> choices
 
+get_app_platform : Choices -> { name: Str, version: Str }
+get_app_platform = |choices|
+    when choices is
+        App(config) -> config.platform
+        _ -> { name: "", version: "" }
 
 # Helper functions
 
@@ -84,7 +90,7 @@ package_names_and_versions = |packages|
         |package|
             { before: name, after: version } =
                 StrUtils.split_first_if(package, |c| List.contains([':', '='], c))
-                |> Result.with_default({ before: package, after: "latest" })
+                |> Result.with_default({ before: package, after: "" })
             { name, version },
     )
 

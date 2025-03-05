@@ -4,20 +4,26 @@ app [main!] {
     weaver: "https://github.com/smores56/weaver/releases/download/0.6.0/4GmRnyE7EFjzv6dDpebJoWWwXV285OMt4ntHIc6qvmY.tar.br",
     parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
-    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.4/jd2cTVkJeFFJIYwDSSzeFN7byd6QeLuozceWcLfFff8.tar.br",
+    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
 }
 
 import cli.Arg exposing [to_os_raw]
 import cli.Stdout
+import cli.Stdin
 import cli.Cmd
 import cli.File
 import cli.Dir
 import cli.Http
 import cli.Env
 import cli.Path
+import cli.Tty
 import ansi.ANSI
+import Model exposing [Model]
+import View
+import Controller
+import InputHandlers exposing [handle_input]
 import Theme exposing [Theme]
 import ArgParser
 import RepoUpdater {
@@ -102,12 +108,13 @@ main! = |args|
                     )
 
                 Ok(Tui(_tui_args)) ->
-                    "Tui: not implemented\n"
-                    |> ANSI.color({ fg: theme.error })
-                    |> Quiet
-                    |> log!(log_level)
-                    Err(Exit(1, ""))
+                    do_tui_command!(logging)
 
+                # "Tui: not implemented\n"
+                # |> ANSI.color({ fg: theme.error })
+                # |> Quiet
+                # |> log!(log_level)
+                # Err(Exit(1, ""))
                 Ok(Config(config_args)) ->
                     do_config_command!(config_args, logging)
                     |> Result.map_err(
@@ -118,12 +125,13 @@ main! = |args|
                     )
 
                 Err(NoSubcommand) ->
-                    "TUI: not yet implemented\n"
-                    |> ANSI.color({ fg: theme.error })
-                    |> Quiet
-                    |> log!(log_level)
-                    Err(Exit(1, ""))
+                    do_tui_command!(logging)
 
+        # "TUI: not yet implemented\n"
+        # |> ANSI.color({ fg: theme.error })
+        # |> Quiet
+        # |> log!(log_level)
+        # Err(Exit(1, ""))
         Err(e) ->
             "${e}\n" |> Quiet |> log!(Verbose)
             Err(Exit(1, ""))
@@ -433,7 +441,7 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
-            None -> 
+            None ->
                 get_repositories!({ log_level, theme })
                 |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
                 |> .platforms
@@ -444,7 +452,7 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
     cache_scripts!(platforms, cache_dir, logger!)
     |> Result.on_err(E.handle_cache_scripts_error({ log_level, theme, log!, colorize }))?
-        #? |_| Exit(1, ["File write error while caching scripts."] |> colorize([theme.error]))
+    # ? |_| Exit(1, ["File write error while caching scripts."] |> colorize([theme.error]))
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
 
@@ -462,14 +470,14 @@ do_upgrade_command! = |args, { log_level, theme }|
         |> Result.on_err(E.handle_upgrade_split_file_error(args.filename, { log_level, theme, colorize }))?
     platform_repo =
         when args.platform is
-            Ok { name: pf_name } ->
+            Ok({ name: pf_name }) ->
                 RM.get_full_repo_name(repo_name_map, pf_name, Platform)
                 |> Result.on_err!(E.handle_upgrade_platform_repo_error(pf_name, { log_level, theme, log!, colorize }))
 
             Err(_) -> Err(NoPlatformRepo)
     platform_release =
         when args.platform is
-            Ok { name: pf_name, version: pf_version } ->
+            Ok({ name: pf_name, version: pf_version }) ->
                 when platform_repo is
                     Ok(repo) ->
                         release =
@@ -609,14 +617,14 @@ split_file = |text|
         |> List.drop_if(|s| s |> Str.trim |> Str.is_empty)
     indent = get_indent(dependencies)
     trimmed = dependencies |> List.map(Str.trim_start)
-    Ok { prefix, indent, dependencies: trimmed, rest }
+    Ok({ prefix, indent, dependencies: trimmed, rest })
 
 get_indent : List Str -> Str
 get_indent = |lines|
     when lines is
         [_, second_line, ..] -> get_line_indent(second_line)
-        [firstLine] ->
-            firstLine
+        [first_line] ->
+            first_line
             |> get_line_indent
             |> |ind| if Str.count_utf8_bytes(ind) < 2 then (" " |> Str.repeat(4)) else ind
 
@@ -635,3 +643,71 @@ get_line_indent = |text|
                 Break(indent),
     )
     |> Str.from_utf8_lossy
+
+dir_exits! = |dirname|
+    when File.is_dir!(dirname) is
+        Ok(exits) -> exits
+        Err(_) -> Bool.false
+
+do_tui_command! = |{ log_level, theme }|
+    { platforms, packages } =
+        get_repositories!({ log_level, theme })
+        |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
+    repo_dir = get_repo_dir!({}) ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+    scripts_exists = dir_exits!("${repo_dir}/scripts")
+    _ = if !(scripts_exists) then do_scripts_update!(Some(platforms), { log_level, theme }) else Ok({})
+    initial_model = Model.init(platforms, packages, {})
+    Tty.enable_raw_mode!({})
+    final_model = ui_loop!(initial_model)?
+    dbg final_model
+    Stdout.write!(ANSI.to_str(Reset))?
+    Tty.disable_raw_mode!({})
+    config = Df.get_config!({})
+    when final_model.state is
+        Finished({choices}) ->
+            when choices is
+                App(args) -> do_app_command!(args, { log_level: config.verbosity, theme: config.theme })
+                Package(args) -> do_package_command!(args, { log_level: config.verbosity, theme: config.theme })
+                Upgrade(args) -> do_upgrade_command!(args, { log_level: config.verbosity, theme: config.theme })
+                Config(args) -> do_config_command!(args, { log_level: config.verbosity, theme: config.theme })
+                Update(args) -> do_update_command!(args, { log_level: config.verbosity, theme: config.theme })
+                NothingToDo -> Ok({})
+        UserExited -> Ok({})
+        _ -> crash "Error: Unexpected final state"
+
+ui_loop! : Model => Result Model _
+ui_loop! = |prev_model|
+    terminal_size = get_terminal_size!({})?
+    model = Controller.paginate({ prev_model & screen: terminal_size })
+    ANSI.draw_screen(model, render(model)) |> Stdout.write!?
+
+    input = Stdin.bytes!({}) |> Result.map_ok(ANSI.parse_raw_stdin)?
+    # model_with_input = { model & inputs: List.append model.inputs input }
+
+    when handle_input(model, input) is
+        Step(next_model) -> ui_loop!(next_model)
+        Done(next_model) -> Ok(next_model)
+
+get_terminal_size! : {} => Result ANSI.ScreenSize _
+get_terminal_size! = |{}|
+    # Move the cursor to bottom right corner of terminal
+    cmd = [Cursor(Abs({ row: 999, col: 999 })), Cursor(Position(Get))] |> List.map(Control) |> List.map(ANSI.to_str) |> Str.join_with("")
+    Stdout.write!(cmd) ? |e| Exit(1, "Error while getting terminal size: ${Inspect.to_str(e)}")
+    # Read the cursor position
+    Stdin.bytes!({})
+    |> Result.map_ok(ANSI.parse_cursor)
+    |> Result.map_ok(|{ row, col }| { width: col, height: row })
+    |> Result.map_err(|e| Exit(1, "Error while getting terminal size: ${Inspect.to_str(e)}"))
+
+render : Model -> List ANSI.DrawFn
+render = |model|
+    when model.state is
+        MainMenu(_) -> View.render_main_menu(model)
+        InputAppName(_) -> View.render_input_app_name(model)
+        PlatformSelect(_) -> View.render_platform_select(model)
+        PackageSelect(_) -> View.render_package_select(model)
+        Search(_) -> View.render_search(model)
+        Confirmation(_) -> View.render_confirmation(model)
+        Splash(_) -> View.render_splash(model)
+        _ -> []
+

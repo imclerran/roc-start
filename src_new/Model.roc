@@ -11,7 +11,9 @@ module [
 ]
 
 import ansi.ANSI
+import rtils.Compare
 import Choices exposing [Choices]
+import RepoManager as RM exposing [RepositoryRelease, RepositoryDict]
 
 Model : {
     screen : ANSI.ScreenSize,
@@ -21,14 +23,17 @@ Model : {
     menu : List Str,
     full_menu : List Str,
     selected : List Str,
-    inputs : List ANSI.Input,
-    package_list : List Str,
-    platform_list : List Str,
+    # inputs : List ANSI.Input,
+    platforms: Dict Str (List RepositoryRelease),
+    packages: Dict Str (List RepositoryRelease),
+    package_menu : List Str,
+    platform_menu : List Str,
     state : State,
+    sender : State,
 }
 
 State : [
-    TypeSelect { choices : Choices },
+    MainMenu { choices : Choices },
     InputAppName { name_buffer : List U8, choices : Choices },
     Search { search_buffer : List U8, choices : Choices, sender : [Platform, Package] },
     PlatformSelect { choices : Choices },
@@ -44,20 +49,38 @@ State : [
 no_choices = NothingToDo
 
 ## Initialize the model
-init : List Str, List Str, { state ?? State } -> Model
-init = |platform_list, package_list, { state ?? TypeSelect({ choices: no_choices }) }| {
-    screen: { width: 0, height: 0 },
-    cursor: { row: 2, col: 2 },
-    menu_row: 2,
-    page_first_item: 0,
-    menu: ["App", "Package"],
-    full_menu: ["App", "Package"],
-    platform_list,
-    package_list,
-    selected: [],
-    inputs: List.with_capacity(1000),
-    state,
-}
+init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State } -> Model
+init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }| 
+    package_menu = build_repo_menu(packages)
+    platform_menu = build_repo_menu(platforms)
+    {
+        screen: { width: 0, height: 0 },
+        cursor: { row: 2, col: 2 },
+        menu_row: 2,
+        page_first_item: 0,
+        menu: ["App", "Package"],
+        full_menu: ["App", "Package"],
+        platforms,
+        packages,
+        platform_menu: platform_menu,
+        package_menu: package_menu,
+        selected: [],
+        state,
+        sender: state,
+    }
+
+build_repo_menu : RepositoryDict -> List Str
+build_repo_menu = |repos|
+    repo_name_map = repos |> Dict.keys |> RM.build_repo_name_map
+    Dict.to_list(repo_name_map)
+    |> List.sort_with(|(a, _), (b, _)| Compare.str(a, b))
+    |> List.map(
+        |(name, owners)|
+            when owners is
+                [_] -> [name]
+                _ -> List.map(owners, |owner| "${name} (${owner})") |> List.sort_with(Compare.str),
+    )
+    |> List.join
 
 ## Check if the current page is not the first page
 is_not_first_page : Model -> Bool
@@ -88,6 +111,6 @@ get_selected_items = |model| model.selected
 menu_is_filtered : Model -> Bool
 menu_is_filtered = |model|
     when model.state is
-        PlatformSelect(_) -> List.len(model.full_menu) < List.len(model.platform_list)
-        PackageSelect(_) -> List.len(model.full_menu) < List.len(model.package_list)
+        PlatformSelect(_) -> List.len(model.full_menu) < List.len(model.platform_menu)
+        PackageSelect(_) -> List.len(model.full_menu) < List.len(model.package_menu)
         _ -> Bool.false

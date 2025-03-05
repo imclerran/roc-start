@@ -1,4 +1,7 @@
+# ingore all
 *
+
+# unignore files
 !*.*
 !*.roc
 !*.rvn
@@ -12,6 +15,9 @@
 !.github/workflows/
 !ci/
 !src_new/
-src_new/test.roc
-.DS_Store
+
+# reignore files
+*.DS_Store
 *.py
+progress.roc
+src_new/test.roc
