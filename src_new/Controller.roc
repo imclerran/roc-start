@@ -467,7 +467,7 @@ to_package_select_state = |model|
         VersionSelect({ choices, repo }) ->
             selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
             new_repo = { repo & version: selected_version }
-            selected = Choices.get_packages(choices) |> List.map(|p| if p.name == new_repo.name then new_repo else p) |> packages_to_menu_items
+            selected = Choices.get_packages(choices) |> packages_to_menu_items |> add_or_update_package_menu(new_repo)
             package_menu = update_menu_with_version(model.package_menu, new_repo)
             { model &
                 page_first_item: 0,
@@ -768,25 +768,25 @@ update_menu_with_version = |menu, { name, version }|
 #         Ok({ before: name, after: version }) -> { name, version }
 #         _ -> { name: item, version: "" }
 
-# add_or_update_package_menu : List Str, { name: Str, version: Str } -> List Str
-# add_or_update_package_menu = |menu, { name, version }|
-#     match_name = name |> repo_to_menu_item
-#     insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
-#     List.walk(
-#         menu,
-#         (Bool.false, []),
-#         |(found, new_menu), item|
-#             when Str.split_first(item, " : ") is
-#                 Ok({ before: item_name }) ->
-#                     if item_name == match_name then 
-#                         (Bool.true, List.append(new_menu, insert_item)) 
-#                     else 
-#                         (Bool.false, List.append(new_menu, item))
-#                 _ -> 
-#                     if item == match_name then 
-#                         (Bool.true, List.append(new_menu, insert_item)) 
-#                     else 
-#                         (found, List.append(new_menu, item)),
-#     )
-#     |> |(found, new_menu)| if found then new_menu else List.append(new_menu, insert_item)
+add_or_update_package_menu : List Str, { name: Str, version: Str } -> List Str
+add_or_update_package_menu = |menu, { name, version }|
+    match_name = name |> repo_to_menu_item
+    insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
+    List.walk(
+        menu,
+        (Bool.false, []),
+        |(found, new_menu), item|
+            when Str.split_first(item, " : ") is
+                Ok({ before: item_name }) ->
+                    if item_name == match_name then 
+                        (Bool.true, List.append(new_menu, insert_item)) 
+                    else 
+                        (Bool.false, List.append(new_menu, item))
+                _ -> 
+                    if item == match_name then 
+                        (Bool.true, List.append(new_menu, insert_item)) 
+                    else 
+                        (found, List.append(new_menu, item)),
+    )
+    |> |(found, new_menu)| if found then new_menu else List.append(new_menu, insert_item)
 
