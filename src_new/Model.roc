@@ -41,6 +41,7 @@ State : [
     PlatformSelect { choices : Choices },
     PackageSelect { choices : Choices },
     VersionSelect { choices : Choices, repo : { name: Str, version: Str} },
+    UpdateSelect { choices : Choices },
     Confirmation { choices : Choices },
     Finished { choices : Choices },
     Splash { choices : Choices },
@@ -58,14 +59,14 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
     platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
     package_menu = build_repo_menu(package_name_map)
     platform_menu = build_repo_menu(platform_name_map)
-    
+    main_menu = ["Start app", "Start package", "Upgrade app/package (TODO)", "Update roc-start", "Settings (TODO)"]
     {
         screen: { width: 0, height: 0 },
         cursor: { row: 2, col: 2 },
         menu_row: 2,
         page_first_item: 0,
-        menu: ["App", "Package"],
-        full_menu: ["App", "Package"],
+        menu: main_menu,
+        full_menu: main_menu,
         platforms,
         packages,
         package_name_map,

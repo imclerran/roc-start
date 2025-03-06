@@ -693,6 +693,7 @@ render = |model|
         PlatformSelect(_) -> View.render_platform_select(model)
         PackageSelect(_) -> View.render_package_select(model)
         VersionSelect(_) -> View.render_version_select(model)
+        UpdateSelect(_) -> View.render_update_select(model)
         Search(_) -> View.render_search(model)
         Confirmation(_) -> View.render_confirmation(model)
         Splash(_) -> View.render_splash(model)

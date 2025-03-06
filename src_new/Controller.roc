@@ -62,6 +62,11 @@ get_actions = |model|
             |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
             |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
 
+        UpdateSelect(_) ->
+            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown, GoBack]
+            |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
+            |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
+
         Confirmation(_) -> [Exit, Finish, GoBack]
         Search(_) -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
         Splash(_) -> [Exit, GoBack]
@@ -82,6 +87,7 @@ apply_action = |{ model, action, key_press ?? None }|
             PlatformSelect(_) -> platform_select_handler(model, action)
             PackageSelect(_) -> package_select_handler(model, action)
             VersionSelect(_) -> version_select_handler(model, action)
+            UpdateSelect(_) -> update_select_handler(model, action)
             Confirmation(_) -> confirmation_handler(model, action)
             Search(_) -> search_handler(model, action, { char })
             Splash(_) -> splash_handler(model, action)
@@ -102,10 +108,15 @@ main_menu_handler = |model, action|
     when action is
         Exit -> Done(to_user_exited_state(model))
         SingleSelect ->
-            type = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
-            when type is
-                App -> Step(to_input_app_name_state(model))
-                Pkg -> Step(to_package_select_state(model))
+            selected = Model.get_highlighted_item(model)
+            if Str.contains(selected, "Start app") then
+                Step(to_input_app_name_state(model))
+            else if selected == "Start package" then
+                Step(to_package_select_state(model))
+            else if selected == "Update roc-start" then
+                Step(to_update_select_state(model))
+            else
+                Step(model)
 
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
@@ -183,6 +194,18 @@ version_select_handler = |model, action|
         PrevPage -> Step(prev_page(model))
         _ -> Step(model)
 
+update_select_handler : Model, UserAction -> [Step Model, Done Model]
+update_select_handler = |model, action| 
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        MultiSelect -> Step(toggle_selected(model))
+        MultiConfirm -> Done(to_finished_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        GoBack -> Step(to_main_menu_state(model))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Search state
 search_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
@@ -248,13 +271,14 @@ to_user_exited_state = |model| { model & state: UserExited, sender: model.state 
 ## Transition to the MainMenu state
 to_main_menu_state : Model -> Model
 to_main_menu_state = |model|
+    menu = ["Start app", "Start package", "Upgrade app/package (TODO)", "Update roc-start", "Settings (TODO)"]
     when model.state is
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main")
             new_choices = choices |> Choices.set_filename(filename)
             { model &
                 cursor: { row: 2, col: 2 },
-                full_menu: ["App", "Package"],
+                full_menu: menu,
                 state: MainMenu({ choices: new_choices }),
                 sender: model.state,
             }
@@ -263,8 +287,18 @@ to_main_menu_state = |model|
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos)
             { model &
-                cursor: { row: 2, col: 2 },
-                full_menu: ["App", "Package"],
+                cursor: { row: 3, col: 2 },
+                full_menu: menu,
+                state: MainMenu({ choices: new_choices }),
+                sender: model.state,
+            }
+
+        UpdateSelect({ choices }) ->
+            selected = Model.get_selected_items(model)
+            new_choices = choices |> Choices.set_updates(selected)
+            { model &
+                cursor: { row: 5, col: 2 },
+                full_menu: menu,
                 state: MainMenu({ choices: new_choices }),
                 sender: model.state,
             }
@@ -273,7 +307,7 @@ to_main_menu_state = |model|
         Splash({ choices }) ->
             { model &
                 cursor: { row: 2, col: 2 },
-                full_menu: ["App", "Package"],
+                full_menu: menu,
                 state: MainMenu({ choices }),
                 sender: model.state,
             }
@@ -285,7 +319,7 @@ to_input_app_name_state : Model -> Model
 to_input_app_name_state = |model|
     when model.state is
         MainMenu({ choices }) ->
-            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "App" then App else if s == "Upgrade" then Upgrade else Invalid
+            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "Start app" then App else if Str.contains(s, "Upgrade") then Upgrade else Invalid
             new_choices =
                 when menu_choice is
                     App -> Choices.to_app(choices)
@@ -482,14 +516,33 @@ to_package_select_state = |model|
 
         _ -> model
 
+to_update_select_state : Model -> Model
+to_update_select_state = |model|
+    when model.state is
+        MainMenu({ choices }) ->
+            new_choices = Choices.to_update(choices)
+            selected = Choices.get_updates(new_choices)
+            { model &
+                page_first_item: 0,
+                menu: ["Platforms", "Packages", "Scripts"],
+                full_menu: ["Platforms", "Packages", "Scripts"],
+                cursor: { row: 2, col: 2 },
+                selected,
+                state: UpdateSelect({ choices: new_choices }),
+                sender: model.state,
+            }
+        
+        _ -> model
+
 ## Transition to the Finished state
 to_finished_state : Model -> Model
 to_finished_state = |model|
     model_with_packages = add_selected_packages_to_config(model)
     when model_with_packages.state is
-        PlatformSelect({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
-        PackageSelect({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
         Confirmation({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
+        UpdateSelect({ choices }) -> 
+            new_choices = choices |> Choices.set_updates(Model.get_selected_items(model))
+            { model & state: Finished({ choices: new_choices }), sender: model.state }
         _ -> model
 
 ## Transition to the Confirmation state

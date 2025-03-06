@@ -8,9 +8,12 @@ module [
     get_packages,
     set_app_platform,
     get_app_platform,
+    set_updates,
+    get_updates,
     to_app,
     to_package,
-    to_upgrade
+    to_upgrade,
+    to_update,
 ]
 
 import rtils.StrUtils
@@ -73,6 +76,15 @@ to_upgrade = |choices|
         _ ->
             Upgrade({ filename: "main.roc", packages: [], platform: Err(NoPLatformSpecified) })
 
+to_update : Choices -> Choices
+to_update = |choices|
+    when choices is
+        Update(config) ->
+            Update(config)
+
+        _ ->
+            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_scripts: Bool.false })
+
 set_filename : Choices, Str -> Choices
 set_filename = |choices, f|
     filename = f |> default_filename |> with_extension
@@ -129,6 +141,29 @@ get_app_platform = |choices|
     when choices is
         App(config) -> config.platform
         _ -> { name: "", version: "" }
+
+set_updates : Choices, List Str -> Choices
+set_updates = |choices, updates|
+    when choices is
+        Update(_) ->
+            Update({
+                do_platforms: List.contains(updates, "Platforms"),
+                do_packages: List.contains(updates, "Packages"),
+                do_scripts: List.contains(updates, "Scripts"),
+            })
+
+        _ -> choices
+
+get_updates : Choices -> List Str
+get_updates = |choices|
+    when choices is
+        Update({ do_platforms, do_packages, do_scripts }) ->
+            []
+            |> |ul| if do_platforms then List.append(ul, "Platforms") else ul
+            |> |ul| if do_packages then List.append(ul, "Packages") else ul
+            |> |ul| if do_scripts then List.append(ul, "Scripts") else ul
+                
+        _ -> []
 
 # Helper functions
 

@@ -4,6 +4,7 @@ module [
     render_platform_select,
     render_package_select,
     render_version_select,
+    render_update_select,
     render_search,
     render_confirmation,
     render_splash,
@@ -143,7 +144,7 @@ render_main_menu = |model|
             ],
             render_outer_border(model.screen),
             [
-                "WHAT TO START?" |> render_screen_prompt,
+                "MAIN MENU:" |> render_screen_prompt,
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_menu(model),
@@ -203,6 +204,24 @@ render_version_select = |model|
             render_menu(model),
         ],
     )
+
+render_update_select : Model -> List ANSI.DrawFn
+render_update_select = |model|
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "SELECT 0+ UPDATES:" |> render_screen_prompt,
+                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+            ],
+            render_multiple_choice_menu(model),
+        ],
+    )
+
 
 ## Generate the list of functions to draw the app name input page.
 render_input_app_name : Model -> List ANSI.DrawFn
