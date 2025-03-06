@@ -692,6 +692,7 @@ render = |model|
         InputAppName(_) -> View.render_input_app_name(model)
         PlatformSelect(_) -> View.render_platform_select(model)
         PackageSelect(_) -> View.render_package_select(model)
+        VersionSelect(_) -> View.render_version_select(model)
         Search(_) -> View.render_search(model)
         Confirmation(_) -> View.render_confirmation(model)
         Splash(_) -> View.render_splash(model)

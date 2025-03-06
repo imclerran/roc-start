@@ -103,7 +103,7 @@ get_repo_release_help = |dict, repo, version, try_prefix|
 
 RepoNameMap : Dict Str (List Str)
 
-build_repo_name_map : List Str -> RepoNameMap
+build_repo_name_map : List Str -> Dict Str (List Str)
 build_repo_name_map = |repos|
     List.walk(
         repos,

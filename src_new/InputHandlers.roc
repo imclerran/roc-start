@@ -11,6 +11,7 @@ handle_input = |model, input|
         InputAppName(_) -> handle_input_app_name_input(model, input)
         PlatformSelect(_) -> handle_platform_select_input(model, input)
         PackageSelect(_) -> handle_package_select_input(model, input)
+        VersionSelect(_) -> handle_version_select_input(model, input)
         Search(_) -> handle_search_input(model, input)
         Confirmation(_) -> handle_confirmation_input(model, input)
         Splash(_) -> handle_splash_input(model, input)
@@ -97,6 +98,7 @@ handle_package_select_input = |model, input|
             Upper(S) -> Search
             Action(Enter) -> MultiConfirm
             Action(Space) -> MultiSelect
+            Upper(V) | Lower(V) -> VersionSelect
             Arrow(Up) -> CursorUp
             Arrow(Down) -> CursorDown
             Action(Delete) -> GoBack
@@ -107,6 +109,21 @@ handle_package_select_input = |model, input|
             Arrow(Left) -> PrevPage
             Symbol(LessThanSign) -> PrevPage
             Symbol(Comma) -> PrevPage
+            _ -> None
+    Controller.apply_action({ model, action })
+
+handle_version_select_input : Model, ANSI.Input -> [Step Model, Done Model]
+handle_version_select_input = |model, input|
+    action =
+        when input is
+            Ctrl(C) -> Exit
+            Action(Enter) -> SingleSelect
+            Arrow(Up) -> CursorUp
+            Arrow(Down) -> CursorDown
+            Action(Delete) -> GoBack
+            Action(Escape) -> ClearFilter
+            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) -> NextPage
+            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) -> PrevPage
             _ -> None
     Controller.apply_action({ model, action })
 

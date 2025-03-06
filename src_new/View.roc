@@ -1,4 +1,14 @@
-module [render_main_menu, render_input_app_name, render_platform_select, render_package_select, render_search, render_confirmation, render_splash, render_box]
+module [
+    render_main_menu,
+    render_input_app_name,
+    render_platform_select,
+    render_package_select,
+    render_version_select,
+    render_search,
+    render_confirmation,
+    render_splash,
+    render_box,
+]
 
 import AsciiArt
 import BoxStyle exposing [BoxStyle, border]
@@ -20,6 +30,7 @@ control_prompts_dict =
     Dict.empty({})
     |> Dict.insert(SingleSelect, "ENTER : SELECT")
     |> Dict.insert(MultiSelect, "SPACE : SELECT")
+    |> Dict.insert(VersionSelect, "V : VERSION")
     |> Dict.insert(MultiConfirm, "ENTER : CONFIRM")
     |> Dict.insert(TextSubmit, "ENTER : CONFIRM")
     |> Dict.insert(GoBack, "BKSP : GO BACK")
@@ -117,7 +128,7 @@ render_multi_line_text = |words, { start_col, start_row, max_col, wrap_col, word
         line_list,
         |line, idx|
             if idx == 0 then
-                line |>ANSI.draw_text({ r: start_row, c: start_col, fg })
+                line |> ANSI.draw_text({ r: start_row, c: start_col, fg })
             else
                 line |> ANSI.draw_text({ r: start_row + (Num.to_u16(idx)), c: wrap_col, fg }),
     )
@@ -175,6 +186,24 @@ render_package_select = |model|
         ],
     )
 
+## Generate the list of functions to draw the version select page.
+render_version_select : Model -> List ANSI.DrawFn
+render_version_select = |model|
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "SELECT A VERSION:" |> render_screen_prompt,
+                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+            ],
+            render_menu(model),
+        ],
+    )
+
 ## Generate the list of functions to draw the app name input page.
 render_input_app_name : Model -> List ANSI.DrawFn
 render_input_app_name = |model|
@@ -204,12 +233,12 @@ render_search : Model -> List ANSI.DrawFn
 render_search = |model|
     when model.state is
         Search({ search_buffer }) ->
-            search_prompt = 
+            search_prompt =
                 when model.sender is
                     PackageSelect(_) -> "SEARCH FOR A PACKAGE:"
                     PlatformSelect(_) -> "SEARCH FOR A PLATFORM:"
                     _ -> "SEARCH:"
-                #if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
+            # if sender == Package then "SEARCH FOR A PACKAGE:" else "SEARCH FOR A PLATFORM:"
             buffer_text = search_buffer |> Str.from_utf8_lossy
             List.join(
                 [
@@ -233,7 +262,7 @@ render_confirmation : Model -> List ANSI.DrawFn
 render_confirmation = |model|
     when model.state is
         Confirmation({ choices }) ->
-            type = 
+            type =
                 when choices is
                     App(_) -> App
                     _ -> Package
@@ -244,26 +273,26 @@ render_confirmation = |model|
                         render_controls_prompt(controls_prompt_str(model), model.screen),
                     ],
                     render_outer_border(model.screen),
-                    (
-                        when choices is
-                            App(_) ->
-                                filename = choices |> Choices.get_filename
-                                platform = choices |> Choices.get_app_platform |> |{name, version}| "${name}:${version}"
-                                [
-                                    "APP CONFIGURATION:" |> render_screen_prompt,
-                                    "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                                    filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard(White) }),
-                                    "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
-                                    platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard(White) }),
-                                    "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
-                                ]
-                            Package(_) ->
-                                [
-                                    "PACKAGE CONFIGURATION:" |> render_screen_prompt,
-                                    "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                                ]
-                            _ -> []
-                    ),
+                    when choices is
+                        App(_) ->
+                            filename = choices |> Choices.get_filename
+                            platform = choices |> Choices.get_app_platform |> |{ name, version }| "${name}:${version}"
+                            [
+                                "APP CONFIGURATION:" |> render_screen_prompt,
+                                "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+                                filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard(White) }),
+                                "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
+                                platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard(White) }),
+                                "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
+                            ]
+
+                        Package(_) ->
+                            [
+                                "PACKAGE CONFIGURATION:" |> render_screen_prompt,
+                                "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+                            ]
+
+                        _ -> [],
                     render_multi_line_text(
                         choices |> Choices.get_packages |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}"),
                         {

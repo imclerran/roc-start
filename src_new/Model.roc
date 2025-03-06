@@ -13,7 +13,7 @@ module [
 import ansi.ANSI
 import rtils.Compare
 import Choices exposing [Choices]
-import RepoManager as RM exposing [RepositoryRelease, RepositoryDict]
+import RepoManager as RM exposing [RepositoryRelease]
 
 Model : {
     screen : ANSI.ScreenSize,
@@ -26,6 +26,8 @@ Model : {
     # inputs : List ANSI.Input,
     platforms: Dict Str (List RepositoryRelease),
     packages: Dict Str (List RepositoryRelease),
+    package_name_map: Dict Str (List Str),
+    platform_name_map: Dict Str (List Str),
     package_menu : List Str,
     platform_menu : List Str,
     state : State,
@@ -35,9 +37,10 @@ Model : {
 State : [
     MainMenu { choices : Choices },
     InputAppName { name_buffer : List U8, choices : Choices },
-    Search { search_buffer : List U8, choices : Choices }, #sender : [Platform, Package]
+    Search { search_buffer : List U8, choices : Choices },
     PlatformSelect { choices : Choices },
     PackageSelect { choices : Choices },
+    VersionSelect { choices : Choices, repo : { name: Str, version: Str} },
     Confirmation { choices : Choices },
     Finished { choices : Choices },
     Splash { choices : Choices },
@@ -51,8 +54,11 @@ no_choices = NothingToDo
 ## Initialize the model
 init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State } -> Model
 init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }| 
-    package_menu = build_repo_menu(packages)
-    platform_menu = build_repo_menu(platforms)
+    package_name_map = RM.build_repo_name_map(Dict.keys(packages))  
+    platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
+    package_menu = build_repo_menu(package_name_map)
+    platform_menu = build_repo_menu(platform_name_map)
+    
     {
         screen: { width: 0, height: 0 },
         cursor: { row: 2, col: 2 },
@@ -62,6 +68,8 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
         full_menu: ["App", "Package"],
         platforms,
         packages,
+        package_name_map,
+        platform_name_map,
         platform_menu: platform_menu,
         package_menu: package_menu,
         selected: [],
@@ -69,10 +77,10 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
         sender: state,
     }
 
-build_repo_menu : RepositoryDict -> List Str
-build_repo_menu = |repos|
-    repo_name_map = repos |> Dict.keys |> RM.build_repo_name_map
-    Dict.to_list(repo_name_map)
+build_repo_menu : Dict Str (List Str) -> List Str
+build_repo_menu = |name_map|
+    # name_map = repos |> Dict.keys |> RM.build_repo_name_map
+    Dict.to_list(name_map)
     |> List.sort_with(|(a, _), (b, _)| Compare.str(a, b))
     |> List.map(
         |(name, owners)|

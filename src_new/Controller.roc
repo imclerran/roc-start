@@ -4,6 +4,7 @@ import Choices
 import Keys exposing [Key]
 import Model exposing [Model]
 import Utils
+import RepoManager as RM
 import rtils.StrUtils
 
 UserAction : [
@@ -16,6 +17,7 @@ UserAction : [
     GoBack,
     MultiConfirm,
     MultiSelect,
+    VersionSelect,
     NextPage,
     PrevPage,
     Search,
@@ -40,7 +42,7 @@ get_actions = |model|
             |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
 
         PackageSelect(_) ->
-            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
+            [Exit, MultiSelect, VersionSelect, MultiConfirm, CursorUp, CursorDown]
             |> |actions| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
             |> List.append(GoBack)
             |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
@@ -54,6 +56,11 @@ get_actions = |model|
         InputAppName({ name_buffer }) ->
             [Exit, TextSubmit, TextInput]
             |> |actions| List.append(actions, (if List.is_empty(name_buffer) then GoBack else TextBackspace))
+
+        VersionSelect(_) ->
+            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
+            |> |actions| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
+            |> |actions| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
 
         Confirmation(_) -> [Exit, Finish, GoBack]
         Search(_) -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
@@ -74,6 +81,7 @@ apply_action = |{ model, action, key_press ?? None }|
             InputAppName(_) -> input_app_name_handler(model, action, { char })
             PlatformSelect(_) -> platform_select_handler(model, action)
             PackageSelect(_) -> package_select_handler(model, action)
+            VersionSelect(_) -> version_select_handler(model, action)
             Confirmation(_) -> confirmation_handler(model, action)
             Search(_) -> search_handler(model, action, { char })
             Splash(_) -> splash_handler(model, action)
@@ -134,6 +142,7 @@ package_select_handler = |model, action|
         Search -> Step(to_search_state(model))
         MultiConfirm -> Step(to_confirmation_state(model))
         MultiSelect -> Step(toggle_selected(model))
+        VersionSelect -> Step(to_version_select_state(model))
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
         GoBack ->
@@ -157,6 +166,23 @@ package_select_handler = |model, action|
         NextPage -> Step(next_page(model))
         PrevPage -> Step(prev_page(model))
         _ -> Step(model)
+
+version_select_handler : Model, UserAction -> [Step Model, Done Model]
+version_select_handler = |model, action| 
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        SingleSelect -> 
+            when model.sender is
+                PackageSelect(_) -> Step(to_package_select_state(model))
+                PlatformSelect(_) -> Step(to_platform_select_state(model))
+                _ -> Step(model)
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        GoBack -> Step(to_package_select_state({ model & cursor: { row: 0, col: 2} }))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
+
 
 ## Map the user action to the appropriate state transition from the Search state
 search_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
@@ -351,6 +377,31 @@ to_platform_select_state = |model|
 
         _ -> model
 
+to_version_select_state : Model -> Model
+to_version_select_state = |model|
+    when model.state is
+        PackageSelect({ choices }) ->
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
+            package_choice = Model.get_highlighted_item(model) |> menu_item_to_repo
+            {package_name, package_version } = Str.split_first(package_choice, ":") |> Result.with_default({ before: package_choice, after: "" }) |> |{ before, after  }| { package_name: before, package_version: after }
+            package_repo = RM.get_full_repo_name(model.package_name_map, package_name, Package) |> Result.with_default(package_name)
+            package_releases = Dict.get(model.packages, package_repo) |> Result.with_default([])
+            when package_releases is
+                [] -> model
+                _ ->
+                    versions = package_releases |> List.map(|{ tag }| tag)
+                    { model &
+                        page_first_item: 0,
+                        menu: versions,
+                        full_menu: versions,
+                        cursor: { row: 2, col: 2 },
+                        state: VersionSelect({ choices: new_choices, repo : { name: package_name, version: package_version } }),
+                        sender: model.state,
+                    }
+
+        _ -> model
+
 ## Transition to the PackageSelect state
 to_package_select_state : Model -> Model
 to_package_select_state = |model|
@@ -414,6 +465,23 @@ to_package_select_state = |model|
                 menu: model.package_menu,
                 full_menu: model.package_menu,
                 selected: menu_items,
+                cursor: { row: 2, col: 2 },
+                state: PackageSelect({ choices }),
+                sender: model.state,
+            }
+
+        VersionSelect({ choices, repo }) ->
+            selected_version = Model.get_highlighted_item(model)
+            new_repo = { repo & version: selected_version }
+            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+            selected_items = List.map(package_repos, repo_to_menu_item) |> add_or_update_package_menu(new_repo)
+            package_menu = update_menu_with_version(model.package_menu, new_repo)
+            { model &
+                page_first_item: 0,
+                package_menu,
+                menu: package_menu,
+                full_menu: package_menu,
+                selected: selected_items,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect({ choices }),
                 sender: model.state,
@@ -652,3 +720,70 @@ expect repo_to_menu_item(menu_item_to_repo("name (owner) : version")) == "name (
 expect repo_to_menu_item(menu_item_to_repo("name (owner)")) == "name (owner)"
 expect repo_to_menu_item(menu_item_to_repo("name : version")) == "name : version"
 expect repo_to_menu_item(menu_item_to_repo("name")) == "name"
+
+packages_to_menu_items : List { name : Str, version : Str } -> List Str
+packages_to_menu_items = |packages|
+    List.map(
+        packages,
+        |{ name, version }|
+            if Str.is_empty(version) then name else "${name}:${version}",
+    )
+
+platforms_to_menu_items : List { name : Str, version : Str } -> List Str
+platforms_to_menu_items = |platforms|
+    List.map(
+        platforms,
+        |{ name, version }|
+            if Str.is_empty(version) then name else "${name}:${version}",
+    )
+
+update_menu_with_version : List Str, { name: Str, version: Str } -> List Str
+update_menu_with_version = |menu, { name, version }|
+    match_name = name |> repo_to_menu_item
+    insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
+    List.map(
+        menu,
+        |item|
+            when Str.split_first(item, " : ") is
+                Ok({ before: item_name }) ->
+                    if item_name == match_name then insert_item else item
+                _ -> 
+                    if item == match_name then insert_item else item,
+    )
+
+get_selected_package : Model -> { name : Str, version : Str }
+get_selected_package = |model|
+    item = Model.get_highlighted_item(model)
+    when Str.split_first(item, ":") is
+        Ok({ before: name, after: version }) -> { name, version }
+        _ -> { name: item, version: "" }
+
+get_selected_platform : Model -> { name : Str, version : Str }
+get_selected_platform = |model|
+    item = Model.get_highlighted_item(model)
+    when Str.split_first(item, ":") is
+        Ok({ before: name, after: version }) -> { name, version }
+        _ -> { name: item, version: "" }
+
+add_or_update_package_menu : List Str, { name: Str, version: Str } -> List Str
+add_or_update_package_menu = |menu, { name, version }|
+    match_name = name |> repo_to_menu_item
+    insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
+    List.walk(
+        menu,
+        (Bool.false, []),
+        |(found, new_menu), item|
+            when Str.split_first(item, " : ") is
+                Ok({ before: item_name }) ->
+                    if item_name == match_name then 
+                        (Bool.true, List.append(new_menu, insert_item)) 
+                    else 
+                        (Bool.false, List.append(new_menu, item))
+                _ -> 
+                    if item == match_name then 
+                        (Bool.true, List.append(new_menu, insert_item)) 
+                    else 
+                        (found, List.append(new_menu, item)),
+    )
+    |> |(found, new_menu)| if found then new_menu else List.append(new_menu, insert_item)
+
