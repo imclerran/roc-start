@@ -390,7 +390,7 @@ to_version_select_state = |model|
             when package_releases is
                 [] -> model
                 _ ->
-                    versions = package_releases |> List.map(|{ tag }| tag)
+                    versions = package_releases |> List.map(|{ tag }| tag) |> List.prepend("latest")
                     { model &
                         page_first_item: 0,
                         menu: versions,
@@ -465,7 +465,7 @@ to_package_select_state = |model|
             }
 
         VersionSelect({ choices, repo }) ->
-            selected_version = Model.get_highlighted_item(model)
+            selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
             new_repo = { repo & version: selected_version }
             selected = Choices.get_packages(choices) |> List.map(|p| if p.name == new_repo.name then new_repo else p) |> packages_to_menu_items
             package_menu = update_menu_with_version(model.package_menu, new_repo)
