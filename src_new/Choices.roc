@@ -9,6 +9,7 @@ module [
     set_app_platform,
     get_app_platform,
     to_app,
+    to_package,
     to_upgrade
 ]
 
@@ -41,6 +42,21 @@ to_app = |choices|
 
         _ ->
             App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" } })
+
+to_package : Choices -> Choices
+to_package = |choices|
+    when choices is
+        App({ force, packages }) ->
+            Package({ force, packages })
+
+        Package(config) ->
+            Package(config)
+
+        Upgrade({ packages }) ->
+            Package({ force: Bool.false, packages })
+
+        _ ->
+            Package({ force: Bool.false, packages: [] })
 
 to_upgrade : Choices -> Choices
 to_upgrade = |choices|

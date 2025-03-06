@@ -411,16 +411,14 @@ to_package_select_state = |model|
             when menu_choice is
                 App -> model
                 Pkg ->
-                    force = Choices.get_force(choices)
-                    package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
-                    new_choices = Package({ force, packages: [] }) |> Choices.set_packages(package_repos)
-                    menu_items = List.map(package_repos, repo_to_menu_item)
+                    new_choices = Choices.to_package(choices)
+                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items
                     { model &
                         page_first_item: 0,
                         menu: model.package_menu,
                         full_menu: model.package_menu,
                         cursor: { row: 2, col: 2 },
-                        selected: menu_items,
+                        selected,
                         state: PackageSelect({ choices: new_choices }),
                         sender: model.state,
                     }
@@ -428,14 +426,13 @@ to_package_select_state = |model|
         PlatformSelect({ choices }) ->
             platform = Model.get_highlighted_item(model)
             new_choices = choices |> Choices.set_app_platform(platform)
-            package_repos = Choices.get_packages(new_choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
-            menu_items = List.map(package_repos, repo_to_menu_item)
+            selected = Choices.get_packages(new_choices) |> packages_to_menu_items
             { model &
                 page_first_item: 0,
                 menu: model.package_menu,
                 full_menu: model.package_menu,
                 cursor: { row: 2, col: 2 },
-                selected: menu_items,
+                selected,
                 state: PackageSelect({ choices: new_choices }),
                 sender: model.state,
             }
@@ -444,27 +441,24 @@ to_package_select_state = |model|
             filtered_menu =
                 model.package_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
-            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
-            menu_items = List.map(package_repos, repo_to_menu_item)
+            selected = Choices.get_packages(choices) |> packages_to_menu_items
             { model &
                 page_first_item: 0,
                 menu: filtered_menu,
                 full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
-                selected: menu_items,
+                selected,
                 state: PackageSelect({ choices }),
                 sender: model.state,
             }
 
         Confirmation({ choices }) ->
-            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
-            menu_items = List.map(package_repos, repo_to_menu_item)
-            # menu_items = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}" |> repo_to_menu_item)
+            selected = Choices.get_packages(choices) |> packages_to_menu_items
             { model &
                 page_first_item: 0,
                 menu: model.package_menu,
                 full_menu: model.package_menu,
-                selected: menu_items,
+                selected,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect({ choices }),
                 sender: model.state,
@@ -473,15 +467,14 @@ to_package_select_state = |model|
         VersionSelect({ choices, repo }) ->
             selected_version = Model.get_highlighted_item(model)
             new_repo = { repo & version: selected_version }
-            package_repos = Choices.get_packages(choices) |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
-            selected_items = List.map(package_repos, repo_to_menu_item) |> add_or_update_package_menu(new_repo)
+            selected = Choices.get_packages(choices) |> List.map(|p| if p.name == new_repo.name then new_repo else p) |> packages_to_menu_items
             package_menu = update_menu_with_version(model.package_menu, new_repo)
             { model &
                 page_first_item: 0,
                 package_menu,
                 menu: package_menu,
                 full_menu: package_menu,
-                selected: selected_items,
+                selected,
                 cursor: { row: 2, col: 2 },
                 state: PackageSelect({ choices }),
                 sender: model.state,
@@ -725,16 +718,26 @@ packages_to_menu_items : List { name : Str, version : Str } -> List Str
 packages_to_menu_items = |packages|
     List.map(
         packages,
-        |{ name, version }|
-            if Str.is_empty(version) then name else "${name}:${version}",
+        |{ name: repo, version }|
+            when Str.split_first(repo, "/") is
+                Ok({ before: owner, after: name }) -> 
+                    "${name} (${owner})"
+                    |> |s| if Str.is_empty(version) then s else "${s} : ${version}"
+
+                _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
     )
 
 platforms_to_menu_items : List { name : Str, version : Str } -> List Str
 platforms_to_menu_items = |platforms|
     List.map(
         platforms,
-        |{ name, version }|
-            if Str.is_empty(version) then name else "${name}:${version}",
+        |{ name: repo, version }|
+            when Str.split_first(repo, "/") is
+                Ok({ before: owner, after: name }) -> 
+                    "${name} (${owner})"
+                    |> |s| if Str.is_empty(version) then s else "${s} : ${version}"
+
+                _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
     )
 
 update_menu_with_version : List Str, { name: Str, version: Str } -> List Str
