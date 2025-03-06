@@ -276,7 +276,7 @@ render_confirmation = |model|
                     when choices is
                         App(_) ->
                             filename = choices |> Choices.get_filename
-                            platform = choices |> Choices.get_app_platform |> |{ name, version }| "${name}:${version}"
+                            platform = choices |> Choices.get_app_platform |> |{ name, version }| if Str.is_empty(version) then name else "${name}:${version}"
                             [
                                 "APP CONFIGURATION:" |> render_screen_prompt,
                                 "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
