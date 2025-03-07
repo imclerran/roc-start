@@ -8,6 +8,8 @@ handle_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_input = |model, input|
     when model.state is
         MainMenu(_) -> handle_main_menu_input(model, input)
+        SettingsMenu(_) -> handle_settings_menu_input(model, input)
+        SettingsSubmenu(_) -> handle_settings_submenu_input(model, input)
         InputAppName(_) -> handle_input_app_name_input(model, input)
         PlatformSelect(_) -> handle_platform_select_input(model, input)
         PackageSelect(_) -> handle_package_select_input(model, input)
@@ -26,6 +28,10 @@ handle_default_input = |model, input|
     action =
         when input is
             Ctrl(C) -> Exit
+            Arrow(Up) -> CursorUp
+            Arrow(Down) -> CursorDown
+            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) -> PrevPage
+            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) -> NextPage
             _ -> None
     Controller.apply_action({ model, action })
 
@@ -37,12 +43,36 @@ handle_main_menu_input = |model, input|
             Action(Enter) -> SingleSelect
             Arrow(Up) -> CursorUp
             Arrow(Down) -> CursorDown
-            Arrow(Right) -> NextPage
-            Symbol(GreaterThanSign) -> NextPage
-            Symbol(FullStop) -> NextPage
-            Arrow(Left) -> PrevPage
-            Symbol(LessThanSign) -> PrevPage
-            Symbol(Comma) -> PrevPage
+            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) -> PrevPage
+            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) -> NextPage
+            _ -> None
+    Controller.apply_action({ model, action })
+
+handle_settings_menu_input : Model, ANSI.Input -> [Step Model, Done Model]
+handle_settings_menu_input = |model, input|
+    action =
+        when input is
+            Ctrl(C) -> Exit
+            Action(Enter) -> SingleSelect
+            Arrow(Up) -> CursorUp
+            Arrow(Down) -> CursorDown
+            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) -> PrevPage
+            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) -> NextPage
+            Action(Delete) -> GoBack
+            _ -> None
+    Controller.apply_action({ model, action })
+
+handle_settings_submenu_input : Model, ANSI.Input -> [Step Model, Done Model]
+handle_settings_submenu_input = |model, input|
+    action =
+        when input is
+            Ctrl(C) -> Exit
+            Action(Enter) -> SingleSelect
+            Arrow(Up) -> CursorUp
+            Arrow(Down) -> CursorDown
+            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) -> PrevPage
+            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) -> NextPage
+            Action(Delete) -> GoBack
             _ -> None
     Controller.apply_action({ model, action })
 

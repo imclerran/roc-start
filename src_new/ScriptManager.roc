@@ -46,17 +46,18 @@ cache_scripts! = |platforms, cache_dir, logger!|
             dir_path = "${dir_no_slash}/${release.repo}"
             filename = "${release.tag}.sh"
             download_script!(url, dir_path, filename)
-                |> Result.on_err(|e|  
+            |> Result.on_err(
+                |e|
                     when e is
                         ScriptNotFound -> Ok({})
                         FileWriteError -> Err(FileWriteError)
-                        NetworkError -> Err(NetworkError)
-                )?
+                        NetworkError -> Err(NetworkError),
+            )?
             if current_fifth > last_fifth then logger!("=") else {}
             Ok((next_n, next_fifth)),
     )
     logger!("] ")
-    res 
+    res
     |> Result.map_ok(|_| {})
 
 download_script! : Str, Str, Str => Result {} [FileWriteError, NetworkError, ScriptNotFound]

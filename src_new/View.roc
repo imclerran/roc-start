@@ -1,5 +1,7 @@
 module [
     render_main_menu,
+    render_settings_menu,
+    render_settings_submenu,
     render_input_app_name,
     render_platform_select,
     render_package_select,
@@ -151,6 +153,49 @@ render_main_menu = |model|
         ],
     )
 
+render_settings_menu : Model -> List ANSI.DrawFn
+render_settings_menu = |model|
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "SETTINGS:" |> render_screen_prompt,
+                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+            ],
+            render_menu(model),
+        ],
+    )
+
+render_settings_submenu : Model -> List ANSI.DrawFn
+render_settings_submenu = |model|
+    when model.state is
+        SettingsSubmenu({ submenu }) ->
+            prompt =
+                when submenu is
+                    Theme -> "DEFAULT THEME:"
+                    Verbosity -> "DEFAULT VERBOSITY:"
+                    Platform -> "DEFAULT PLATFORM:"
+            List.join(
+                [
+                    [
+                        render_exit_prompt(model.screen),
+                        render_controls_prompt(controls_prompt_str(model), model.screen),
+                    ],
+                    render_outer_border(model.screen),
+                    [
+                        prompt |> render_screen_prompt,
+                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                    ],
+                    render_menu(model),
+                ],
+            )
+
+        _ -> []
+
 ## Generate the list of functions to draw the platform select page.
 render_platform_select : Model -> List ANSI.DrawFn
 render_platform_select = |model|
@@ -222,7 +267,6 @@ render_update_select = |model|
         ],
     )
 
-
 ## Generate the list of functions to draw the app name input page.
 render_input_app_name : Model -> List ANSI.DrawFn
 render_input_app_name = |model|
@@ -279,54 +323,135 @@ render_search = |model|
 ## Generate the list of functions to draw the confirmation page.
 render_confirmation : Model -> List ANSI.DrawFn
 render_confirmation = |model|
-    when model.state is
-        Confirmation({ choices }) ->
-            type =
-                when choices is
-                    App(_) -> App
-                    _ -> Package
-            List.join(
-                [
-                    [
-                        render_exit_prompt(model.screen),
-                        render_controls_prompt(controls_prompt_str(model), model.screen),
-                    ],
-                    render_outer_border(model.screen),
-                    when choices is
-                        App(_) ->
-                            filename = choices |> Choices.get_filename
-                            platform = choices |> Choices.get_app_platform |> |{ name, version }| if Str.is_empty(version) then name else "${name}:${version}"
-                            [
-                                "APP CONFIGURATION:" |> render_screen_prompt,
-                                "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                                filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard(White) }),
-                                "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
-                                platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard(White) }),
-                                "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
-                            ]
-
-                        Package(_) ->
-                            [
-                                "PACKAGE CONFIGURATION:" |> render_screen_prompt,
-                                "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                            ]
-
-                        _ -> [],
-                    render_multi_line_text(
-                        choices |> Choices.get_packages |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}"),
-                        {
-                            start_col: 12,
-                            start_row: if type == App then (model.menu_row + 2) else model.menu_row,
-                            max_col: (model.screen.width - 1),
-                            wrap_col: 2,
-                            word_delim: ", ",
-                            fg: Standard(White),
-                        },
-                    ),
-                ],
-            )
-
+    when Model.get_choices(model) is
+        App(_) -> render_app_confirmation(model)
+        Package(_) -> render_package_confirmation(model)
+        Update(_) -> render_update_confirmation(model)
+        Config(_) -> render_config_confirmation(model)
         _ -> []
+
+render_app_confirmation : Model -> List ANSI.DrawFn
+render_app_confirmation = |model|
+    choices = Model.get_choices(model)
+    filename = choices |> Choices.get_filename
+    platform = choices |> Choices.get_app_platform |> |p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}"
+    packages = choices |> Choices.get_packages |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "APP CHOICES:" |> render_screen_prompt,
+                "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+                filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard White }),
+                "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
+                platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard White }),
+                "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
+            ],
+            render_multi_line_text(
+                packages,
+                {
+                    start_col: 12,
+                    start_row: model.menu_row + 2,
+                    max_col: model.screen.width - 1,
+                    wrap_col: 2,
+                    word_delim: ", ",
+                    fg: Standard White,
+                },
+            ),
+        ],
+    )
+
+render_package_confirmation : Model -> List ANSI.DrawFn
+render_package_confirmation = |model|
+    choices = Model.get_choices(model)
+    packages = choices |> Choices.get_packages |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "PACKAGE CHOICES:" |> render_screen_prompt,
+                "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+            ],
+            render_multi_line_text(
+                packages,
+                {
+                    start_col: 12,
+                    start_row: model.menu_row,
+                    max_col: model.screen.width - 1,
+                    wrap_col: 2,
+                    word_delim: ", ",
+                    fg: Standard White,
+                },
+            ),
+        ],
+    )
+
+render_update_confirmation : Model -> List ANSI.DrawFn
+render_update_confirmation = |model|
+    choices = Model.get_choices(model)
+    updates = choices |> Choices.get_updates |> |lu| if List.is_empty(lu) then ["Platforms", "Packages", "Scripts"] else lu
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "UPDATE CHOICES:" |> render_screen_prompt,
+                "Updates:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+            ],
+            render_multi_line_text(
+                updates,
+                {
+                    start_col: 11,
+                    start_row: model.menu_row,
+                    max_col: model.screen.width - 1,
+                    wrap_col: 2,
+                    word_delim: ", ",
+                    fg: Standard White,
+                },
+            ),
+        ],
+    )
+
+render_config_confirmation : Model -> List ANSI.DrawFn
+render_config_confirmation = |model|
+    choices = Model.get_choices(model)
+    colors = ("Theme", Choices.get_config_colors(choices))
+    verbosity = ("Verbosity", Choices.get_config_verbosity(choices))
+    platform = ("Platform", Choices.get_config_platform(choices))
+    changes =
+        List.keep_oks(
+            [colors, verbosity, platform],
+            |config|
+                when config.1 is
+                    Ok(value) -> Ok("${config.0}: ${value}")
+                    Err(_) -> Err(NoValue),
+        )
+        |> |cs| if List.is_empty(cs) then ["Settings unchanged"] else cs
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen),
+                render_controls_prompt(controls_prompt_str(model), model.screen),
+            ],
+            render_outer_border(model.screen),
+            [
+                "CONFIG CHOICES:" |> render_screen_prompt,
+                "Changes:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+            ],
+            changes |> List.map_with_index(|change, i| change |> ANSI.draw_text({ r: model.menu_row + Num.int_cast(i + 1), c: 2, fg: Standard White })),
+        ],
+    )
 
 ## Generate the list of functions to draw a box.
 render_box : U16, U16, U16, U16, BoxStyle, ANSI.Color -> List ANSI.DrawFn

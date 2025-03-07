@@ -179,43 +179,16 @@ update_subcommand =
     )
 
 config_subcommand =
-    SubCmd.required([config_colors_subcommand, config_verbosity_subcommand, config_platform_subcommand])
+    { Cli.weave <-
+        colors: Opt.maybe_str({ long: "default-colors", help: "Set the default color theme to use in the CLI." }),
+        verbosity: Opt.maybe_str({ long: "default-verbosity", help: "Set the default verbosity level to use in the CLI." }),
+        platform: Opt.maybe_str({ long: "default-platform", help: "Set the default platform to use when initializing a new app." }),
+        # subcommand: SubCmd.optional([config_colors_subcommand, config_verbosity_subcommand, config_platform_subcommand])
+    }
     |> SubCmd.finish(
         {
             name: "config",
             description: "Configure the default settings for the roc-start CLI tool.",
             mapper: Config,
-        },
-    )
-
-config_colors_subcommand =
-    separator = ", "
-    color_choices = Theme.theme_names |> Str.join_with(separator)
-    Param.str({ name: "theme", help: "The default color theme to use in the CLI." })
-    |> SubCmd.finish(
-        {
-            name: "colors",
-            description: "Set the default color theme to use in the CLI. May be one of: ${color_choices}.",
-            mapper: ConfigColors,
-        },
-    )
-
-config_platform_subcommand =
-    Param.str({ name: "platform", help: "The default platform to use when initializing a new app." })
-    |> SubCmd.finish(
-        {
-            name: "platform",
-            description: "Set the default platform to use when initializing a new app.",
-            mapper: ConfigPlatform,
-        },
-    )
-
-config_verbosity_subcommand =
-    Param.str({ name: "verbosity", help: "The default verbosity level to use in the CLI." })
-    |> SubCmd.finish(
-        {
-            name: "verbosity",
-            description: "Set the default verbosity level to use in the CLI. May be one of: verbose, quiet, or silent.",
-            mapper: ConfigVerbosity,
         },
     )

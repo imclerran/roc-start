@@ -266,7 +266,7 @@ handle_get_repositories_error = |{ log_level, theme, colorize }|
         if log_level == Silent then
             Err(Exit(1, ""))
         else
-            err_message = 
+            err_message =
                 when err is
                     BadRepoReleasesData -> "Error getting repositories: bad release data - running an update may fix this."
                     FileReadError -> "Error getting repositories: file read error - running an update may fix this."

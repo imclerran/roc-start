@@ -10,10 +10,17 @@ module [
     get_app_platform,
     set_updates,
     get_updates,
+    set_config_colors,
+    get_config_colors,
+    set_config_verbosity,
+    get_config_verbosity,
+    set_config_platform,
+    get_config_platform,
     to_app,
     to_package,
     to_upgrade,
     to_update,
+    to_config,
 ]
 
 import rtils.StrUtils
@@ -22,7 +29,7 @@ Choices : [
     App { filename : Str, force : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
-    Config [ConfigColors Str, ConfigPlatform Str, ConfigVerbosity Str],
+    Config { colors : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
     Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool },
     NothingToDo,
 ]
@@ -85,6 +92,15 @@ to_update = |choices|
         _ ->
             Update({ do_packages: Bool.false, do_platforms: Bool.false, do_scripts: Bool.false })
 
+to_config : Choices -> Choices
+to_config = |choices|
+    when choices is
+        Config(config) ->
+            Config(config)
+
+        _ ->
+            Config({ colors: Err(NoValue), platform: Err(NoValue), verbosity: Err(NoValue) })
+
 set_filename : Choices, Str -> Choices
 set_filename = |choices, f|
     filename = f |> default_filename |> with_extension
@@ -146,11 +162,13 @@ set_updates : Choices, List Str -> Choices
 set_updates = |choices, updates|
     when choices is
         Update(_) ->
-            Update({
-                do_platforms: List.contains(updates, "Platforms"),
-                do_packages: List.contains(updates, "Packages"),
-                do_scripts: List.contains(updates, "Scripts"),
-            })
+            Update(
+                {
+                    do_platforms: List.contains(updates, "Platforms"),
+                    do_packages: List.contains(updates, "Packages"),
+                    do_scripts: List.contains(updates, "Scripts"),
+                },
+            )
 
         _ -> choices
 
@@ -162,8 +180,44 @@ get_updates = |choices|
             |> |ul| if do_platforms then List.append(ul, "Platforms") else ul
             |> |ul| if do_packages then List.append(ul, "Packages") else ul
             |> |ul| if do_scripts then List.append(ul, "Scripts") else ul
-                
+
         _ -> []
+
+set_config_colors : Choices, Str -> Choices
+set_config_colors = |choices, colors|
+    when choices is
+        Config(config) -> Config({ config & colors: Ok(colors) })
+        _ -> choices
+
+get_config_colors : Choices -> Result Str [NoValue]
+get_config_colors = |choices|
+    when choices is
+        Config(config) -> config.colors
+        _ -> Err(NoValue)
+
+set_config_verbosity : Choices, Str -> Choices
+set_config_verbosity = |choices, verbosity|
+    when choices is
+        Config(config) -> Config({ config & verbosity: Ok(verbosity) })
+        _ -> choices
+
+get_config_verbosity : Choices -> Result Str [NoValue]
+get_config_verbosity = |choices|
+    when choices is
+        Config(config) -> config.verbosity
+        _ -> Err(NoValue)
+
+set_config_platform : Choices, Str -> Choices
+set_config_platform = |choices, platform|
+    when choices is
+        Config(config) -> Config({ config & platform: Ok(platform) })
+        _ -> choices
+
+get_config_platform : Choices -> Result Str [NoValue]
+get_config_platform = |choices|
+    when choices is
+        Config(config) -> config.platform
+        _ -> Err(NoValue)
 
 # Helper functions
 

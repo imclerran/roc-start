@@ -14,7 +14,7 @@ Theme : {
 }
 
 themes : List Theme
-themes = [roc, roc_mono, warn_only, no_color]
+themes = [roc_mono, roc, warn_only, no_color]
 
 theme_names = themes |> List.map(.name)
 

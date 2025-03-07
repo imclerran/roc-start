@@ -6,6 +6,7 @@ app [main!] {
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
+    heck: "https://github.com/imclerran/roc-heck/releases/download/v0.1.0/jxGXBo18syk4Ej1V5Y7lP5JnjKlCg_yIzdadvx7Tqc8.tar.br",
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -130,24 +131,37 @@ app_args_with_defaults = |app_args, config|
         "" -> { app_args & platform: config.platform }
         _ -> app_args
 
-do_config_command! = |config_args, logging|
+do_config_command! = |args, logging|
     theme = logging.theme
     log_level = logging.log_level
-    when config_args is
-        ConfigVerbosity(verbosity) ->
-            when Df.save_to_dotfile!({ key: "verbosity", value: verbosity }) is
-                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
-                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
+    changes =
+        [("theme", args.colors), ("verbosity", args.verbosity), ("platform", args.platform)]
+        |> List.keep_oks(
+            |(key, maybe_value)|
+                when maybe_value is
+                    Ok(value) -> Ok({ key, value })
+                    Err(NoValue) -> Err(NoValue),
+        )
+    if List.is_empty(changes) then
+        ["Nothing to configure.\n"] |> colorize([theme.primary]) |> Quiet |> log!(log_level) |> Ok
+    else
+        List.for_each_try!(
+            changes,
+            |{ key, value }|
+                Df.save_to_dotfile!({ key, value }),
+        )
+        |> Result.map_err(
+            |e|
+                when log_level is
+                    Quiet | Verbose ->
+                        when e is
+                            FileReadError -> Exit(1, ["Error saving config: error reading current config."] |> colorize([theme.error]))
+                            FileWriteError -> Exit(1, ["Error saving config: error writing to config file."] |> colorize([theme.error]))
+                            HomeVarNotSet -> Exit(1, ["Error saving config: HOME variable not set."] |> colorize([theme.error]))
 
-        ConfigColors(colors) ->
-            when Df.save_to_dotfile!({ key: "theme", value: colors }) is
-                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
-                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
-
-        ConfigPlatform(platform) ->
-            when Df.save_to_dotfile!({ key: "platform", value: platform }) is
-                Ok({}) -> ["Saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
-                Err(e) -> ["Error saving config:", Inspect.to_str(e), "\n"] |> colorize([theme.error]) |> Quiet |> log!(log_level) |> Ok
+                    Silent ->
+                        Exit(1, ""),
+        )
 
 do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
 do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
@@ -308,6 +322,7 @@ print_app_finish_message! = |filename, num_packages, num_skipped, { log_level, t
     package_s = if num_packages == 1 then "package" else "packages"
     skipped_package_s = if num_skipped == 1 then "package" else "packages"
     if num_skipped == 0 then
+        dbg theme.name
         ["Created ", filename, " with ", Num.to_str(num_packages), " ${package_s} ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
         |> Quiet
@@ -653,7 +668,7 @@ do_tui_command! = |{ log_level, theme }|
     Tty.disable_raw_mode!({})
     config = Df.get_config!({})
     when final_model.state is
-        Finished({choices}) ->
+        Finished({ choices }) ->
             when choices is
                 App(args) -> do_app_command!(args, { log_level: config.verbosity, theme: config.theme })
                 Package(args) -> do_package_command!(args, { log_level: config.verbosity, theme: config.theme })
@@ -661,6 +676,7 @@ do_tui_command! = |{ log_level, theme }|
                 Config(args) -> do_config_command!(args, { log_level: config.verbosity, theme: config.theme })
                 Update(args) -> do_update_command!(args, { log_level: config.verbosity, theme: config.theme })
                 NothingToDo -> Ok({})
+
         UserExited -> Ok({})
         _ -> crash "Error: Unexpected final state"
 
@@ -689,6 +705,8 @@ render : Model -> List ANSI.DrawFn
 render = |model|
     when model.state is
         MainMenu(_) -> View.render_main_menu(model)
+        SettingsMenu(_) -> View.render_settings_menu(model)
+        SettingsSubmenu(_) -> View.render_settings_submenu(model)
         InputAppName(_) -> View.render_input_app_name(model)
         PlatformSelect(_) -> View.render_platform_select(model)
         PackageSelect(_) -> View.render_package_select(model)
