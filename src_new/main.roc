@@ -323,7 +323,6 @@ print_app_finish_message! = |filename, num_packages, num_skipped, { log_level, t
     package_s = if num_packages == 1 then "package" else "packages"
     skipped_package_s = if num_skipped == 1 then "package" else "packages"
     if num_skipped == 0 then
-        dbg theme.name
         ["Created ", filename, " with ", Num.to_str(num_packages), " ${package_s} ", "✔\n"]
         |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.okay])
         |> Quiet
@@ -664,7 +663,6 @@ do_tui_command! = |{ log_level, theme }|
     initial_model = Model.init(platforms, packages, {})
     Tty.enable_raw_mode!({})
     final_model = ui_loop!(initial_model)?
-    dbg final_model
     Stdout.write!(ANSI.to_str(Reset))?
     Tty.disable_raw_mode!({})
     config = Df.get_config!({})
