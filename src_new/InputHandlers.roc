@@ -106,6 +106,7 @@ handle_platform_select_input = |model, input|
             Lower(S) -> Search
             Upper(S) -> Search
             Action(Enter) -> SingleSelect
+            Upper(V) | Lower(V) -> VersionSelect
             Arrow(Up) -> CursorUp
             Arrow(Down) -> CursorDown
             Action(Delete) -> GoBack

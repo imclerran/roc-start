@@ -38,7 +38,7 @@ get_actions : Model -> List UserAction
 get_actions = |model|
     when model.state is
         PlatformSelect(_) ->
-            [Exit, SingleSelect, CursorUp, CursorDown]
+            [Exit, SingleSelect, VersionSelect, CursorUp, CursorDown]
             |> with_search_or_clear_filter(model)
             |> List.append(GoBack)
             |> with_prev_page(model)
@@ -194,6 +194,7 @@ platform_select_handler = |model, action|
             when model.sender is
                 SettingsMenu(_) -> Step(to_settings_menu_state(model))
                 _ -> Step(to_package_select_state(model))
+        VersionSelect -> Step(to_version_select_state(model))
 
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
@@ -207,6 +208,15 @@ platform_select_handler = |model, action|
 
                     SettingsMenu(_) ->
                         Step(to_settings_menu_state(model))
+
+                    VersionSelect(_) ->
+                        when Model.get_choices(model) is
+                            App(_) -> Step(to_input_app_name_state(model))
+                            Config(_) -> Step(to_settings_menu_state(model))
+                            _ -> Step(model)
+
+                    PackageSelect(_) ->
+                        Step(to_input_app_name_state(model))
 
                     _ -> Step(model)
 
@@ -256,12 +266,20 @@ version_select_handler = |model, action|
         SingleSelect ->
             when model.sender is
                 PackageSelect(_) -> Step(to_package_select_state(model))
-                PlatformSelect(_) -> Step(to_platform_select_state(model))
+                PlatformSelect({ choices }) -> 
+                    when choices is
+                        Config(_) -> Step(to_settings_menu_state(model))
+                        App(_) -> Step(to_package_select_state(model))
+                        _ -> Step(model)
                 _ -> Step(model)
 
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
-        GoBack -> Step(to_package_select_state({ model & cursor: { row: 0, col: 2 } }))
+        GoBack -> 
+            when model.sender is
+                PackageSelect(_) -> Step(to_package_select_state({ model & cursor: { row: 0, col: 2 } }))
+                PlatformSelect(_) -> Step(to_platform_select_state({ model & cursor: { row: 0, col: 2 } }))
+                _ -> Step(model)
         NextPage -> Step(next_page(model))
         PrevPage -> Step(prev_page(model))
         _ -> Step(model)
@@ -440,6 +458,20 @@ to_settings_menu_state = |model|
                 sender: model.state,
             }
 
+        VersionSelect({ choices, repo }) ->
+            selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+            new_repo = { repo & version: selected_version }
+            platform_menu = add_or_update_platform_menu(model.platform_menu, new_repo)
+            new_repo_str = if Str.is_empty(new_repo.version) then new_repo.name else "${new_repo.name}:${new_repo.version}"
+            new_choices = choices |> Choices.set_config_platform(new_repo_str)
+            { model &
+                platform_menu,
+                cursor: { row: model.menu_row + 2, col: 2 },
+                full_menu: menu,
+                state: SettingsMenu({ choices: new_choices }),
+                sender: model.state,
+            }
+
         Confirmation({ choices }) ->
             { model &
                 cursor: { row: model.menu_row + 3, col: 2 },
@@ -561,6 +593,17 @@ to_platform_select_state = |model|
                 sender: model.state,
             }
 
+        VersionSelect({ choices }) ->
+            { model &
+                page_first_item: 0,
+                menu: model.platform_menu,
+                full_menu: model.platform_menu,
+                cursor: { row: 2, col: 2 },
+                state: PlatformSelect({ choices }),
+                sender: model.state,
+            }
+            
+
         SettingsMenu({ choices }) ->
             { model &
                 page_first_item: 0,
@@ -593,6 +636,25 @@ to_version_select_state = |model|
                         full_menu: versions,
                         cursor: { row: 2, col: 2 },
                         state: VersionSelect({ choices: new_choices, repo: { name: package_name, version: package_version } }),
+                        sender: model.state,
+                    }
+
+        PlatformSelect({ choices }) ->
+            platform = Model.get_highlighted_item(model) |> menu_item_to_repo
+            new_choices = choices |> Choices.set_app_platform(platform)
+            { platform_name, platform_version } = Str.split_first(platform, ":") |> Result.with_default({ before: platform, after: "" }) |> |{ before, after }| { platform_name: before, platform_version: after }
+            platform_repo = RM.get_full_repo_name(model.platform_name_map, platform_name, Platform) |> Result.with_default(platform_name)
+            platform_releases = Dict.get(model.platforms, platform_repo) |> Result.with_default([])
+            when platform_releases is
+                [] -> model
+                _ ->
+                    versions = platform_releases |> List.map(|{ tag }| tag) |> List.prepend("latest")
+                    { model &
+                        page_first_item: 0,
+                        menu: versions,
+                        full_menu: versions,
+                        cursor: { row: 2, col: 2 },
+                        state: VersionSelect({ choices: new_choices, repo: { name: platform_name, version: platform_version } }),
                         sender: model.state,
                     }
 
@@ -661,20 +723,41 @@ to_package_select_state = |model|
             }
 
         VersionSelect({ choices, repo }) ->
-            selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
-            new_repo = { repo & version: selected_version }
-            selected = Choices.get_packages(choices) |> packages_to_menu_items |> add_or_update_package_menu(new_repo)
-            package_menu = update_menu_with_version(model.package_menu, new_repo)
-            { model &
-                page_first_item: 0,
-                package_menu,
-                menu: package_menu,
-                full_menu: package_menu,
-                selected,
-                cursor: { row: 2, col: 2 },
-                state: PackageSelect({ choices }),
-                sender: model.state,
-            }
+            when model.sender is
+                PackageSelect(_) ->
+                    selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+                    new_repo = { repo & version: selected_version }
+                    selected = Choices.get_packages(choices) |> packages_to_menu_items |> add_or_update_package_menu(new_repo)
+                    package_menu = update_menu_with_version(model.package_menu, new_repo)
+                    { model &
+                        page_first_item: 0,
+                        package_menu,
+                        menu: package_menu,
+                        full_menu: package_menu,
+                        selected,
+                        cursor: { row: 2, col: 2 },
+                        state: PackageSelect({ choices }),
+                        sender: model.state,
+                    }
+
+                PlatformSelect(_) ->
+                    selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+                    new_repo = { repo & version: selected_version }
+                    platform_menu = add_or_update_platform_menu(model.platform_menu, new_repo)
+                    new_platform = if Str.is_empty(selected_version) then new_repo.name else "${new_repo.name}:${selected_version}"
+                    new_choices = choices |> Choices.set_app_platform(new_platform)
+                    { model &
+                        page_first_item: 0,
+                        platform_menu,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
+                        cursor: { row: 2, col: 2 },
+                        selected: Choices.get_packages(new_choices) |> packages_to_menu_items,
+                        state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
+                    }
+                
+                _ -> model
 
         _ -> model
 
@@ -1029,3 +1112,5 @@ add_or_update_package_menu = |menu, { name, version }|
     )
     |> |(found, new_menu)| if found then new_menu else List.append(new_menu, insert_item)
 
+add_or_update_platform_menu : List Str, { name : Str, version : Str } -> List Str
+add_or_update_platform_menu = |menu, { name, version }| add_or_update_package_menu(menu, { name, version })
