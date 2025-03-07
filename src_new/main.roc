@@ -161,7 +161,8 @@ do_config_command! = |args, logging|
 
                     Silent ->
                         Exit(1, ""),
-        )
+        )?
+        ["Configuration saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
 
 do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
 do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
