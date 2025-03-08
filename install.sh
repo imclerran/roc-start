@@ -22,7 +22,8 @@ fi
 SRC_DIR="src_new"
 
 # Notify user that roc-start build process is starting
-echo -e "Building ${MAGENTA}roc-start${RESET}..."
+echo -en "Building ${MAGENTA}roc-start${RESET}..."
+echo -e "${OPTIMIZE:+ (please be patient, this may take a minute or two)}"
 roc build $SRC_DIR/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
 
 # If build succeeds, copy the executable to $LOCAL_BIN and notify user
