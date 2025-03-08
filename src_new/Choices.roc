@@ -6,8 +6,8 @@ module [
     get_force,
     set_packages,
     get_packages,
-    set_app_platform,
-    get_app_platform,
+    set_platform,
+    get_platform,
     set_updates,
     get_updates,
     set_config_colors,
@@ -146,16 +146,27 @@ get_packages = |choices|
         Upgrade(config) -> config.packages
         _ -> []
 
-set_app_platform : Choices, Str -> Choices
-set_app_platform = |choices, platform|
+set_platform : Choices, Str -> Choices
+set_platform = |choices, platform|
     when choices is
-        App(config) -> App({ config & platform: platform_name_and_version_with_default(platform) })
+        Upgrade(config) ->
+            if Str.is_empty(platform) then
+                Upgrade({ config & platform: Err(NoPLatformSpecified) })
+            else
+                Upgrade({ config & platform: Ok(platform_name_and_version_with_default(platform)) })
+        App(config) ->
+            App({ config & platform: platform_name_and_version_with_default(platform) })
         _ -> choices
 
-get_app_platform : Choices -> { name : Str, version : Str }
-get_app_platform = |choices|
+get_platform : Choices -> { name : Str, version : Str }
+get_platform = |choices|
     when choices is
         App(config) -> config.platform
+        Upgrade(config) ->
+            when config.platform is
+                Ok(platform) -> platform
+                Err(_) -> { name: "", version: "" }
+
         _ -> { name: "", version: "" }
 
 set_updates : Choices, List Str -> Choices
@@ -210,7 +221,11 @@ get_config_verbosity = |choices|
 set_config_platform : Choices, Str -> Choices
 set_config_platform = |choices, platform|
     when choices is
-        Config(config) -> Config({ config & platform: Ok(platform) })
+        Config(config) -> 
+            if Str.is_empty(platform) then 
+                Config({ config & platform: Err(NoValue) })
+            else
+                Config({ config & platform: Ok(platform) })
         _ -> choices
 
 get_config_platform : Choices -> Result Str [NoValue]

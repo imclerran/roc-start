@@ -38,7 +38,9 @@ get_actions : Model -> List UserAction
 get_actions = |model|
     when model.state is
         PlatformSelect(_) ->
-            [Exit, SingleSelect, VersionSelect, CursorUp, CursorDown]
+            [Exit, SingleSelect]
+            |> |actions| if Model.get_highlighted_item(model) == "No change" then actions else List.append(actions, VersionSelect)
+            |> |actions| List.join([actions, [CursorUp, CursorDown]])
             |> with_search_or_clear_filter(model)
             |> List.append(GoBack)
             |> with_prev_page(model)
@@ -136,6 +138,10 @@ main_menu_handler = |model, action|
                 Step(to_input_app_name_state(model))
             else if selected == "Start package" then
                 Step(to_package_select_state(model))
+            else if selected == "Upgrade app" then
+                Step(to_input_app_name_state(model))
+            else if selected == "Upgrade package" then
+                Step(to_package_select_state(model))
             else if selected == "Update roc-start" then
                 Step(to_update_select_state(model))
             else if selected == "Settings" then
@@ -194,8 +200,8 @@ platform_select_handler = |model, action|
             when model.sender is
                 SettingsMenu(_) -> Step(to_settings_menu_state(model))
                 _ -> Step(to_package_select_state(model))
-        VersionSelect -> Step(to_version_select_state(model))
 
+        VersionSelect -> Step(to_version_select_state(model))
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
         GoBack ->
@@ -240,19 +246,15 @@ package_select_handler = |model, action|
             if Model.menu_is_filtered(model) then
                 Step(clear_search_filter(model))
             else
-                type =
-                    when model.state is
-                        PackageSelect({ choices }) ->
-                            when choices is
-                                App(_) -> App
-                                Package(_) -> Pkg
-                                Upgrade(_) -> crash "TODO: Upgrade not yet implemented"
-                                _ -> crash "Invalid state... PackageSelect choices should only be of type App, Package, or Upgrade"
+                when model.state is
+                    PackageSelect({ choices }) ->
+                        when choices is
+                            App(_) -> Step(to_platform_select_state(model))
+                            Package(_) -> Step(to_main_menu_state(model))
+                            Upgrade(_) -> Step(to_main_menu_state(model))
+                            _ -> Step(model)
 
-                        _ -> App
-                when type is
-                    App -> Step(to_platform_select_state(model))
-                    Pkg -> Step(to_main_menu_state(model))
+                    _ -> Step(model)
 
         ClearFilter -> Step(clear_search_filter(model))
         NextPage -> Step(next_page(model))
@@ -266,20 +268,22 @@ version_select_handler = |model, action|
         SingleSelect ->
             when model.sender is
                 PackageSelect(_) -> Step(to_package_select_state(model))
-                PlatformSelect({ choices }) -> 
+                PlatformSelect({ choices }) ->
                     when choices is
                         Config(_) -> Step(to_settings_menu_state(model))
                         App(_) -> Step(to_package_select_state(model))
                         _ -> Step(model)
+
                 _ -> Step(model)
 
         CursorUp -> Step(move_cursor(model, Up))
         CursorDown -> Step(move_cursor(model, Down))
-        GoBack -> 
+        GoBack ->
             when model.sender is
                 PackageSelect(_) -> Step(to_package_select_state({ model & cursor: { row: 0, col: 2 } }))
                 PlatformSelect(_) -> Step(to_platform_select_state({ model & cursor: { row: 0, col: 2 } }))
                 _ -> Step(model)
+
         NextPage -> Step(next_page(model))
         PrevPage -> Step(prev_page(model))
         _ -> Step(model)
@@ -368,26 +372,36 @@ to_user_exited_state = |model| { model & state: UserExited, sender: model.state 
 ## Transition to the MainMenu state
 to_main_menu_state : Model -> Model
 to_main_menu_state = |model|
-    menu = ["Start app", "Start package", "Upgrade app/package (TODO)", "Update roc-start", "Settings"]
+    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings"]
     { row, choices: new_choices } =
         when model.state is
             InputAppName({ choices, name_buffer }) ->
+                menu_row =
+                    when choices is
+                        App(_) -> model.menu_row
+                        Upgrade(_) -> model.menu_row + 2
+                        _ -> model.menu_row
                 filename = name_buffer |> Str.from_utf8 |> Result.with_default("main")
-                { choices: choices |> Choices.set_filename(filename), row: 2 }
+                { choices: choices |> Choices.set_filename(filename), row: menu_row }
 
             PlatformSelect({ choices }) ->
                 platform = Model.get_highlighted_item(model) |> menu_item_to_repo
-                { choices: choices |> Choices.set_app_platform(platform), row: 2 }
+                { choices: choices |> Choices.set_platform(platform), row: model.menu_row }
 
             PackageSelect({ choices }) ->
+                menu_row =
+                    when choices is
+                        Package(_) -> model.menu_row + 1
+                        Upgrade(_) -> model.menu_row + 3
+                        _ -> model.menu_row
                 package_repos = model.selected |> List.map(menu_item_to_repo)
-                { choices: choices |> Choices.set_packages(package_repos), row: 3 }
+                { choices: choices |> Choices.set_packages(package_repos), row: menu_row }
 
             UpdateSelect({ choices }) ->
                 selected = Model.get_selected_items(model)
-                { choices: choices |> Choices.set_updates(selected), row: 5 }
+                { choices: choices |> Choices.set_updates(selected), row: model.menu_row + 4 }
 
-            SettingsMenu({ choices }) -> { choices, row: 6 }
+            SettingsMenu({ choices }) -> { choices, row: model.menu_row + 5 }
             MainMenu({ choices }) -> { choices, row: 2 }
             SettingsSubmenu({ choices }) -> { choices, row: 2 }
             Search({ choices }) -> { choices, row: 2 }
@@ -559,10 +573,14 @@ to_platform_select_state = |model|
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main") |> |name| if Str.is_empty(name) then "main" else name
             new_choices = choices |> Choices.set_filename(filename)
+            menu = 
+                when new_choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
                 page_first_item: 0,
-                menu: model.platform_menu,
-                full_menu: model.platform_menu,
+                menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
                 sender: model.state,
@@ -602,7 +620,6 @@ to_platform_select_state = |model|
                 state: PlatformSelect({ choices }),
                 sender: model.state,
             }
-            
 
         SettingsMenu({ choices }) ->
             { model &
@@ -641,7 +658,7 @@ to_version_select_state = |model|
 
         PlatformSelect({ choices }) ->
             platform = Model.get_highlighted_item(model) |> menu_item_to_repo
-            new_choices = choices |> Choices.set_app_platform(platform)
+            new_choices = choices |> Choices.set_platform(platform)
             { platform_name, platform_version } = Str.split_first(platform, ":") |> Result.with_default({ before: platform, after: "" }) |> |{ before, after }| { platform_name: before, platform_version: after }
             platform_repo = RM.get_full_repo_name(model.platform_name_map, platform_name, Platform) |> Result.with_default(platform_name)
             platform_releases = Dict.get(model.platforms, platform_repo) |> Result.with_default([])
@@ -665,12 +682,15 @@ to_package_select_state : Model -> Model
 to_package_select_state = |model|
     when model.state is
         MainMenu({ choices }) ->
-            menu_choice = Model.get_highlighted_item(model) |> |str| if str == "App" then App else Pkg
+            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "Start package" then Package else if Str.contains(s, "Upgrade") then Upgrade else Invalid
             when menu_choice is
-                App -> model
-                Pkg ->
-                    new_choices = Choices.to_package(choices)
-                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items
+                Package | Upgrade ->
+                    new_choices =
+                        when menu_choice is
+                            Package -> Choices.to_package(choices)
+                            Upgrade -> Choices.to_upgrade(choices)
+                            Invalid -> choices
+                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items              
                     { model &
                         page_first_item: 0,
                         menu: model.package_menu,
@@ -681,9 +701,11 @@ to_package_select_state = |model|
                         sender: model.state,
                     }
 
+                _ -> model
+
         PlatformSelect({ choices }) ->
-            platform = Model.get_highlighted_item(model)
-            new_choices = choices |> Choices.set_app_platform(platform)
+            platform = Model.get_highlighted_item(model) |> |s| if s == "No change" then "" else s
+            new_choices = choices |> Choices.set_platform(platform)
             selected = Choices.get_packages(new_choices) |> packages_to_menu_items
             { model &
                 page_first_item: 0,
@@ -745,7 +767,7 @@ to_package_select_state = |model|
                     new_repo = { repo & version: selected_version }
                     platform_menu = add_or_update_platform_menu(model.platform_menu, new_repo)
                     new_platform = if Str.is_empty(selected_version) then new_repo.name else "${new_repo.name}:${selected_version}"
-                    new_choices = choices |> Choices.set_app_platform(new_platform)
+                    new_choices = choices |> Choices.set_platform(new_platform)
                     { model &
                         page_first_item: 0,
                         platform_menu,
@@ -756,7 +778,7 @@ to_package_select_state = |model|
                         state: PackageSelect({ choices: new_choices }),
                         sender: model.state,
                     }
-                
+
                 _ -> model
 
         _ -> model

@@ -62,14 +62,14 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
     platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
     package_menu = build_repo_menu(package_name_map)
     platform_menu = build_repo_menu(platform_name_map)
-    main_menu = ["Start app", "Start package", "Upgrade app/package (TODO)", "Update roc-start", "Settings"]
+    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings"]
     {
         screen: { width: 0, height: 0 },
         cursor: { row: 2, col: 2 },
         menu_row: 2,
         page_first_item: 0,
-        menu: main_menu,
-        full_menu: main_menu,
+        menu: menu,
+        full_menu: menu,
         platforms,
         packages,
         package_name_map,

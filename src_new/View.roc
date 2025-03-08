@@ -326,6 +326,7 @@ render_confirmation = |model|
     when Model.get_choices(model) is
         App(_) -> render_app_confirmation(model)
         Package(_) -> render_package_confirmation(model)
+        Upgrade(_) -> render_upgrade_confirmation(model)
         Update(_) -> render_update_confirmation(model)
         Config(_) -> render_config_confirmation(model)
         _ -> []
@@ -334,7 +335,7 @@ render_app_confirmation : Model -> List ANSI.DrawFn
 render_app_confirmation = |model|
     choices = Model.get_choices(model)
     filename = choices |> Choices.get_filename
-    platform = choices |> Choices.get_app_platform |> |p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}"
+    platform = choices |> Choices.get_platform |> |p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}"
     packages = choices |> Choices.get_packages |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
     List.join(
         [
@@ -351,17 +352,22 @@ render_app_confirmation = |model|
                 platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard White }),
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
             ],
-            render_multi_line_text(
-                packages,
-                {
-                    start_col: 12,
-                    start_row: model.menu_row + 2,
-                    max_col: model.screen.width - 1,
-                    wrap_col: 2,
-                    word_delim: ", ",
-                    fg: Standard White,
-                },
-            ),
+            if List.is_empty(packages) then
+                [
+                    "none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: Standard White }),
+                ]
+            else
+                render_multi_line_text(
+                    packages,
+                    {
+                        start_col: 12,
+                        start_row: model.menu_row + 2,
+                        max_col: model.screen.width - 1,
+                        wrap_col: 2,
+                        word_delim: ", ",
+                        fg: Standard White,
+                    },
+                ),
         ],
     )
 
@@ -380,17 +386,22 @@ render_package_confirmation = |model|
                 "PACKAGE CHOICES:" |> render_screen_prompt,
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
             ],
-            render_multi_line_text(
-                packages,
-                {
-                    start_col: 12,
-                    start_row: model.menu_row,
-                    max_col: model.screen.width - 1,
-                    wrap_col: 2,
-                    word_delim: ", ",
-                    fg: Standard White,
-                },
-            ),
+            if List.is_empty(packages) then
+                [
+                    "none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard White }),
+                ]
+            else
+                render_multi_line_text(
+                    packages,
+                    {
+                        start_col: 12,
+                        start_row: model.menu_row,
+                        max_col: model.screen.width - 1,
+                        wrap_col: 2,
+                        word_delim: ", ",
+                        fg: Standard White,
+                    },
+                ),
         ],
     )
 
@@ -452,6 +463,61 @@ render_config_confirmation = |model|
             changes |> List.map_with_index(|change, i| change |> ANSI.draw_text({ r: model.menu_row + Num.int_cast(i + 1), c: 2, fg: Standard White })),
         ],
     )
+
+render_upgrade_confirmation : Model -> List ANSI.DrawFn
+render_upgrade_confirmation = |model|
+    choices = Model.get_choices(model)
+    when choices is
+        Upgrade({ filename, platform: maybe_platform, packages: package_repos }) ->
+            { platform, render_platform, platform_offset } =
+                when maybe_platform is
+                    Ok({ name, version }) -> 
+                        platform_str = if Str.is_empty(version) then name else "${name}:${version}"
+                        { platform: platform_str, render_platform: Bool.true, platform_offset: 1 }
+                    Err(_) -> { platform: "", render_platform: Bool.false, platform_offset: 0 }
+            packages = package_repos |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
+            List.join(
+                [
+                    [
+                        render_exit_prompt(model.screen),
+                        render_controls_prompt(controls_prompt_str(model), model.screen),
+                    ],
+                    render_outer_border(model.screen),
+                    [
+                        "UPGRADE CHOICES:" |> render_screen_prompt,
+                        "File name: " |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
+                        filename |> ANSI.draw_text({ r: model.menu_row, c: 13, fg: Standard White }),
+                    ],
+                    if render_platform then
+                        [
+                            "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
+                            platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard White }),
+                        ]
+                    else
+                        [],
+                    [
+                        "Packages:" |> ANSI.draw_text({ r: model.menu_row + platform_offset + 1, c: 2, fg: roc.primary }),
+                    ],
+                    if List.is_empty(packages) then
+                        [
+                            "none" |> ANSI.draw_text({ r: model.menu_row + platform_offset + 1, c: 12, fg: Standard White }),
+                        ]
+                    else
+                        render_multi_line_text(
+                            packages,
+                            {
+                                start_col: 12,
+                                start_row: model.menu_row + platform_offset + 1,
+                                max_col: model.screen.width - 1,
+                                wrap_col: 2,
+                                word_delim: ", ",
+                                fg: Standard White,
+                            },
+                        ),
+                ],
+            )
+
+        _ -> []
 
 ## Generate the list of functions to draw a box.
 render_box : U16, U16, U16, U16, BoxStyle, ANSI.Color -> List ANSI.DrawFn
