@@ -22,10 +22,10 @@ import Choices
 import Theme exposing [roc]
 
 ## Render functions for each page
-render_screen_prompt = |text| text |> ANSI.draw_text({ r: 1, c: 2, fg: roc.secondary })
-render_exit_prompt = |screen| " Ctrl+C : QUIT " |> ANSI.draw_text({ r: 0, c: screen.width - 17, fg: roc.error })
+render_screen_prompt = |text, color| text |> ANSI.draw_text({ r: 1, c: 2, fg: color })
+render_exit_prompt = |screen, color| " Ctrl+C : QUIT " |> ANSI.draw_text({ r: 0, c: screen.width - 17, fg: color })
 render_controls_prompt = |text, screen| text |> ANSI.draw_text({ r: screen.height - 1, c: 2, fg: roc.secondary })
-render_outer_border = |screen| render_box(0, 0, screen.width, screen.height, CustomBorder({ tl: "╒", t: "═", tr: "╕" }), roc.secondary)
+render_outer_border = |screen| render_box(0, 0, screen.width, screen.height, CustomBorder({ tl: "╒", t: "═", tr: "╕" }), roc.tertiary)
 
 ## Control prompts for each user action
 control_prompts_dict : Dict UserAction Str
@@ -102,7 +102,7 @@ build_control_prompt_str = |actions, prompts_dict|
 
 ## Render a multi-line text with word wrapping
 render_multi_line_text : List Str, { start_col : U16, start_row : U16, max_col : U16, wrap_col : U16, word_delim ?? Str, fg ?? ANSI.Color } -> List ANSI.DrawFn
-render_multi_line_text = |words, { start_col, start_row, max_col, wrap_col, word_delim ?? " ", fg ?? Standard(White) }|
+render_multi_line_text = |words, { start_col, start_row, max_col, wrap_col, word_delim ?? " ", fg ?? roc.secondary }|
     first_line_width = max_col - start_col
     consecutive_widths = max_col - wrap_col
     delims = List.repeat(word_delim, (if List.len(words) == 0 then 0 else List.len(words) - 1)) |> List.append("")
@@ -141,12 +141,12 @@ render_main_menu = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "MAIN MENU:" |> render_screen_prompt,
+                "MAIN MENU:" |> render_screen_prompt(roc.secondary),
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_menu(model),
@@ -158,12 +158,12 @@ render_settings_menu = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "SETTINGS:" |> render_screen_prompt,
+                "SETTINGS:" |> render_screen_prompt(roc.secondary),
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_menu(model),
@@ -182,12 +182,12 @@ render_settings_submenu = |model|
             List.join(
                 [
                     [
-                        render_exit_prompt(model.screen),
+                        render_exit_prompt(model.screen, roc.error),
                         render_controls_prompt(controls_prompt_str(model), model.screen),
                     ],
                     render_outer_border(model.screen),
                     [
-                        prompt |> render_screen_prompt,
+                        prompt |> render_screen_prompt(roc.secondary),
                         ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
                     ],
                     render_menu(model),
@@ -202,12 +202,12 @@ render_platform_select = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "SELECT A PLATFORM:" |> render_screen_prompt,
+                "SELECT A PLATFORM:" |> render_screen_prompt(roc.secondary),
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_menu(model),
@@ -220,12 +220,12 @@ render_package_select = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "SELECT 0+ PACKAGES:" |> render_screen_prompt,
+                "SELECT 0+ PACKAGES:" |> render_screen_prompt(roc.secondary),
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_multiple_choice_menu(model),
@@ -235,32 +235,36 @@ render_package_select = |model|
 ## Generate the list of functions to draw the version select page.
 render_version_select : Model -> List ANSI.DrawFn
 render_version_select = |model|
-    List.join(
-        [
-            [
-                render_exit_prompt(model.screen),
-                render_controls_prompt(controls_prompt_str(model), model.screen),
-            ],
-            render_outer_border(model.screen),
-            [
-                "SELECT A VERSION:" |> render_screen_prompt,
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
-            ],
-            render_menu(model),
-        ],
-    )
+    when model.state is
+        VersionSelect({ repo }) -> 
+            List.join(
+                [
+                    [
+                        render_exit_prompt(model.screen, roc.error),
+                        render_controls_prompt(controls_prompt_str(model), model.screen),
+                    ],
+                    render_outer_border(model.screen),
+                    [
+                        "SELECT A VERSION (${repo.name}):" |> render_screen_prompt(roc.secondary),
+                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                    ],
+                    render_menu(model),
+                ],
+            )
+
+        _ -> []
 
 render_update_select : Model -> List ANSI.DrawFn
 render_update_select = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "SELECT 0+ UPDATES:" |> render_screen_prompt,
+                "SELECT 0+ UPDATES:" |> render_screen_prompt(roc.secondary),
                 ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
             ],
             render_multiple_choice_menu(model),
@@ -276,15 +280,15 @@ render_input_app_name = |model|
             List.join(
                 [
                     [
-                        render_exit_prompt(model.screen),
+                        render_exit_prompt(model.screen, roc.error),
                         render_controls_prompt(controls_prompt_str(model), model.screen),
                     ],
                     render_outer_border(model.screen),
                     if List.is_empty(name_buffer) then [" (Leave blank for \"main\"):" |> ANSI.draw_text({ r: 1, c: 20, fg: roc.secondary })] else [],
                     [
-                        "ENTER THE APP NAME:" |> render_screen_prompt,
+                        "ENTER THE APP NAME:" |> render_screen_prompt(roc.secondary),
                         ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
-                        buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: Standard(White) }),
+                        buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: roc.secondary }),
                     ],
                 ],
             )
@@ -306,14 +310,14 @@ render_search = |model|
             List.join(
                 [
                     [
-                        render_exit_prompt(model.screen),
+                        render_exit_prompt(model.screen, roc.error),
                         render_controls_prompt(controls_prompt_str(model), model.screen),
                     ],
                     render_outer_border(model.screen),
                     [
-                        render_screen_prompt(search_prompt),
+                        search_prompt |> render_screen_prompt(roc.secondary),
                         ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
-                        buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: Standard(White) }),
+                        buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: roc.secondary }),
                     ],
                 ],
             )
@@ -340,21 +344,21 @@ render_app_confirmation = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "APP CHOICES:" |> render_screen_prompt,
+                "APP CHOICES:" |> render_screen_prompt(roc.secondary),
                 "App name:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard White }),
+                filename |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: roc.secondary }),
                 "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
-                platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard White }),
+                platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: roc.secondary }),
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: roc.primary }),
             ],
             if List.is_empty(packages) then
                 [
-                    "none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: Standard White }),
+                    "none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: roc.secondary }),
                 ]
             else
                 render_multi_line_text(
@@ -365,7 +369,7 @@ render_app_confirmation = |model|
                         max_col: model.screen.width - 1,
                         wrap_col: 2,
                         word_delim: ", ",
-                        fg: Standard White,
+                        fg: roc.secondary,
                     },
                 ),
         ],
@@ -378,17 +382,17 @@ render_package_confirmation = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "PACKAGE CHOICES:" |> render_screen_prompt,
+                "PACKAGE CHOICES:" |> render_screen_prompt(roc.secondary),
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
             ],
             if List.is_empty(packages) then
                 [
-                    "none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: Standard White }),
+                    "none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: roc.secondary }),
                 ]
             else
                 render_multi_line_text(
@@ -399,7 +403,7 @@ render_package_confirmation = |model|
                         max_col: model.screen.width - 1,
                         wrap_col: 2,
                         word_delim: ", ",
-                        fg: Standard White,
+                        fg: roc.secondary,
                     },
                 ),
         ],
@@ -412,12 +416,12 @@ render_update_confirmation = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "UPDATE CHOICES:" |> render_screen_prompt,
+                "UPDATE CHOICES:" |> render_screen_prompt(roc.secondary),
                 "Updates:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
             ],
             render_multi_line_text(
@@ -428,7 +432,7 @@ render_update_confirmation = |model|
                     max_col: model.screen.width - 1,
                     wrap_col: 2,
                     word_delim: ", ",
-                    fg: Standard White,
+                    fg: roc.secondary,
                 },
             ),
         ],
@@ -452,15 +456,15 @@ render_config_confirmation = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
             [
-                "CONFIG CHOICES:" |> render_screen_prompt,
+                "CONFIG CHOICES:" |> render_screen_prompt(roc.secondary),
                 "Changes:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
             ],
-            changes |> List.map_with_index(|change, i| change |> ANSI.draw_text({ r: model.menu_row + Num.int_cast(i + 1), c: 2, fg: Standard White })),
+            changes |> List.map_with_index(|change, i| change |> ANSI.draw_text({ r: model.menu_row + Num.int_cast(i + 1), c: 2, fg: roc.secondary })),
         ],
     )
 
@@ -479,19 +483,19 @@ render_upgrade_confirmation = |model|
             List.join(
                 [
                     [
-                        render_exit_prompt(model.screen),
+                        render_exit_prompt(model.screen, roc.error),
                         render_controls_prompt(controls_prompt_str(model), model.screen),
                     ],
                     render_outer_border(model.screen),
                     [
-                        "UPGRADE CHOICES:" |> render_screen_prompt,
+                        "UPGRADE CHOICES:" |> render_screen_prompt(roc.secondary),
                         "File name: " |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: roc.primary }),
-                        filename |> ANSI.draw_text({ r: model.menu_row, c: 13, fg: Standard White }),
+                        filename |> ANSI.draw_text({ r: model.menu_row, c: 13, fg: roc.secondary }),
                     ],
                     if render_platform then
                         [
                             "Platform:" |> ANSI.draw_text({ r: model.menu_row + 1, c: 2, fg: roc.primary }),
-                            platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: Standard White }),
+                            platform |> ANSI.draw_text({ r: model.menu_row + 1, c: 12, fg: roc.secondary }),
                         ]
                     else
                         [],
@@ -500,7 +504,7 @@ render_upgrade_confirmation = |model|
                     ],
                     if List.is_empty(packages) then
                         [
-                            "none" |> ANSI.draw_text({ r: model.menu_row + platform_offset + 1, c: 12, fg: Standard White }),
+                            "none" |> ANSI.draw_text({ r: model.menu_row + platform_offset + 1, c: 12, fg: roc.secondary }),
                         ]
                     else
                         render_multi_line_text(
@@ -511,7 +515,7 @@ render_upgrade_confirmation = |model|
                                 max_col: model.screen.width - 1,
                                 wrap_col: 2,
                                 word_delim: ", ",
-                                fg: Standard White,
+                                fg: roc.secondary,
                             },
                         ),
                 ],
@@ -565,7 +569,7 @@ render_splash = |model|
     List.join(
         [
             [
-                render_exit_prompt(model.screen),
+                render_exit_prompt(model.screen, roc.error),
                 render_controls_prompt(controls_prompt_str(model), model.screen),
             ],
             render_outer_border(model.screen),
