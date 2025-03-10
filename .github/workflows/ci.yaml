@@ -18,34 +18,15 @@ jobs:
   build-and-test:
     runs-on: [ubuntu-20.04]
     steps:
-      - uses: actions/checkout@v3
-          
-      - name: try fetching TESTING release
-        id: try_fetching_testing_release
-        continue-on-error: true
-        run: |
-          curl -fOL https://github.com/roc-lang/roc/releases/download/nightly/roc_nightly-linuxTESTING_x86_64-latest.tar.gz
-    
-      - name: There are no TESTING releases, checking regular releases instead
-        if: steps.try_fetching_testing_release.outcome == 'failure'
-        run: |
-          curl -fOL https://github.com/roc-lang/roc/releases/download/nightly/roc_nightly-linux_x86_64-latest.tar.gz
-
-      - name: rename nightly tar
-        run: mv $(ls | grep "roc_nightly.*tar\.gz") roc_nightly.tar.gz
-
-      - name: decompress the tar
-        run: tar -xzf roc_nightly.tar.gz
-
-      - run: rm roc_nightly.tar.gz
-
-      - name: simplify nightly folder name
-        run: mv roc_nightly* roc_nightly
-
-      - run: ./roc_nightly/roc version
-
-      - run: chmod +x ./ci/all_tests.sh
-      # Run all tests 
-      - run: ./ci/all_tests.sh
-
-# TODO clippy, rustfmt, roc fmt check
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Install Roc
+        uses: hasnep/setup-roc@v0.5.0
+        with:
+          roc-version: alpha3-rolling
+      - name: Roc check on src/main.roc
+        run: roc check src/main.roc
+      - name: Roc test on all files in src
+        run: roc check src
+      - name: Roc build on src/main.roc
+        run: roc build src/main.roc
