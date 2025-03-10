@@ -24,9 +24,9 @@ jobs:
         uses: hasnep/setup-roc@v0.5.0
         with:
           roc-version: alpha3-rolling
-      - name: Roc check on src/main.roc
-        run: roc check src/main.roc
-      - name: Roc test on all files in src
-        run: roc check src
+      - name: Roc check on all roc files in src
+        run: for roc_file in ./src/*.roc; do roc check $roc_file; done
+      - name: Roc test on src/main.roc
+        run: roc test src/main.roc
       - name: Roc build on src/main.roc
         run: roc build src/main.roc
