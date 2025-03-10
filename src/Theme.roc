@@ -29,14 +29,14 @@ roc =
     dark_cyan = rgb(57, 171, 219)
     coral = rgb(222, 100, 124)
     green = rgb(122, 222, 100)
-    orange = rgb(247, 143, 79)
+    peach = rgb(250, 179, 135)
     {
         name: "roc",
         primary: light_purple,
         secondary: dark_cyan,
         tertiary: Standard White,
         okay: green,
-        warn: orange,
+        warn: peach,
         error: coral,
     }
 
@@ -53,7 +53,7 @@ roc_c16 = {
 
 roc_mono =
     light_purple = rgb(137, 101, 222)
-    orange = rgb(247, 143, 79)
+    peach = rgb(250, 179, 135)
     coral = rgb(222, 100, 124)
     {
         name: "roc-mono",
@@ -61,21 +61,21 @@ roc_mono =
         secondary: light_purple,
         tertiary: light_purple,
         okay: light_purple,
-        warn: orange,
+        warn: peach,
         error: coral,
     }
 
 warn_only : Theme
 warn_only =
     coral = rgb(222, 100, 124)
-    orange = rgb(247, 143, 79)
+    peach = rgb(250, 179, 135)
     {
         name: "warn-only",
         primary: Default,
         secondary: Default,
         tertiary: Default,
         okay: Default,
-        warn: orange,
+        warn: peach,
         error: coral,
     }
 
@@ -96,7 +96,7 @@ coffee_cat_dark =
     saffire = rgb(116, 199, 236)
     teal = rgb(148, 226, 213)
     red = rgb(243, 139, 168)
-    peach = rgb(250, 179, 135)
+    maroon = rgb(235, 160, 172)
     green = rgb(166, 227, 161)
     {
         name: "coffee-cat-dark",
@@ -104,7 +104,7 @@ coffee_cat_dark =
         secondary: saffire,
         tertiary: teal,
         okay: green,
-        warn: peach,
+        warn: maroon,
         error: red,
     }
 
@@ -114,7 +114,8 @@ coffee_cat_light =
     saffire = rgb(32, 159, 181)
     pink = rgb(234, 118, 203)
     red = rgb(210, 15, 57)
-    peach = rgb(254, 100, 11)
+    # peach = rgb(254, 100, 11)
+    flamingo = rgb(221, 120, 120)
     green = rgb(64, 160, 43)
     {
         name: "coffee-cat-light",
@@ -122,7 +123,7 @@ coffee_cat_light =
         secondary: saffire,
         tertiary: pink,
         okay: green,
-        warn: peach,
+        warn: flamingo,
         error: red,
     }
 
