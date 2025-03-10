@@ -91,42 +91,6 @@ handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
                     |> log!(log_level)
                 Err(Handled)
 
-# handle_get_repositories_error : { log_level : LogLevel, theme : Theme } -> ([FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData] => Result * _)
-# handle_get_repositories_error = |{ log_level, theme, log!, colorize }|
-#     |e|
-#         when e is
-#             HomeVarNotSet ->
-#                 _ = ["HOME environment variable not set"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             FileWriteError ->
-#                 _ = ["Error writing to file"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             FileReadError ->
-#                 _ = ["Error reading from file"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             GhAuthError ->
-#                 _ = ["GitHub CLI tool not authenticated"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             GhNotInstalled ->
-#                 _ = ["GitHub CLI tool not installed"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             NetworkError ->
-#                 _ = ["Network error"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             BadRepoReleasesData ->
-#                 _ = ["Local repo data is corrupted"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
-#             ParsingError ->
-#                 _ = ["Error parsing data"] |> colorize([theme.error]) |> Quiet |> log!(log_level)
-#                 Err(Handled)
-
 handle_package_release_error = |packages, repo, name, version, { log_level, theme, log!, colorize }|
     |err|
         when err is
