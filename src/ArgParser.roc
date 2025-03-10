@@ -180,9 +180,9 @@ update_subcommand =
 
 config_subcommand =
     { Cli.weave <-
-        theme: Opt.maybe_str({ long: "set-theme", help: "Set the default color theme to use in the CLI." }),
+        theme: Opt.maybe_str({ long: "set-default-theme", help: "Set the default color theme to use in the CLI." }),
         verbosity: Opt.maybe_str({ long: "set-verbosity", help: "Set the default verbosity level to use in the CLI." }),
-        platform: Opt.maybe_str({ long: "set-platform", help: "Set the default platform to use when initializing a new app." }),
+        platform: Opt.maybe_str({ long: "set-default-platform", help: "Set the default platform to use when initializing a new app." }),
     }
     |> SubCmd.finish(
         {
