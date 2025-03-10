@@ -45,7 +45,7 @@ cli_parser =
     |> Cli.finish(
         {
             name: "roc-start",
-            version: "v0.6.0-unreleased",
+            version: "v0.6.0",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
             description: "A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or edit an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.",
             text_style: Color,
