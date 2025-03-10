@@ -1,6 +1,5 @@
 module [
     Model,
-    # empty_app_config,
     init,
     is_not_first_page,
     is_not_last_page,
@@ -52,8 +51,6 @@ State : [
     Splash { choices : Choices },
     UserExited,
 ]
-
-# empty_app_config = { file_name: "", platform: "", packages: [], type: App }
 
 no_choices = NothingToDo
 
