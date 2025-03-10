@@ -512,7 +512,7 @@ to_settings_submenu_state : Model, [Theme, Verbosity, Platform] -> Model
 to_settings_submenu_state = |model, submenu|
     menu =
         when submenu is
-            Theme -> Theme.theme_names |> List.sort_with(Compare.str) |> List.map(|name| Heck.to_title_case(name) |> |tc| if tc == "Roc" then "Roc (Default)" else tc)
+            Theme -> Theme.theme_names |> List.sort_with(Compare.str) |> List.map(|name| Heck.to_title_case(name) |> |tc| if tc == "Roc C16" then "${tc} (Default)" else tc)
             Verbosity -> ["Verbose", "Quiet", "Silent"]
             Platform -> model.platform_menu
 
