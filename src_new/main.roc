@@ -662,7 +662,7 @@ do_tui_command! = |{ log_level, theme }|
     _ = if !(scripts_exists) then do_scripts_update!(Some(platforms), { log_level, theme }) else Ok({})
     initial_model = Model.init(platforms, packages, {})
     Tty.enable_raw_mode!({})
-    final_model = ui_loop!(initial_model)?
+    final_model = ui_loop!(initial_model, theme)?
     Stdout.write!(ANSI.to_str(Reset))?
     Tty.disable_raw_mode!({})
     config = Df.get_config!({})
@@ -679,14 +679,14 @@ do_tui_command! = |{ log_level, theme }|
         UserExited -> Ok({})
         _ -> crash "Error: Unexpected final state"
 
-ui_loop! : Model => Result Model _
-ui_loop! = |prev_model|
+ui_loop! : Model, Theme => Result Model _
+ui_loop! = |prev_model, theme|
     terminal_size = get_terminal_size!({})?
     model = Controller.paginate({ prev_model & screen: terminal_size })
-    ANSI.draw_screen(model, render(model)) |> Stdout.write!?
+    ANSI.draw_screen(model, render(model, theme)) |> Stdout.write!?
     input = Stdin.bytes!({}) |> Result.map_ok(ANSI.parse_raw_stdin)?
     when handle_input(model, input) is
-        Step(next_model) -> ui_loop!(next_model)
+        Step(next_model) -> ui_loop!(next_model, theme)
         Done(next_model) -> Ok(next_model)
 
 get_terminal_size! : {} => Result ANSI.ScreenSize _
@@ -700,19 +700,19 @@ get_terminal_size! = |{}|
     |> Result.map_ok(|{ row, col }| { width: col, height: row })
     |> Result.map_err(|e| Exit(1, "Error while getting terminal size: ${Inspect.to_str(e)}"))
 
-render : Model -> List ANSI.DrawFn
-render = |model|
+render : Model, Theme -> List ANSI.DrawFn
+render = |model, theme|
     when model.state is
-        MainMenu(_) -> View.render_main_menu(model)
-        SettingsMenu(_) -> View.render_settings_menu(model)
-        SettingsSubmenu(_) -> View.render_settings_submenu(model)
-        InputAppName(_) -> View.render_input_app_name(model)
-        PlatformSelect(_) -> View.render_platform_select(model)
-        PackageSelect(_) -> View.render_package_select(model)
-        VersionSelect(_) -> View.render_version_select(model)
-        UpdateSelect(_) -> View.render_update_select(model)
-        Search(_) -> View.render_search(model)
-        Confirmation(_) -> View.render_confirmation(model)
-        Splash(_) -> View.render_splash(model)
+        MainMenu(_) -> View.render_main_menu(model, theme)
+        SettingsMenu(_) -> View.render_settings_menu(model, theme)
+        SettingsSubmenu(_) -> View.render_settings_submenu(model, theme)
+        InputAppName(_) -> View.render_input_app_name(model, theme)
+        PlatformSelect(_) -> View.render_platform_select(model, theme)
+        PackageSelect(_) -> View.render_package_select(model, theme)
+        VersionSelect(_) -> View.render_version_select(model, theme)
+        UpdateSelect(_) -> View.render_update_select(model, theme)
+        Search(_) -> View.render_search(model, theme)
+        Confirmation(_) -> View.render_confirmation(model, theme)
+        Splash(_) -> View.render_splash(model, theme)
         _ -> []
 

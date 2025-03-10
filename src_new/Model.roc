@@ -33,6 +33,8 @@ Model : {
     platform_menu : List Str,
     state : State,
     sender : State,
+    # theme : Theme, 
+    # including theme in model, whether imported from theme module, or redefined internally using Color causes compiler crash
 }
 
 State : [
@@ -83,7 +85,6 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
 
 build_repo_menu : Dict Str (List Str) -> List Str
 build_repo_menu = |name_map|
-    # name_map = repos |> Dict.keys |> RM.build_repo_name_map
     Dict.to_list(name_map)
     |> List.sort_with(|(a, _), (b, _)| Compare.str(a, b))
     |> List.map(
