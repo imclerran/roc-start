@@ -32,7 +32,7 @@ cache_scripts! = |platforms, cache_dir, logger!|
         |> List.map(|(_, rs)| rs)
         |> List.join
     num_releases = List.len(release_list)
-    logger!(" [")
+    logger!("[")
     logger!(Str.repeat("=", Num.sub_saturated(5, num_releases)))
     res = List.walk_try!(
         release_list,

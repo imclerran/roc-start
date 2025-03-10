@@ -4,7 +4,7 @@ module { write_bytes!, cmd_output!, cmd_new, cmd_args } -> [
 
 import json.Json
 import parse.CSV exposing [csv_string]
-import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip, zip_4, whitespace, finalize]
+import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip_3, zip_4, whitespace, finalize]
 import semver.Semver
 
 import RepoManager exposing [RepositoryDict, RepositoryReleaseSerialized]
@@ -16,7 +16,7 @@ update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteE
 update_local_repos! = |known_repos_csv_text, save_path, logger!|
     parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
     num_repos = List.len(parsed_repos)
-    logger!(" [")
+    logger!("[")
     logger!(Str.repeat("=", Num.sub_saturated(5, num_repos)))
     release_list =
         List.walk_try!(
@@ -79,17 +79,18 @@ parse_known_repos = |csv_text|
     parser(csv_text) |> finalize |> Result.map_err(|_| BadKnownReposCSV)
 
 parse_known_repos_header = |line|
-    parser = maybe(string("repo,alias") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
+    parser = maybe(string("repo,alias,remote") |> lhs(maybe(string(",")) |> lhs(string("\n"))))
     parser(line) |> Result.map_err(|_| MaybeShouldNotFail)
 
 parse_known_repos_line = |line|
     pattern =
-        zip(
+        zip_3(
             csv_string |> lhs(string(",")),
-            csv_string |> lhs(maybe(string(","))),
+            csv_string |> lhs(string(",")),
+            string("github") |> lhs(maybe(string(","))),
         )
         |> lhs(maybe(string("\n")))
-    parser = pattern |> map(|(repo, alias)| Ok({ repo, alias }))
+    parser = pattern |> map(|(repo, alias, _remote)| Ok({ repo, alias }))
     parser(line) |> Result.map_err(|_| KnownReposLineNotFound)
 
 # encode and decode releases

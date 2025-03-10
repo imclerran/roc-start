@@ -9,6 +9,7 @@ module [
     handle_upgrade_file_read_error,
     handle_upgrade_split_file_error,
     handle_cache_scripts_error,
+    handle_update_local_repos_error,
 ]
 
 import RepoManager as RM
@@ -232,6 +233,7 @@ handle_get_repositories_error = |{ log_level, theme, colorize }|
         else
             err_message =
                 when err is
+                    Exit(_, s) -> s
                     BadRepoReleasesData -> "Error getting repositories: bad release data - running an update may fix this."
                     FileReadError -> "Error getting repositories: file read error - running an update may fix this."
                     FileWriteError -> "Error getting repositories: file write error while saving repo data."
@@ -239,7 +241,7 @@ handle_get_repositories_error = |{ log_level, theme, colorize }|
                     GhNotInstalled -> "Error getting repositories: gh cli tool not installed - install it from https://cli.github.com."
                     HomeVarNotSet -> "Error getting repositories: HOME environment variable not set."
                     NetworkError -> "Error getting repositories: network error - check your connection."
-                    ParsingError -> "Error getting repositories: error parsing remote data - please file an issue at https://github.com/imclerran/roc-repo."
+                    ParsingError -> "Error getting repositories: error parsing remote data - please file an issue at https://github.com/imclerran/roc-start."
             Err(Exit(1, [err_message] |> colorize([theme.error])))
 
 handle_cache_scripts_error = |{ log_level, theme, colorize }|
@@ -251,4 +253,18 @@ handle_cache_scripts_error = |{ log_level, theme, colorize }|
                 when err is
                     FileWriteError -> "Error caching scripts: file write error."
                     NetworkError -> "Error caching scripts: network error - check your connection."
+            Err(Exit(1, [err_message] |> colorize([theme.error])))
+
+handle_update_local_repos_error = |{ log_level, theme, colorize }|
+    |err|
+        if log_level == Silent then
+            Err(Exit(1, ""))
+        else
+            err_message = 
+                when err is
+                    FileWriteError -> "Error updating local repositories: file write error."
+                    GhAuthError -> "Error updating local repositories: gh cli tool not authenticated - run `gh auth login` to fix."
+                    GhNotInstalled -> "Error updating local repositories: gh cli tool not installed - install it from https://cli.github.com."
+                    ParsingError -> "Error updating local repositories: error parsing remote data - please file an issue at https://github.com/imclerran/roc-start"
+
             Err(Exit(1, [err_message] |> colorize([theme.error])))
