@@ -12,6 +12,18 @@ Roc-start is intended to streamline this process.
 
 Roc-start maintains a repository of package and platform git repos. From this list, it will fetch the URLs for all releases for each platform and package. Then with a simple command, you can generate a new roc application or pacakge file, or upgrade the dependencies in an existing one. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
 
+
+### New Features as of 0.6.0:
+- Support for multiple packages or platforms with the same name, but different owners
+- Support for specifying the package or platform version, or default to latest if not specified
+- Specifying the filename and platform is optional, will default to main.roc and basic-cli:latest
+- Default platform and version can be configured to use the user's preferred platform and version
+- Packages and platforms whose names are not ambiguous can be specified without the owner
+- If the requested package or platform repo or version cannot be resolved, appropriate warnings will be given
+- Stub application code is generated dynamically based on the specified platform version 
+- Progress bar displayed while updating local package, platform and script cache
+- TUI interface supports doing all actions available through the CLI
+
 ## Installing:
 If you already have the github cli installed (gh, not git), installing roc-start is as easy as running the install script in the root directory of the roc-start repository (install.sh).
 
