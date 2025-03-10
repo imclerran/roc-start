@@ -587,7 +587,7 @@ to_platform_select_state = |model|
             new_choices = choices |> Choices.set_filename(filename)
             menu = 
                 when new_choices is
-                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
             { model &
                 page_first_item: 0,
@@ -616,7 +616,7 @@ to_platform_select_state = |model|
             new_choices = choices |> Choices.set_packages(package_repos)
             menu = 
                 when new_choices is
-                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
             { model &
                 page_first_item: 0,
@@ -876,7 +876,6 @@ to_search_state = |model|
             { model &
                 cursor: { row: model.menu_row, col: 2 },
                 state: Search({ choices, search_buffer: [] }),
-                # sender: Platform
                 sender: model.state,
             }
 
@@ -886,7 +885,6 @@ to_search_state = |model|
             { model &
                 cursor: { row: model.menu_row, col: 2 },
                 state: Search({ choices: new_choices, search_buffer: [] }),
-                # sender: Package
                 sender: model.state,
             }
 
@@ -905,7 +903,7 @@ clear_search_filter = |model|
         PlatformSelect({ choices }) ->
             menu = 
                 when choices is
-                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
             { model &
                 full_menu: menu,
@@ -918,9 +916,9 @@ clear_search_filter = |model|
 append_to_buffer : Model, Str -> Model
 append_to_buffer = |model, str|
     when model.state is
-        Search({ search_buffer, choices }) -> # sender
+        Search({ search_buffer, choices }) ->
             new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
-            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
+            { model & state: Search({ choices, search_buffer: new_buffer }) } 
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
@@ -932,9 +930,9 @@ append_to_buffer = |model, str|
 backspace_buffer : Model -> Model
 backspace_buffer = |model|
     when model.state is
-        Search({ search_buffer, choices }) -> # sender
+        Search({ search_buffer, choices }) -> 
             new_buffer = List.drop_last(search_buffer, 1)
-            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
+            { model & state: Search({ choices, search_buffer: new_buffer }) }
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.drop_last(name_buffer, 1)
@@ -946,8 +944,8 @@ backspace_buffer = |model|
 clear_buffer : Model -> Model
 clear_buffer = |model|
     when model.state is
-        Search({ choices }) -> # sender
-            { model & state: Search({ choices, search_buffer: [] }) } # sender
+        Search({ choices }) -> 
+            { model & state: Search({ choices, search_buffer: [] }) } 
 
         InputAppName({ choices }) ->
             { model & state: InputAppName({ choices, name_buffer: [] }) }
@@ -1102,19 +1100,6 @@ packages_to_menu_items = |packages|
                 _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
     )
 
-# platforms_to_menu_items : List { name : Str, version : Str } -> List Str
-# platforms_to_menu_items = |platforms|
-#     List.map(
-#         platforms,
-#         |{ name: repo, version }|
-#             when Str.split_first(repo, "/") is
-#                 Ok({ before: owner, after: name }) ->
-#                     "${name} (${owner})"
-#                     |> |s| if Str.is_empty(version) then s else "${s} : ${version}"
-
-#                 _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
-#     )
-
 update_menu_with_version : List Str, { name : Str, version : Str } -> List Str
 update_menu_with_version = |menu, { name, version }|
     match_name = name |> repo_to_menu_item
@@ -1129,20 +1114,6 @@ update_menu_with_version = |menu, { name, version }|
                 _ ->
                     if item == match_name then insert_item else item,
     )
-
-# get_selected_package : Model -> { name : Str, version : Str }
-# get_selected_package = |model|
-#     item = Model.get_highlighted_item(model)
-#     when Str.split_first(item, ":") is
-#         Ok({ before: name, after: version }) -> { name, version }
-#         _ -> { name: item, version: "" }
-
-# get_selected_platform : Model -> { name : Str, version : Str }
-# get_selected_platform = |model|
-#     item = Model.get_highlighted_item(model)
-#     when Str.split_first(item, ":") is
-#         Ok({ before: name, after: version }) -> { name, version }
-#         _ -> { name: item, version: "" }
 
 add_or_update_package_menu : List Str, { name : Str, version : Str } -> List Str
 add_or_update_package_menu = |menu, { name, version }|
