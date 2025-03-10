@@ -215,10 +215,18 @@ platform_select_handler = |model, action|
                     SettingsMenu(_) ->
                         Step(to_settings_menu_state(model))
 
-                    VersionSelect(_) ->
-                        when Model.get_choices(model) is
+                    VersionSelect({ choices }) ->
+                        when choices is
                             App(_) -> Step(to_input_app_name_state(model))
                             Config(_) -> Step(to_settings_menu_state(model))
+                            Upgrade(_) -> Step(to_input_app_name_state(model))
+                            _ -> Step(model)
+
+                    Search({ choices }) -> 
+                        when choices is
+                            App(_) -> Step(to_input_app_name_state(model))
+                            Config(_) -> Step(to_settings_menu_state(model))
+                            Upgrade(_) -> Step(to_input_app_name_state(model))
                             _ -> Step(model)
 
                     PackageSelect(_) ->
@@ -251,7 +259,10 @@ package_select_handler = |model, action|
                         when choices is
                             App(_) -> Step(to_platform_select_state(model))
                             Package(_) -> Step(to_main_menu_state(model))
-                            Upgrade(_) -> Step(to_main_menu_state(model))
+                            Upgrade({ platform }) -> 
+                                when platform is
+                                    Ok(_) -> Step(to_platform_select_state(model))
+                                    Err(_) -> Step(to_main_menu_state(model))
                             _ -> Step(model)
 
                     _ -> Step(model)
@@ -272,6 +283,7 @@ version_select_handler = |model, action|
                     when choices is
                         Config(_) -> Step(to_settings_menu_state(model))
                         App(_) -> Step(to_package_select_state(model))
+                        Upgrade(_) -> Step(to_package_select_state(model))
                         _ -> Step(model)
 
                 _ -> Step(model)
@@ -602,10 +614,14 @@ to_platform_select_state = |model|
         PackageSelect({ choices }) ->
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos)
+            menu = 
+                when new_choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
                 page_first_item: 0,
-                menu: model.platform_menu,
-                full_menu: model.platform_menu,
+                menu: menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices: new_choices }),
                 sender: model.state,
@@ -746,16 +762,29 @@ to_package_select_state = |model|
 
         VersionSelect({ choices, repo }) ->
             when model.sender is
-                PackageSelect(_) ->
+                PackageSelect(_) if model.cursor.row != 0 ->
                     selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
                     new_repo = { repo & version: selected_version }
                     selected = Choices.get_packages(choices) |> packages_to_menu_items |> add_or_update_package_menu(new_repo)
                     package_menu = update_menu_with_version(model.package_menu, new_repo)
+                    new_choices = choices |> Choices.set_packages(selected |> List.map(menu_item_to_repo))
                     { model &
                         page_first_item: 0,
                         package_menu,
                         menu: package_menu,
                         full_menu: package_menu,
+                        selected,
+                        cursor: { row: 2, col: 2 },
+                        state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
+                    }
+
+                PackageSelect(_) ->
+                    selected = Choices.get_packages(choices) |> packages_to_menu_items
+                    { model &
+                        page_first_item: 0,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
                         selected,
                         cursor: { row: 2, col: 2 },
                         state: PackageSelect({ choices }),
@@ -873,9 +902,13 @@ clear_search_filter = |model|
                 cursor: { row: 2, col: 2 },
             }
 
-        PlatformSelect(_) ->
+        PlatformSelect({ choices }) ->
+            menu = 
+                when choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
-                full_menu: model.platform_menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
             }
 
