@@ -1,55 +1,57 @@
-module [strToSlug, strToLower, strToUpper]
+module [str_to_slug, str_to_lower, str_to_upper]
 
-strToSlug : Str -> Str
-strToSlug = \str ->
+str_to_slug : Str -> Str
+str_to_slug = |str|
     str
-    |> Str.toUtf8
-    |> List.dropIf \c ->
-        if
-            (c == '-')
-            || (c == '_')
-            || (c == ' ')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= 'a' && c <= 'z')
-            || (c >= '0' && c <= '9')
-        then
-            Bool.false
-        else
-            Bool.true
-    |> List.map \c -> if c == ' ' then '_' else c
-    |> Str.fromUtf8
-    |> Result.withDefault ""
+    |> Str.to_utf8
+    |> List.drop_if(
+        |c|
+            if
+                (c == '-')
+                or (c == '_')
+                or (c == ' ')
+                or (c >= 'A' and c <= 'Z')
+                or (c >= 'a' and c <= 'z')
+                or (c >= '0' and c <= '9')
+            then
+                Bool.false
+            else
+                Bool.true,
+    )
+    |> List.map(|c| if c == ' ' then '_' else c)
+    |> Str.from_utf8
+    |> Result.with_default("")
 
-expect strToSlug "AZ" == "AZ"
-expect strToSlug "az" == "az"
-expect strToSlug "@" == ""
-expect strToSlug "[" == ""
-expect strToSlug "a z" == "a_z"
-expect strToSlug "a-z" == "a-z"
+expect str_to_slug("AZ") == "AZ"
+expect str_to_slug("az") == "az"
+expect str_to_slug("@") == ""
+expect str_to_slug("[") == ""
+expect str_to_slug("a z") == "a_z"
+expect str_to_slug("a-z") == "a-z"
 
-strToLower : Str -> Str
-strToLower = \str ->
+str_to_lower : Str -> Str
+str_to_lower = |str|
     str
-    |> Str.toUtf8
-    |> List.map \c -> if c >= 'A' && c <= 'Z' then c + 32 else c
-    |> Str.fromUtf8
-    |> Result.withDefault ""
+    |> Str.to_utf8
+    |> List.map(|c| if c >= 'A' and c <= 'Z' then c + 32 else c)
+    |> Str.from_utf8
+    |> Result.with_default("")
 
-expect strToLower "AZ" == "az"
-expect strToLower "az" == "az"
-expect strToLower "@" == "@"
-expect strToLower "[" == "["
+expect str_to_lower("AZ") == "az"
+expect str_to_lower("az") == "az"
+expect str_to_lower("@") == "@"
+expect str_to_lower("[") == "["
 
-strToUpper : Str -> Str
-strToUpper = \str ->
+str_to_upper : Str -> Str
+str_to_upper = |str|
     str
-    |> Str.toUtf8
-    |> List.map \c -> if c >= 'a' && c <= 'z' then c - 32 else c
-    |> Str.fromUtf8
-    |> Result.withDefault ""
+    |> Str.to_utf8
+    |> List.map(|c| if c >= 'a' and c <= 'z' then c - 32 else c)
+    |> Str.from_utf8
+    |> Result.with_default("")
 
-expect strToUpper "AZ" == "AZ"
-expect strToUpper "az" == "AZ"
-expect strToUpper "@" == "@"
-expect strToUpper "[" == "["
+expect str_to_upper("AZ") == "AZ"
+expect str_to_upper("az") == "AZ"
+expect str_to_upper("@") == "@"
+expect str_to_upper("[") == "["
 

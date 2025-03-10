@@ -8,7 +8,7 @@ BoxStyle : [
     SingleWall,
     DoubleWall,
     OneChar Str,
-    CustomBorder { tl ? Str, t ? Str, tr ? Str, l ? Str, r ? Str, bl ? Str, b ? Str, br ? Str },
+    CustomBorder { tl ?? Str, t ?? Str, tr ?? Str, l ?? Str, r ?? Str, bl ?? Str, b ?? Str, br ?? Str },
 ]
 
 BoxElement : [
@@ -23,7 +23,7 @@ BoxElement : [
 ]
 
 border : BoxElement, BoxStyle -> Str
-border = \pos, style ->
+border = |pos, style|
     when style is
         SingleWall ->
             when pos is
@@ -47,7 +47,7 @@ border = \pos, style ->
                 Bot -> "═"
                 BotRight -> "╝"
 
-        OneChar char ->
+        OneChar(char) ->
             when pos is
                 TopLeft -> char
                 Top -> char
@@ -58,15 +58,15 @@ border = \pos, style ->
                 Bot -> char
                 BotRight -> char
 
-        CustomBorder chars ->
-            boxCharsWithDefaults = \{ tl ? "┌", t ? "─", tr ? "┐", l ? "│", r ? "│", bl ? "└", b ? "─", br ? "┘" } -> { tl, t, tr, l, r, bl, b, br }
-            boxChars = boxCharsWithDefaults chars
+        CustomBorder(chars) ->
+            box_chars_with_defaults = |{ tl ?? "┌", t ?? "─", tr ?? "┐", l ?? "│", r ?? "│", bl ?? "└", b ?? "─", br ?? "┘" }| { tl, t, tr, l, r, bl, b, br }
+            box_chars = box_chars_with_defaults(chars)
             when pos is
-                TopLeft -> boxChars.tl
-                Top -> boxChars.t
-                TopRight -> boxChars.tr
-                Left -> boxChars.l
-                Right -> boxChars.r
-                BotLeft -> boxChars.bl
-                Bot -> boxChars.b
-                BotRight -> boxChars.br
+                TopLeft -> box_chars.tl
+                Top -> box_chars.t
+                TopRight -> box_chars.tr
+                Left -> box_chars.l
+                Right -> box_chars.r
+                BotLeft -> box_chars.bl
+                Bot -> box_chars.b
+                BotRight -> box_chars.br

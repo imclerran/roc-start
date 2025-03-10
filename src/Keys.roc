@@ -1,4 +1,4 @@
-module [Key, keyToStr, keyToSlugStr]
+module [Key, key_to_str, key_to_slug_str]
 
 import Utils
 
@@ -48,8 +48,8 @@ Symbol : [
 Number : [N0, N1, N2, N3, N4, N5, N6, N7, N8, N9]
 Letter : [A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z]
 
-symbolToStr : Symbol -> Str
-symbolToStr = \symbol ->
+symbol_to_str : Symbol -> Str
+symbol_to_str = |symbol|
     when symbol is
         ExclamationMark -> "!"
         QuotationMark -> "\""
@@ -84,8 +84,8 @@ symbolToStr = \symbol ->
         CurlyCloseBrace -> "}"
         Tilde -> "~"
 
-numberToStr : Number -> Str
-numberToStr = \number ->
+number_to_str : Number -> Str
+number_to_str = |number|
     when number is
         N0 -> "0"
         N1 -> "1"
@@ -98,8 +98,8 @@ numberToStr = \number ->
         N8 -> "8"
         N9 -> "9"
 
-letterToStr : Letter -> Str
-letterToStr = \letter ->
+letter_to_str : Letter -> Str
+letter_to_str = |letter|
     when letter is
         A -> "A"
         B -> "B"
@@ -128,46 +128,46 @@ letterToStr = \letter ->
         Y -> "Y"
         Z -> "Z"
 
-keyToStr : Key -> Str
-keyToStr = \key ->
+key_to_str : Key -> Str
+key_to_str = |key|
     when key is
-        Action Space -> " "
-        Symbol symbol ->
+        Action(Space) -> " "
+        Symbol(symbol) ->
             symbol
-            |> symbolToStr
+            |> symbol_to_str
 
-        Number number ->
+        Number(number) ->
             number
-            |> numberToStr
+            |> number_to_str
 
-        Upper letter ->
+        Upper(letter) ->
             letter
-            |> letterToStr
+            |> letter_to_str
 
-        Lower letter ->
+        Lower(letter) ->
             letter
-            |> letterToStr
-            |> Utils.strToLower
+            |> letter_to_str
+            |> Utils.str_to_lower
 
         None -> ""
 
-keyToSlugStr : Key -> Str
-keyToSlugStr = \key ->
+key_to_slug_str : Key -> Str
+key_to_slug_str = |key|
     when key is
-        Action Space -> "_"
-        Symbol Hyphen -> "-"
-        Symbol Underscore -> "_"
-        Number number ->
+        Action(Space) -> "_"
+        Symbol(Hyphen) -> "-"
+        Symbol(Underscore) -> "_"
+        Number(number) ->
             number
-            |> numberToStr
+            |> number_to_str
 
-        Lower letter ->
+        Lower(letter) ->
             letter
-            |> letterToStr
-            |> Utils.strToLower
+            |> letter_to_str
+            |> Utils.str_to_lower
 
-        Upper letter ->
+        Upper(letter) ->
             letter
-            |> letterToStr
+            |> letter_to_str
 
         _ -> ""

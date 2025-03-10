@@ -1,8 +1,14 @@
-module [UserAction, getActions, applyAction, actionIsAvailable, paginate]
+module [UserAction, get_actions, apply_action, action_is_available, paginate]
 
+import Choices
 import Keys exposing [Key]
 import Model exposing [Model]
 import Utils
+import Theme
+import RepoManager as RM
+import rtils.StrUtils
+import rtils.Compare
+import heck.Heck
 
 UserAction : [
     Cancel,
@@ -14,6 +20,7 @@ UserAction : [
     GoBack,
     MultiConfirm,
     MultiSelect,
+    VersionSelect,
     NextPage,
     PrevPage,
     Search,
@@ -27,545 +34,1138 @@ UserAction : [
 ]
 
 ## Get the available actions for the current state
-getActions : Model -> List UserAction
-getActions = \model ->
+get_actions : Model -> List UserAction
+get_actions = |model|
     when model.state is
-        PlatformSelect _ ->
-            [Exit, SingleSelect, CursorUp, CursorDown]
-            |> \actions -> List.append actions (if Model.menuIsFiltered model then ClearFilter else Search)
-            |> List.append GoBack
-            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
-            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+        PlatformSelect(_) ->
+            [Exit, SingleSelect]
+            |> |actions| if Model.get_highlighted_item(model) == "No change" then actions else List.append(actions, VersionSelect)
+            |> |actions| List.join([actions, [CursorUp, CursorDown]])
+            |> with_search_or_clear_filter(model)
+            |> List.append(GoBack)
+            |> with_prev_page(model)
+            |> with_next_page(model)
 
-        PackageSelect _ ->
-            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
-            |> \actions -> List.append actions (if Model.menuIsFiltered model then ClearFilter else Search)
-            |> List.append GoBack
-            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
-            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+        PackageSelect(_) ->
+            [Exit, MultiSelect, VersionSelect, MultiConfirm, CursorUp, CursorDown]
+            |> with_search_or_clear_filter(model)
+            |> List.append(GoBack)
+            |> with_prev_page(model)
+            |> with_next_page(model)
 
-        TypeSelect _ ->
+        MainMenu(_) ->
             [Exit, SingleSelect, CursorUp, CursorDown, Secret]
-            |> \actions -> if Model.isNotFirstPage model then List.append actions PrevPage else actions
-            |> \actions -> if Model.isNotLastPage model then List.append actions NextPage else actions
+            |> with_prev_page(model)
+            |> with_next_page(model)
 
-        InputAppName { nameBuffer } ->
+        InputAppName({ name_buffer }) ->
             [Exit, TextSubmit, TextInput]
-            |> \actions -> List.append actions (if List.isEmpty nameBuffer then GoBack else TextBackspace)
+            |> |actions| List.append(actions, (if List.is_empty(name_buffer) then GoBack else TextBackspace))
 
-        Confirmation _ -> [Exit, Finish, GoBack]
-        Search _ -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
-        Splash _ -> [Exit, GoBack]
+        VersionSelect(_) ->
+            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
+            |> with_prev_page(model)
+            |> with_next_page(model)
+
+        UpdateSelect(_) ->
+            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown, GoBack]
+            |> with_prev_page(model)
+            |> with_next_page(model)
+
+        SettingsMenu(_) ->
+            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
+            |> with_prev_page(model)
+            |> with_next_page(model)
+
+        SettingsSubmenu(_) ->
+            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
+            |> with_prev_page(model)
+            |> with_next_page(model)
+
+        Confirmation(_) -> [Exit, Finish, GoBack]
+        Search(_) -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
+        Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
+with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
+with_prev_page = |actions, model| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
+with_next_page = |actions, model| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
+
 ## Check if the user action is available in the current state
-actionIsAvailable : Model, UserAction -> Bool
-actionIsAvailable = \model, action -> List.contains (getActions model) action
+action_is_available : Model, UserAction -> Bool
+action_is_available = |model, action| List.contains(get_actions(model), action)
 
 ## Translate the user action into a state transition by dispatching to the appropriate handler
-applyAction : { model : Model, action : UserAction, keyPress ? Key } -> [Step Model, Done Model]
-applyAction = \{ model, action, keyPress ? None } ->
-    char = keyPress |> Keys.keyToStr |> \str -> if Str.isEmpty str then None else Char str
-    if actionIsAvailable model action then
+apply_action : { model : Model, action : UserAction, key_press ?? Key } -> [Step Model, Done Model]
+apply_action = |{ model, action, key_press ?? None }|
+    char = key_press |> Keys.key_to_str |> |str| if Str.is_empty(str) then None else Char(str)
+    if action_is_available(model, action) then
         when model.state is
-            TypeSelect _ -> typeSelectHandler model action
-            InputAppName _ -> inputAppNameHandler model action { char }
-            PlatformSelect _ -> platformSelectHandler model action
-            PackageSelect _ -> packageSelectHandler model action
-            Confirmation _ -> confirmationHandler model action
-            Search { sender } -> searchHandler model action { sender, char }
-            Splash _ -> splashHandler model action
-            _ -> defaultHandler model action
+            MainMenu(_) -> main_menu_handler(model, action)
+            SettingsMenu(_) -> settings_menu_handler(model, action)
+            SettingsSubmenu(_) -> settings_submenu_handler(model, action)
+            InputAppName(_) -> input_app_name_handler(model, action, { char })
+            PlatformSelect(_) -> platform_select_handler(model, action)
+            PackageSelect(_) -> package_select_handler(model, action)
+            VersionSelect(_) -> version_select_handler(model, action)
+            UpdateSelect(_) -> update_select_handler(model, action)
+            Confirmation(_) -> confirmation_handler(model, action)
+            Search(_) -> search_handler(model, action, { char })
+            Splash(_) -> splash_handler(model, action)
+            _ -> default_handler(model, action)
     else
-        Step model
+        Step(model)
 
 ## Default handler ensures program can always be exited
-defaultHandler : Model, UserAction -> [Step Model, Done Model]
-defaultHandler = \model, action ->
+default_handler : Model, UserAction -> [Step Model, Done Model]
+default_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
-        _ -> Step model
+        Exit -> Done(to_user_exited_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
 
-## Map the user action to the appropriate state transition from the TypeSelect state
-typeSelectHandler : Model, UserAction -> [Step Model, Done Model]
-typeSelectHandler = \model, action ->
+## Map the user action to the appropriate state transition from the MainMenu state
+main_menu_handler : Model, UserAction -> [Step Model, Done Model]
+main_menu_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
+        Exit -> Done(to_user_exited_state(model))
         SingleSelect ->
-            type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
-            when type is
-                App -> Step (toInputAppNameState model)
-                Pkg -> Step (toPackageSelectState model)
+            selected = Model.get_highlighted_item(model)
+            if Str.contains(selected, "Start app") then
+                Step(to_input_app_name_state(model))
+            else if selected == "Start package" then
+                Step(to_package_select_state(model))
+            else if selected == "Upgrade app" then
+                Step(to_input_app_name_state(model))
+            else if selected == "Upgrade package" then
+                Step(to_package_select_state(model))
+            else if selected == "Update roc-start" then
+                Step(to_update_select_state(model))
+            else if selected == "Settings" then
+                Step(to_settings_menu_state(model))
+            else
+                Step(model)
 
-        CursorUp -> Step (moveCursor model Up)
-        CursorDown -> Step (moveCursor model Down)
-        NextPage -> Step (nextPage model)
-        PrevPage -> Step (prevPage model)
-        Secret -> Step (toSplashState model)
-        _ -> Step model
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        Secret -> Step(to_splash_state(model))
+        _ -> Step(model)
+
+settings_menu_handler : Model, UserAction -> [Step Model, Done Model]
+settings_menu_handler = |model, action|
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        SingleSelect ->
+            selected = Model.get_highlighted_item(model)
+            if selected == "Theme" then
+                Step(to_settings_submenu_state(model, Theme))
+            else if selected == "Verbosity" then
+                Step(to_settings_submenu_state(model, Verbosity))
+            else if selected == "Platform" then
+                Step(to_platform_select_state(model))
+            else
+                Step(to_confirmation_state(model))
+
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        GoBack -> Step(to_main_menu_state(model))
+        _ -> Step(model)
+
+settings_submenu_handler : Model, UserAction -> [Step Model, Done Model]
+settings_submenu_handler = |model, action|
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        SingleSelect -> Step(to_settings_menu_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        GoBack -> Step(to_settings_menu_state({ model & cursor: { row: 0, col: 2 } }))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the PlatformSelect state
-platformSelectHandler : Model, UserAction -> [Step Model, Done Model]
-platformSelectHandler = \model, action ->
+platform_select_handler : Model, UserAction -> [Step Model, Done Model]
+platform_select_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
-        Search -> Step (toSearchState model)
-        SingleSelect -> Step (toPackageSelectState model)
-        CursorUp -> Step (moveCursor model Up)
-        CursorDown -> Step (moveCursor model Down)
-        GoBack ->
-            if Model.menuIsFiltered model then
-                Step (clearSearchFilter model)
-            else
-                Step (toInputAppNameState model)
+        Exit -> Done(to_user_exited_state(model))
+        Search -> Step(to_search_state(model))
+        SingleSelect ->
+            when model.sender is
+                SettingsMenu(_) -> Step(to_settings_menu_state(model))
+                _ -> Step(to_package_select_state(model))
 
-        ClearFilter -> Step (clearSearchFilter model)
-        NextPage -> Step (nextPage model)
-        PrevPage -> Step (prevPage model)
-        _ -> Step model
+        VersionSelect -> Step(to_version_select_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        GoBack ->
+            if Model.menu_is_filtered(model) then
+                Step(clear_search_filter(model))
+            else
+                when model.sender is
+                    InputAppName(_) ->
+                        Step(to_input_app_name_state(model))
+
+                    SettingsMenu(_) ->
+                        Step(to_settings_menu_state(model))
+
+                    VersionSelect({ choices }) ->
+                        when choices is
+                            App(_) -> Step(to_input_app_name_state(model))
+                            Config(_) -> Step(to_settings_menu_state(model))
+                            Upgrade(_) -> Step(to_input_app_name_state(model))
+                            _ -> Step(model)
+
+                    Search({ choices }) -> 
+                        when choices is
+                            App(_) -> Step(to_input_app_name_state(model))
+                            Config(_) -> Step(to_settings_menu_state(model))
+                            Upgrade(_) -> Step(to_input_app_name_state(model))
+                            _ -> Step(model)
+
+                    PackageSelect(_) ->
+                        Step(to_input_app_name_state(model))
+
+                    _ -> Step(model)
+
+        ClearFilter -> Step(clear_search_filter(model))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the PackageSelect state
-packageSelectHandler : Model, UserAction -> [Step Model, Done Model]
-packageSelectHandler = \model, action ->
+package_select_handler : Model, UserAction -> [Step Model, Done Model]
+package_select_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
-        Search -> Step (toSearchState model)
-        MultiConfirm -> Step (toConfirmationState model)
-        MultiSelect -> Step (toggleSelected model)
-        CursorUp -> Step (moveCursor model Up)
-        CursorDown -> Step (moveCursor model Down)
+        Exit -> Done(to_user_exited_state(model))
+        Search -> Step(to_search_state(model))
+        MultiConfirm -> Step(to_confirmation_state(model))
+        MultiSelect -> Step(toggle_selected(model))
+        VersionSelect -> Step(to_version_select_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
         GoBack ->
-            if Model.menuIsFiltered model then
-                Step (clearSearchFilter model)
+            if Model.menu_is_filtered(model) then
+                Step(clear_search_filter(model))
             else
-                type =
-                    when model.state is
-                        PackageSelect { config } -> config.type
-                        _ -> App
-                when type is
-                    App -> Step (toPlatformSelectState model)
-                    Pkg -> Step (toTypeSelectState model)
+                when model.state is
+                    PackageSelect({ choices }) ->
+                        when choices is
+                            App(_) -> Step(to_platform_select_state(model))
+                            Package(_) -> Step(to_main_menu_state(model))
+                            Upgrade({ platform }) -> 
+                                when platform is
+                                    Ok(_) -> Step(to_platform_select_state(model))
+                                    Err(_) -> Step(to_main_menu_state(model))
+                            _ -> Step(model)
 
-        ClearFilter -> Step (clearSearchFilter model)
-        NextPage -> Step (nextPage model)
-        PrevPage -> Step (prevPage model)
-        _ -> Step model
+                    _ -> Step(model)
+
+        ClearFilter -> Step(clear_search_filter(model))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
+
+version_select_handler : Model, UserAction -> [Step Model, Done Model]
+version_select_handler = |model, action|
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        SingleSelect ->
+            when model.sender is
+                PackageSelect(_) -> Step(to_package_select_state(model))
+                PlatformSelect({ choices }) ->
+                    when choices is
+                        Config(_) -> Step(to_settings_menu_state(model))
+                        App(_) -> Step(to_package_select_state(model))
+                        Upgrade(_) -> Step(to_package_select_state(model))
+                        _ -> Step(model)
+
+                _ -> Step(model)
+
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        GoBack ->
+            when model.sender is
+                PackageSelect(_) -> Step(to_package_select_state({ model & cursor: { row: 0, col: 2 } }))
+                PlatformSelect(_) -> Step(to_platform_select_state({ model & cursor: { row: 0, col: 2 } }))
+                _ -> Step(model)
+
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
+
+update_select_handler : Model, UserAction -> [Step Model, Done Model]
+update_select_handler = |model, action|
+    when action is
+        Exit -> Done(to_user_exited_state(model))
+        MultiSelect -> Step(toggle_selected(model))
+        MultiConfirm -> Step(to_confirmation_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        GoBack -> Step(to_main_menu_state(model))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Search state
-searchHandler : Model, UserAction, { sender : [Platform, Package], char ? [Char Str, None] } -> [Step Model, Done Model]
-searchHandler = \model, action, { sender, char ? None } ->
+search_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
+search_handler = |model, action, { char ?? None }|
     when action is
-        Exit -> Done (toUserExitedState model)
+        Exit -> Done(to_user_exited_state(model))
         SearchGo ->
-            when sender is
-                Platform -> Step (toPlatformSelectState model)
-                Package -> Step (toPackageSelectState model)
+            when model.sender is
+                PlatformSelect(_) -> Step(to_platform_select_state(model))
+                PackageSelect(_) -> Step(to_package_select_state(model))
+                _ -> Step(model)
 
-        TextBackspace -> Step (backspaceBuffer model)
+        TextBackspace -> Step(backspace_buffer(model))
         TextInput ->
             when char is
-                Char c -> Step (appendToBuffer model c)
-                None -> Step model
+                Char(c) -> Step(append_to_buffer(model, c))
+                None -> Step(model)
 
         Cancel ->
-            when sender is
-                Platform -> Step (model |> clearBuffer |> toPlatformSelectState)
-                Package -> Step (model |> clearBuffer |> toPackageSelectState)
+            when model.sender is
+                PlatformSelect(_) -> Step(model |> clear_buffer |> to_platform_select_state)
+                PackageSelect(_) -> Step(model |> clear_buffer |> to_package_select_state)
+                _ -> Step(model)
 
-        _ -> Step model
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the InputAppName state
-inputAppNameHandler : Model, UserAction, { char ? [Char Str, None] } -> [Step Model, Done Model]
-inputAppNameHandler = \model, action, { char ? None } ->
+input_app_name_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
+input_app_name_handler = |model, action, { char ?? None }|
     when action is
-        Exit -> Done (toUserExitedState model)
-        TextSubmit -> Step (toPlatformSelectState model)
+        Exit -> Done(to_user_exited_state(model))
+        TextSubmit -> Step(to_platform_select_state(model))
         TextInput ->
             when char is
-                Char c -> Step (appendToBuffer model c)
-                None -> Step model
+                Char(c) -> Step(append_to_buffer(model, c))
+                None -> Step(model)
 
-        TextBackspace -> Step (backspaceBuffer model)
-        GoBack -> Step (toTypeSelectState model)
-        _ -> Step model
+        TextBackspace -> Step(backspace_buffer(model))
+        GoBack -> Step(to_main_menu_state(model))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Confirmation state
-confirmationHandler : Model, UserAction -> [Step Model, Done Model]
-confirmationHandler = \model, action ->
+confirmation_handler : Model, UserAction -> [Step Model, Done Model]
+confirmation_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
-        Finish -> Done (toFinishedState model)
-        GoBack -> Step (toPackageSelectState model)
-        _ -> Step model
+        Exit -> Done(to_user_exited_state(model))
+        Finish -> Done(to_finished_state(model))
+        GoBack ->
+            when model.sender is
+                PackageSelect(_) -> Step(to_package_select_state(model))
+                UpdateSelect(_) -> Step(to_update_select_state(model))
+                SettingsMenu(_) -> Step(to_settings_menu_state(model))
+                _ -> Step(model)
+
+        # Step(to_package_select_state(model))
+        _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Splash state
-splashHandler : Model, UserAction -> [Step Model, Done Model]
-splashHandler = \model, action ->
+splash_handler : Model, UserAction -> [Step Model, Done Model]
+splash_handler = |model, action|
     when action is
-        Exit -> Done (toUserExitedState model)
-        GoBack -> Step (toTypeSelectState model)
-        _ -> Step model
+        Exit -> Done(to_user_exited_state(model))
+        GoBack -> Step(to_main_menu_state(model))
+        _ -> Step(model)
 
 ## Transition to the UserExited state
-toUserExitedState : Model -> Model
-toUserExitedState = \model -> { model & state: UserExited }
+to_user_exited_state : Model -> Model
+to_user_exited_state = |model| { model & state: UserExited, sender: model.state }
 
-## Transition to the TypeSelect state
-toTypeSelectState : Model -> Model
-toTypeSelectState = \model ->
+## Transition to the MainMenu state
+to_main_menu_state : Model -> Model
+to_main_menu_state = |model|
+    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings"]
+    { row, choices: new_choices } =
+        when model.state is
+            InputAppName({ choices, name_buffer }) ->
+                menu_row =
+                    when choices is
+                        App(_) -> model.menu_row
+                        Upgrade(_) -> model.menu_row + 2
+                        _ -> model.menu_row
+                filename = name_buffer |> Str.from_utf8 |> Result.with_default("main")
+                { choices: choices |> Choices.set_filename(filename), row: menu_row }
+
+            PlatformSelect({ choices }) ->
+                platform = Model.get_highlighted_item(model) |> menu_item_to_repo
+                { choices: choices |> Choices.set_platform(platform), row: model.menu_row }
+
+            PackageSelect({ choices }) ->
+                menu_row =
+                    when choices is
+                        Package(_) -> model.menu_row + 1
+                        Upgrade(_) -> model.menu_row + 3
+                        _ -> model.menu_row
+                package_repos = model.selected |> List.map(menu_item_to_repo)
+                { choices: choices |> Choices.set_packages(package_repos), row: menu_row }
+
+            UpdateSelect({ choices }) ->
+                selected = Model.get_selected_items(model)
+                { choices: choices |> Choices.set_updates(selected), row: model.menu_row + 4 }
+
+            SettingsMenu({ choices }) -> { choices, row: model.menu_row + 5 }
+            MainMenu({ choices }) -> { choices, row: 2 }
+            SettingsSubmenu({ choices }) -> { choices, row: 2 }
+            Search({ choices }) -> { choices, row: 2 }
+            VersionSelect({ choices }) -> { choices, row: 2 }
+            Confirmation({ choices }) -> { choices, row: 2 }
+            Finished({ choices }) -> { choices, row: 2 }
+            Splash({ choices }) -> { choices, row: 2 }
+            UserExited -> { choices: NothingToDo, row: 2 }
+
+    { model &
+        cursor: { row, col: 2 },
+        menu,
+        full_menu: menu,
+        state: MainMenu({ choices: new_choices }),
+        sender: model.state,
+    }
+
+to_settings_menu_state : Model -> Model
+to_settings_menu_state = |model|
+    menu = ["Theme", "Verbosity", "Platform", "Save changes"]
     when model.state is
-        InputAppName { config, nameBuffer } ->
-            fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main"
-            newConfig = { config & fileName }
+        MainMenu({ choices }) ->
+            new_choices = Choices.to_config(choices)
             { model &
                 cursor: { row: 2, col: 2 },
-                fullMenu: ["App", "Package"],
-                state: TypeSelect { config: newConfig },
+                full_menu: menu,
+                state: SettingsMenu({ choices: new_choices }),
+                sender: model.state,
             }
 
-        PackageSelect { config } ->
-            configWithPackages =
-                when (addSelectedPackagesToConfig model).state is
-                    PackageSelect data -> data.config
-                    _ -> config
-            if config.type == Pkg then
+        SettingsSubmenu({ choices, submenu }) ->
+            if model.cursor.row < model.menu_row then
                 { model &
-                    fullMenu: ["App", "Package"],
-                    cursor: { row: 2, col: 2 },
-                    state: TypeSelect { config: configWithPackages },
+                    cursor: { row: model.menu_row, col: 2 },
+                    full_menu: menu,
+                    state: SettingsMenu({ choices }),
+                    sender: model.state,
                 }
             else
-                model
+                selection = Model.get_highlighted_item(model)
+                { row, choices: new_choices } =
+                    when submenu is
+                        Theme ->
+                            suffix = " (Default)"
+                            theme = selection |> Str.drop_suffix(suffix) |> Heck.to_kebab_case
+                            { choices: choices |> Choices.set_config_theme(theme), row: model.menu_row }
 
-        Splash { config } ->
+                        Verbosity ->
+                            { choices: choices |> Choices.set_config_verbosity(selection |> Heck.to_kebab_case), row: model.menu_row + 1 }
+
+                        Platform ->
+                            { choices: choices |> Choices.set_config_platform(selection), row: model.menu_row + 2 }
+
+                { model &
+                    cursor: { row, col: 2 },
+                    full_menu: menu,
+                    state: SettingsMenu({ choices: new_choices }),
+                    sender: model.state,
+                }
+
+        PlatformSelect({ choices }) ->
+            platform = Model.get_highlighted_item(model)
+            new_choices = choices |> Choices.set_config_platform(platform)
             { model &
-                cursor: { row: 2, col: 2 },
-                fullMenu: ["App", "Package"],
-                state: TypeSelect { config },
+                cursor: { row: model.menu_row + 2, col: 2 },
+                full_menu: menu,
+                state: SettingsMenu({ choices: new_choices }),
+                sender: model.state,
+            }
+
+        VersionSelect({ choices, repo }) ->
+            selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+            new_repo = { repo & version: selected_version }
+            platform_menu = add_or_update_platform_menu(model.platform_menu, new_repo)
+            new_repo_str = if Str.is_empty(new_repo.version) then new_repo.name else "${new_repo.name}:${new_repo.version}"
+            new_choices = choices |> Choices.set_config_platform(new_repo_str)
+            { model &
+                platform_menu,
+                cursor: { row: model.menu_row + 2, col: 2 },
+                full_menu: menu,
+                state: SettingsMenu({ choices: new_choices }),
+                sender: model.state,
+            }
+
+        Confirmation({ choices }) ->
+            { model &
+                cursor: { row: model.menu_row + 3, col: 2 },
+                full_menu: menu,
+                state: SettingsMenu({ choices }),
+                sender: model.state,
             }
 
         _ -> model
 
+to_settings_submenu_state : Model, [Theme, Verbosity, Platform] -> Model
+to_settings_submenu_state = |model, submenu|
+    menu =
+        when submenu is
+            Theme -> Theme.theme_names |> List.sort_with(Compare.str) |> List.map(|name| Heck.to_title_case(name) |> |tc| if tc == "Roc" then "Roc (Default)" else tc)
+            Verbosity -> ["Verbose", "Quiet", "Silent"]
+            Platform -> model.platform_menu
+
+    choices = Model.get_choices(model)
+    { model &
+        cursor: { row: 2, col: 2 },
+        full_menu: menu,
+        state: SettingsSubmenu({ choices, submenu }),
+        sender: model.state,
+    }
+
 ## Transition to the InputAppName state
-toInputAppNameState : Model -> Model
-toInputAppNameState = \model ->
+to_input_app_name_state : Model -> Model
+to_input_app_name_state = |model|
     when model.state is
-        TypeSelect { config } ->
-            type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
+        MainMenu({ choices }) ->
+            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "Start app" then App else if Str.contains(s, "Upgrade") then Upgrade else Invalid
+            new_choices =
+                when menu_choice is
+                    App -> Choices.to_app(choices)
+                    Upgrade -> Choices.to_upgrade(choices)
+                    Invalid -> choices
+            when menu_choice is
+                Invalid -> model
+                App | Upgrade ->
+                    { model &
+                        cursor: { row: 2, col: 2 },
+                        menu: [],
+                        full_menu: [],
+                        state: InputAppName({ choices: new_choices, name_buffer: [] }),
+                        sender: model.state,
+                    }
+
+        PlatformSelect({ choices }) ->
+            filename = Choices.get_filename(choices) |> Str.drop_suffix(".roc")
             { model &
                 cursor: { row: 2, col: 2 },
                 menu: [],
-                fullMenu: [],
-                state: InputAppName { config: { config & type }, nameBuffer: config.fileName |> Str.toUtf8 },
+                full_menu: [],
+                state: InputAppName({ choices, name_buffer: filename |> Str.to_utf8 }),
+                sender: model.state,
             }
 
-        PlatformSelect { config } ->
+        Splash({ choices }) ->
+            filename = Choices.get_filename(choices) |> Str.drop_suffix(".roc")
             { model &
                 cursor: { row: 2, col: 2 },
-                menu: [],
-                fullMenu: [],
-                state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
-            }
-
-        Splash { config } ->
-            { model &
-                cursor: { row: 2, col: 2 },
-                state: InputAppName { config, nameBuffer: config.fileName |> Str.toUtf8 },
+                state: InputAppName({ choices, name_buffer: filename |> Str.to_utf8 }),
+                sender: model.state,
             }
 
         _ -> model
 
 ## Transition to the Splash state
-toSplashState : Model -> Model
-toSplashState = \model ->
+to_splash_state : Model -> Model
+to_splash_state = |model|
     when model.state is
-        TypeSelect { config } ->
+        MainMenu({ choices }) ->
             { model &
-                state: Splash { config },
+                state: Splash({ choices }),
+                sender: model.state,
             }
 
         _ -> model
 
 ## Transition to the PlatformSelect state
-toPlatformSelectState : Model -> Model
-toPlatformSelectState = \model ->
+to_platform_select_state : Model -> Model
+to_platform_select_state = |model|
     when model.state is
-        InputAppName { config, nameBuffer } ->
-            fileName = nameBuffer |> Str.fromUtf8 |> Result.withDefault "main" |> \name -> if Str.isEmpty name then "main" else name
-            newConfig = { config & fileName }
+        InputAppName({ choices, name_buffer }) ->
+            filename = name_buffer |> Str.from_utf8 |> Result.with_default("main") |> |name| if Str.is_empty(name) then "main" else name
+            new_choices = choices |> Choices.set_filename(filename)
+            menu = 
+                when new_choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
-                pageFirstItem: 0,
-                menu: model.platformList,
-                fullMenu: model.platformList,
+                page_first_item: 0,
+                menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
-                state: PlatformSelect { config: newConfig },
+                state: PlatformSelect({ choices: new_choices }),
+                sender: model.state,
             }
 
-        Search { config, searchBuffer } ->
-            filteredMenu =
-                model.platformList
-                |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault "")
+        Search({ choices, search_buffer }) ->
+            filtered_menu =
+                model.platform_menu
+                |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
             { model &
-                pageFirstItem: 0,
-                menu: filteredMenu,
-                fullMenu: filteredMenu,
+                page_first_item: 0,
+                menu: filtered_menu,
+                full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
-                state: PlatformSelect { config },
+                state: PlatformSelect({ choices }),
+                sender: model.state,
             }
 
-        PackageSelect { config } ->
-            configWithPackages =
-                when (addSelectedPackagesToConfig model).state is
-                    PackageSelect data -> data.config
-                    _ -> config
+        PackageSelect({ choices }) ->
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
+            menu = 
+                when new_choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
-                pageFirstItem: 0,
-                menu: model.platformList,
-                fullMenu: model.platformList,
+                page_first_item: 0,
+                menu: menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
-                state: PlatformSelect { config: configWithPackages },
+                state: PlatformSelect({ choices: new_choices }),
+                sender: model.state,
+            }
+
+        VersionSelect({ choices }) ->
+            { model &
+                page_first_item: 0,
+                menu: model.platform_menu,
+                full_menu: model.platform_menu,
+                cursor: { row: 2, col: 2 },
+                state: PlatformSelect({ choices }),
+                sender: model.state,
+            }
+
+        SettingsMenu({ choices }) ->
+            { model &
+                page_first_item: 0,
+                menu: model.platform_menu,
+                full_menu: model.platform_menu,
+                cursor: { row: 2, col: 2 },
+                state: PlatformSelect({ choices }),
+                sender: model.state,
             }
 
         _ -> model
 
-## Transition to the PackageSelect state
-toPackageSelectState : Model -> Model
-toPackageSelectState = \model ->
+to_version_select_state : Model -> Model
+to_version_select_state = |model|
     when model.state is
-        TypeSelect { config } ->
-            type = Model.getHighlightedItem model |> \str -> if str == "App" then App else Pkg
-            fileName = "main"
+        PackageSelect({ choices }) ->
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
+            package_choice = Model.get_highlighted_item(model) |> menu_item_to_repo
+            { package_name, package_version } = Str.split_first(package_choice, ":") |> Result.with_default({ before: package_choice, after: "" }) |> |{ before, after }| { package_name: before, package_version: after }
+            package_repo = RM.get_full_repo_name(model.package_name_map, package_name, Package) |> Result.with_default(package_name)
+            package_releases = Dict.get(model.packages, package_repo) |> Result.with_default([])
+            when package_releases is
+                [] -> model
+                _ ->
+                    versions = package_releases |> List.map(|{ tag }| tag) |> List.prepend("latest")
+                    { model &
+                        page_first_item: 0,
+                        menu: versions,
+                        full_menu: versions,
+                        cursor: { row: 2, col: 2 },
+                        state: VersionSelect({ choices: new_choices, repo: { name: package_name, version: package_version } }),
+                        sender: model.state,
+                    }
+
+        PlatformSelect({ choices }) ->
+            platform = Model.get_highlighted_item(model) |> menu_item_to_repo
+            new_choices = choices |> Choices.set_platform(platform)
+            { platform_name, platform_version } = Str.split_first(platform, ":") |> Result.with_default({ before: platform, after: "" }) |> |{ before, after }| { platform_name: before, platform_version: after }
+            platform_repo = RM.get_full_repo_name(model.platform_name_map, platform_name, Platform) |> Result.with_default(platform_name)
+            platform_releases = Dict.get(model.platforms, platform_repo) |> Result.with_default([])
+            when platform_releases is
+                [] -> model
+                _ ->
+                    versions = platform_releases |> List.map(|{ tag }| tag) |> List.prepend("latest")
+                    { model &
+                        page_first_item: 0,
+                        menu: versions,
+                        full_menu: versions,
+                        cursor: { row: 2, col: 2 },
+                        state: VersionSelect({ choices: new_choices, repo: { name: platform_name, version: platform_version } }),
+                        sender: model.state,
+                    }
+
+        _ -> model
+
+## Transition to the PackageSelect state
+to_package_select_state : Model -> Model
+to_package_select_state = |model|
+    when model.state is
+        MainMenu({ choices }) ->
+            menu_choice = Model.get_highlighted_item(model) |> |s| if s == "Start package" then Package else if Str.contains(s, "Upgrade") then Upgrade else Invalid
+            when menu_choice is
+                Package | Upgrade ->
+                    new_choices =
+                        when menu_choice is
+                            Package -> Choices.to_package(choices)
+                            Upgrade -> Choices.to_upgrade(choices)
+                            Invalid -> choices
+                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items              
+                    { model &
+                        page_first_item: 0,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
+                        cursor: { row: 2, col: 2 },
+                        selected,
+                        state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
+                    }
+
+                _ -> model
+
+        PlatformSelect({ choices }) ->
+            platform = Model.get_highlighted_item(model) |> |s| if s == "No change" then "" else s
+            new_choices = choices |> Choices.set_platform(platform)
+            selected = Choices.get_packages(new_choices) |> packages_to_menu_items
             { model &
-                pageFirstItem: 0,
-                menu: model.packageList,
-                fullMenu: model.packageList,
+                page_first_item: 0,
+                menu: model.package_menu,
+                full_menu: model.package_menu,
                 cursor: { row: 2, col: 2 },
-                selected: config.packages,
-                state: PackageSelect { config: { config & type, fileName } },
+                selected,
+                state: PackageSelect({ choices: new_choices }),
+                sender: model.state,
             }
 
-        PlatformSelect { config } ->
-            platform = Model.getHighlightedItem model
+        Search({ choices, search_buffer }) ->
+            filtered_menu =
+                model.package_menu
+                |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
+            selected = Choices.get_packages(choices) |> packages_to_menu_items
             { model &
-                pageFirstItem: 0,
-                menu: model.packageList,
-                fullMenu: model.packageList,
+                page_first_item: 0,
+                menu: filtered_menu,
+                full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
-                selected: config.packages,
-                state: PackageSelect { config: { config & platform } },
+                selected,
+                state: PackageSelect({ choices }),
+                sender: model.state,
             }
 
-        Search { config, searchBuffer } ->
-            filteredMenu =
-                model.packageList
-                |> List.keepIf \item -> Str.contains item (searchBuffer |> Str.fromUtf8 |> Result.withDefault "")
+        Confirmation({ choices }) ->
+            selected = Choices.get_packages(choices) |> packages_to_menu_items
             { model &
-                pageFirstItem: 0,
-                menu: filteredMenu,
-                fullMenu: filteredMenu,
+                page_first_item: 0,
+                menu: model.package_menu,
+                full_menu: model.package_menu,
+                selected,
                 cursor: { row: 2, col: 2 },
-                selected: config.packages,
-                state: PackageSelect { config },
+                state: PackageSelect({ choices }),
+                sender: model.state,
             }
 
-        Confirmation { config } ->
+        VersionSelect({ choices, repo }) ->
+            when model.sender is
+                PackageSelect(_) if model.cursor.row != 0 ->
+                    selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+                    new_repo = { repo & version: selected_version }
+                    selected = Choices.get_packages(choices) |> packages_to_menu_items |> add_or_update_package_menu(new_repo)
+                    package_menu = update_menu_with_version(model.package_menu, new_repo)
+                    new_choices = choices |> Choices.set_packages(selected |> List.map(menu_item_to_repo))
+                    { model &
+                        page_first_item: 0,
+                        package_menu,
+                        menu: package_menu,
+                        full_menu: package_menu,
+                        selected,
+                        cursor: { row: 2, col: 2 },
+                        state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
+                    }
+
+                PackageSelect(_) ->
+                    selected = Choices.get_packages(choices) |> packages_to_menu_items
+                    { model &
+                        page_first_item: 0,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
+                        selected,
+                        cursor: { row: 2, col: 2 },
+                        state: PackageSelect({ choices }),
+                        sender: model.state,
+                    }
+
+                PlatformSelect(_) ->
+                    selected_version = Model.get_highlighted_item(model) |> |v| if v == "latest" then "" else v
+                    new_repo = { repo & version: selected_version }
+                    platform_menu = add_or_update_platform_menu(model.platform_menu, new_repo)
+                    new_platform = if Str.is_empty(selected_version) then new_repo.name else "${new_repo.name}:${selected_version}"
+                    new_choices = choices |> Choices.set_platform(new_platform)
+                    { model &
+                        page_first_item: 0,
+                        platform_menu,
+                        menu: model.package_menu,
+                        full_menu: model.package_menu,
+                        cursor: { row: 2, col: 2 },
+                        selected: Choices.get_packages(new_choices) |> packages_to_menu_items,
+                        state: PackageSelect({ choices: new_choices }),
+                        sender: model.state,
+                    }
+
+                _ -> model
+
+        _ -> model
+
+to_update_select_state : Model -> Model
+to_update_select_state = |model|
+    when model.state is
+        MainMenu({ choices }) ->
+            new_choices = Choices.to_update(choices)
+            selected = Choices.get_updates(new_choices)
             { model &
-                pageFirstItem: 0,
-                menu: model.packageList,
-                fullMenu: model.packageList,
-                selected: config.packages,
+                page_first_item: 0,
+                menu: ["Platforms", "Packages", "Scripts"],
+                full_menu: ["Platforms", "Packages", "Scripts"],
                 cursor: { row: 2, col: 2 },
-                state: PackageSelect { config },
+                selected,
+                state: UpdateSelect({ choices: new_choices }),
+                sender: model.state,
+            }
+
+        Confirmation({ choices }) ->
+            selected = Choices.get_updates(choices)
+            { model &
+                page_first_item: 0,
+                menu: ["Platforms", "Packages", "Scripts"],
+                full_menu: ["Platforms", "Packages", "Scripts"],
+                cursor: { row: 2, col: 2 },
+                selected,
+                state: UpdateSelect({ choices }),
+                sender: model.state,
             }
 
         _ -> model
 
 ## Transition to the Finished state
-toFinishedState : Model -> Model
-toFinishedState = \model ->
-    modelWithPackages = addSelectedPackagesToConfig model
-    when modelWithPackages.state is
-        PlatformSelect { config } -> { model & state: Finished { config } }
-        PackageSelect { config } -> { model & state: Finished { config } }
-        Confirmation { config } -> { model & state: Finished { config } }
+to_finished_state : Model -> Model
+to_finished_state = |model|
+    model_with_packages = add_selected_packages_to_config(model)
+    when model_with_packages.state is
+        Confirmation({ choices }) -> { model & state: Finished({ choices }), sender: model.state }
+        UpdateSelect({ choices }) ->
+            new_choices = choices |> Choices.set_updates(Model.get_selected_items(model))
+            { model & state: Finished({ choices: new_choices }), sender: model.state }
+
         _ -> model
 
 ## Transition to the Confirmation state
-toConfirmationState : Model -> Model
-toConfirmationState = \model ->
-    modelWithPackages = addSelectedPackagesToConfig model
-    when modelWithPackages.state is
-        PlatformSelect { config } -> { model & state: Confirmation { config } }
-        PackageSelect { config } -> { model & state: Confirmation { config } }
+to_confirmation_state : Model -> Model
+to_confirmation_state = |model|
+    model_with_packages = add_selected_packages_to_config(model)
+    when model_with_packages.state is
+        PlatformSelect({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
+        PackageSelect({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
+        UpdateSelect({ choices }) ->
+            new_choices = choices |> Choices.set_updates(Model.get_selected_items(model))
+            { model & state: Confirmation({ choices: new_choices }), sender: model.state }
+
+        SettingsMenu({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
         _ -> model
 
 ## Transition to the Search state
-toSearchState : Model -> Model
-toSearchState = \model ->
+to_search_state : Model -> Model
+to_search_state = |model|
     when model.state is
-        PlatformSelect { config } ->
+        PlatformSelect({ choices }) ->
             { model &
-                cursor: { row: model.menuRow, col: 2 },
-                state: Search { config, searchBuffer: [], sender: Platform },
+                cursor: { row: model.menu_row, col: 2 },
+                state: Search({ choices, search_buffer: [] }),
+                # sender: Platform
+                sender: model.state,
             }
 
-        PackageSelect { config } ->
-            newConfig = { config & packages: model.selected }
+        PackageSelect({ choices }) ->
+            package_repos = model.selected |> List.map(menu_item_to_repo)
+            new_choices = choices |> Choices.set_packages(package_repos)
             { model &
-                cursor: { row: model.menuRow, col: 2 },
-                state: Search { config: newConfig, searchBuffer: [], sender: Package },
+                cursor: { row: model.menu_row, col: 2 },
+                state: Search({ choices: new_choices, search_buffer: [] }),
+                # sender: Package
+                sender: model.state,
             }
 
         _ -> model
 
 ## Clear the search filter
-clearSearchFilter : Model -> Model
-clearSearchFilter = \model ->
+clear_search_filter : Model -> Model
+clear_search_filter = |model|
     when model.state is
-        PackageSelect _ ->
+        PackageSelect(_) ->
             { model &
-                fullMenu: model.packageList,
-                # cursor: { row: model.menuRow, col: 2 },
+                full_menu: model.package_menu,
+                cursor: { row: 2, col: 2 },
             }
 
-        PlatformSelect _ ->
+        PlatformSelect({ choices }) ->
+            menu = 
+                when choices is
+                    Upgrade(_) -> List.join([["No change"], model.platform_menu])
+                    _ -> model.platform_menu
             { model &
-                fullMenu: model.platformList,
-                # cursor: { row: model.menuRow, col: 2 },
+                full_menu: menu,
+                cursor: { row: 2, col: 2 },
             }
 
         _ -> model
 
 ## Append a key to the name or search buffer
-appendToBuffer : Model, Str -> Model
-appendToBuffer = \model, str ->
+append_to_buffer : Model, Str -> Model
+append_to_buffer = |model, str|
     when model.state is
-        Search { searchBuffer, config, sender } ->
-            newBuffer = List.concat searchBuffer (Utils.strToSlug str |> Str.toUtf8)
-            { model & state: Search { config, sender, searchBuffer: newBuffer } }
+        Search({ search_buffer, choices }) -> # sender
+            new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
+            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
 
-        InputAppName { nameBuffer, config } ->
-            newBuffer = List.concat nameBuffer (Utils.strToSlug str |> Str.toUtf8)
-            { model & state: InputAppName { config, nameBuffer: newBuffer } }
+        InputAppName({ name_buffer, choices }) ->
+            new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
+            { model & state: InputAppName({ choices, name_buffer: new_buffer }) }
 
         _ -> model
 
 ## Remove the last character from the name or search buffer
-backspaceBuffer : Model -> Model
-backspaceBuffer = \model ->
+backspace_buffer : Model -> Model
+backspace_buffer = |model|
     when model.state is
-        Search { searchBuffer, config, sender } ->
-            newBuffer = List.dropLast searchBuffer 1
-            { model & state: Search { config, sender, searchBuffer: newBuffer } }
+        Search({ search_buffer, choices }) -> # sender
+            new_buffer = List.drop_last(search_buffer, 1)
+            { model & state: Search({ choices, search_buffer: new_buffer }) } # sender
 
-        InputAppName { nameBuffer, config } ->
-            newBuffer = List.dropLast nameBuffer 1
-            { model & state: InputAppName { config, nameBuffer: newBuffer } }
+        InputAppName({ name_buffer, choices }) ->
+            new_buffer = List.drop_last(name_buffer, 1)
+            { model & state: InputAppName({ choices, name_buffer: new_buffer }) }
 
         _ -> model
 
 ## Clear the search buffer
-clearBuffer : Model -> Model
-clearBuffer = \model ->
+clear_buffer : Model -> Model
+clear_buffer = |model|
     when model.state is
-        Search { config, sender } ->
-            { model & state: Search { config, sender, searchBuffer: [] } }
+        Search({ choices }) -> # sender
+            { model & state: Search({ choices, search_buffer: [] }) } # sender
 
-        InputAppName { config } ->
-            { model & state: InputAppName { config, nameBuffer: [] } }
+        InputAppName({ choices }) ->
+            { model & state: InputAppName({ choices, name_buffer: [] }) }
 
         _ -> model
 
 ## Toggle the selected state of an item in a multi-select menu
-toggleSelected : Model -> Model
-toggleSelected = \model ->
-    item = Model.getHighlightedItem model
-    if List.contains model.selected item then
-        { model & selected: List.dropIf model.selected \i -> i == item }
+toggle_selected : Model -> Model
+toggle_selected = |model|
+    item = Model.get_highlighted_item(model)
+    if List.contains(model.selected, item) then
+        { model & selected: List.drop_if(model.selected, |i| i == item) }
     else
-        { model & selected: List.append model.selected item }
+        { model & selected: List.append(model.selected, item) }
 
 ## Add the selected packages to the configuration
-addSelectedPackagesToConfig : Model -> Model
-addSelectedPackagesToConfig = \model ->
+add_selected_packages_to_config : Model -> Model
+add_selected_packages_to_config = |model|
     when model.state is
-        PackageSelect data ->
-            packages = Model.getSelectedItems model
-            { model &
-                state: PackageSelect
-                    { data &
-                        config: {
-                            platform: data.config.platform,
-                            fileName: data.config.fileName,
-                            packages,
-                            type: data.config.type,
-                        },
-                    },
-            }
+        PackageSelect(data) ->
+            package_repos = Model.get_selected_items(model) |> List.map(menu_item_to_repo)
+            new_choices = data.choices |> Choices.set_packages(package_repos)
+            { model & state: PackageSelect({ data & choices: new_choices }) }
 
         _ -> model
 
 ## Split the menu into pages, and adjust the cursor position if necessary
 paginate : Model -> Model
-paginate = \model ->
-    maxItems = 
-        Num.subChecked (model.screen.height) (model.menuRow + 1)
-        |> Result.withDefault 0
-        |> Num.toU64
-    pageFirstItem =
-        if List.len model.menu < maxItems && model.pageFirstItem > 0 then
-            idx = Num.toI64 (List.len model.fullMenu) - Num.toI64 maxItems
-            if idx >= 0 then Num.toU64 idx else 0
+paginate = |model|
+    max_items =
+        Num.sub_checked(model.screen.height, (model.menu_row + 1))
+        |> Result.with_default(0)
+        |> Num.to_u64
+    page_first_item =
+        if List.len(model.menu) < max_items and model.page_first_item > 0 then
+            idx = Num.to_i64(List.len(model.full_menu)) - Num.to_i64(max_items)
+            if idx >= 0 then Num.to_u64(idx) else 0
         else
-            model.pageFirstItem
-    menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
-    cursorRow =
-        if model.cursor.row >= model.menuRow + Num.toU16 (List.len menu) && List.len menu > 0 then
-            model.menuRow + Num.toU16 (List.len menu) - 1
+            model.page_first_item
+    menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+    cursor_row =
+        if model.cursor.row >= model.menu_row + Num.to_u16(List.len(menu)) and List.len(menu) > 0 then
+            model.menu_row + Num.to_u16(List.len(menu)) - 1
         else
             model.cursor.row
-    cursor = { row: cursorRow, col: model.cursor.col }
-    { model & menu, pageFirstItem, cursor }
+    cursor = { row: cursor_row, col: model.cursor.col }
+    { model & menu, page_first_item, cursor }
 
 ## Move to the next page if possible
-nextPage : Model -> Model
-nextPage = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
-    if Model.isNotLastPage model then
-        pageFirstItem = model.pageFirstItem + maxItems
-        menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
-        cursor = { row: model.menuRow, col: model.cursor.col }
-        { model & menu, pageFirstItem, cursor }
+next_page : Model -> Model
+next_page = |model|
+    max_items = model.screen.height - (model.menu_row + 1) |> Num.to_u64
+    if Model.is_not_last_page(model) then
+        page_first_item = model.page_first_item + max_items
+        menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+        cursor = { row: model.menu_row, col: model.cursor.col }
+        { model & menu, page_first_item, cursor }
     else
         model
 
 ## Move to the previous page if possible
-prevPage : Model -> Model
-prevPage = \model ->
-    maxItems = model.screen.height - (model.menuRow + 1) |> Num.toU64
-    if Model.isNotFirstPage model then
-        pageFirstItem = if (Num.toI64 model.pageFirstItem - Num.toI64 maxItems) > 0 then model.pageFirstItem - maxItems else 0
-        menu = List.sublist model.fullMenu { start: pageFirstItem, len: maxItems }
-        cursor = { row: model.menuRow, col: model.cursor.col }
-        { model & menu, pageFirstItem, cursor }
+prev_page : Model -> Model
+prev_page = |model|
+    max_items = model.screen.height - (model.menu_row + 1) |> Num.to_u64
+    if Model.is_not_first_page(model) then
+        page_first_item = if (Num.to_i64(model.page_first_item) - Num.to_i64(max_items)) > 0 then model.page_first_item - max_items else 0
+        menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+        cursor = { row: model.menu_row, col: model.cursor.col }
+        { model & menu, page_first_item, cursor }
     else
         model
 
 ## Move the cursor up or down
-moveCursor : Model, [Up, Down] -> Model
-moveCursor = \model, direction ->
-    if List.len model.menu > 0 then
+move_cursor : Model, [Up, Down] -> Model
+move_cursor = |model, direction|
+    if List.len(model.menu) > 0 then
         when direction is
             Up ->
-                if model.cursor.row <= Num.toU16 (model.menuRow) then
-                    { model & cursor: { row: Num.toU16 (List.len model.menu) + model.menuRow - 1, col: model.cursor.col } }
+                if model.cursor.row <= Num.to_u16(model.menu_row) then
+                    { model & cursor: { row: Num.to_u16(List.len(model.menu)) + model.menu_row - 1, col: model.cursor.col } }
                 else
                     { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
 
             Down ->
-                if model.cursor.row >= Num.toU16 (List.len model.menu - 1) + Num.toU16 (model.menuRow) then
-                    { model & cursor: { row: Num.toU16 (model.menuRow), col: model.cursor.col } }
+                if model.cursor.row >= Num.to_u16((List.len(model.menu) - 1)) + Num.to_u16(model.menu_row) then
+                    { model & cursor: { row: Num.to_u16(model.menu_row), col: model.cursor.col } }
                 else
                     { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
     else
         model
+
+repo_to_menu_item : Str -> Str
+repo_to_menu_item = |repo|
+    when Str.split_first(repo, "/") is
+        Ok({ before: owner, after: name_maybe_version }) ->
+            when Str.split_first(name_maybe_version, ":") is
+                Ok({ before: name, after: version }) -> "${name} (${owner}) : ${version}"
+                _ -> "${name_maybe_version} (${owner})"
+
+        _ ->
+            when Str.split_first(repo, ":") is
+                Ok({ before: name, after: version }) -> "${name} : ${version}"
+                _ -> repo
+
+expect repo_to_menu_item("owner/name:version") == "name (owner) : version"
+expect repo_to_menu_item("owner/name") == "name (owner)"
+expect repo_to_menu_item("name:version") == "name : version"
+expect repo_to_menu_item("name") == "name"
+
+menu_item_to_repo : Str -> Str
+menu_item_to_repo = |item|
+    when StrUtils.split_if(item, |c| List.contains(['(', ')'], c)) is
+        [name_dirty, owner, version_dirty] ->
+            name = Str.trim(name_dirty)
+            version = Str.drop_prefix(version_dirty, " : ") |> Str.trim
+            "${owner}/${name}:${version}"
+
+        [name_dirty, owner] ->
+            name = Str.trim(name_dirty)
+            "${owner}/${name}"
+
+        _ ->
+            when Str.split_first(item, " : ") is
+                Ok({ before: name, after: version }) -> "${name}:${version}"
+                _ -> item
+
+expect menu_item_to_repo("name (owner) : version") == "owner/name:version"
+expect menu_item_to_repo("name (owner)") == "owner/name"
+expect menu_item_to_repo("name : version") == "name:version"
+expect menu_item_to_repo("name") == "name"
+
+expect menu_item_to_repo(repo_to_menu_item("owner/name:version")) == "owner/name:version"
+expect menu_item_to_repo(repo_to_menu_item("owner/name")) == "owner/name"
+expect menu_item_to_repo(repo_to_menu_item("name:version")) == "name:version"
+expect menu_item_to_repo(repo_to_menu_item("name")) == "name"
+
+expect repo_to_menu_item(menu_item_to_repo("name (owner) : version")) == "name (owner) : version"
+expect repo_to_menu_item(menu_item_to_repo("name (owner)")) == "name (owner)"
+expect repo_to_menu_item(menu_item_to_repo("name : version")) == "name : version"
+expect repo_to_menu_item(menu_item_to_repo("name")) == "name"
+
+packages_to_menu_items : List { name : Str, version : Str } -> List Str
+packages_to_menu_items = |packages|
+    List.map(
+        packages,
+        |{ name: repo, version }|
+            when Str.split_first(repo, "/") is
+                Ok({ before: owner, after: name }) ->
+                    "${name} (${owner})"
+                    |> |s| if Str.is_empty(version) then s else "${s} : ${version}"
+
+                _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
+    )
+
+# platforms_to_menu_items : List { name : Str, version : Str } -> List Str
+# platforms_to_menu_items = |platforms|
+#     List.map(
+#         platforms,
+#         |{ name: repo, version }|
+#             when Str.split_first(repo, "/") is
+#                 Ok({ before: owner, after: name }) ->
+#                     "${name} (${owner})"
+#                     |> |s| if Str.is_empty(version) then s else "${s} : ${version}"
+
+#                 _ -> if Str.is_empty(version) then repo else "${repo} : ${version}",
+#     )
+
+update_menu_with_version : List Str, { name : Str, version : Str } -> List Str
+update_menu_with_version = |menu, { name, version }|
+    match_name = name |> repo_to_menu_item
+    insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
+    List.map(
+        menu,
+        |item|
+            when Str.split_first(item, " : ") is
+                Ok({ before: item_name }) ->
+                    if item_name == match_name then insert_item else item
+
+                _ ->
+                    if item == match_name then insert_item else item,
+    )
+
+# get_selected_package : Model -> { name : Str, version : Str }
+# get_selected_package = |model|
+#     item = Model.get_highlighted_item(model)
+#     when Str.split_first(item, ":") is
+#         Ok({ before: name, after: version }) -> { name, version }
+#         _ -> { name: item, version: "" }
+
+# get_selected_platform : Model -> { name : Str, version : Str }
+# get_selected_platform = |model|
+#     item = Model.get_highlighted_item(model)
+#     when Str.split_first(item, ":") is
+#         Ok({ before: name, after: version }) -> { name, version }
+#         _ -> { name: item, version: "" }
+
+add_or_update_package_menu : List Str, { name : Str, version : Str } -> List Str
+add_or_update_package_menu = |menu, { name, version }|
+    match_name = name |> repo_to_menu_item
+    insert_item = if Str.is_empty(version) then name else "${name}:${version}" |> repo_to_menu_item
+    List.walk(
+        menu,
+        (Bool.false, []),
+        |(found, new_menu), item|
+            when Str.split_first(item, " : ") is
+                Ok({ before: item_name }) ->
+                    if item_name == match_name then
+                        (Bool.true, List.append(new_menu, insert_item))
+                    else
+                        (Bool.false, List.append(new_menu, item))
+
+                _ ->
+                    if item == match_name then
+                        (Bool.true, List.append(new_menu, insert_item))
+                    else
+                        (found, List.append(new_menu, item)),
+    )
+    |> |(found, new_menu)| if found then new_menu else List.append(new_menu, insert_item)
+
+add_or_update_platform_menu : List Str, { name : Str, version : Str } -> List Str
+add_or_update_platform_menu = |menu, { name, version }| add_or_update_package_menu(menu, { name, version })

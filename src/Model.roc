@@ -1,98 +1,143 @@
 module [
     Model,
-    emptyAppConfig,
     init,
-    isNotFirstPage,
-    isNotLastPage,
-    getHighlightedIndex,
-    getHighlightedItem,
-    getSelectedItems,
-    menuIsFiltered,
+    is_not_first_page,
+    is_not_last_page,
+    get_highlighted_index,
+    get_highlighted_item,
+    get_selected_items,
+    menu_is_filtered,
+    get_choices,
 ]
-    
 
 import ansi.ANSI
+import rtils.Compare
+import Choices exposing [Choices]
+import RepoManager as RM exposing [RepositoryRelease]
 
 Model : {
     screen : ANSI.ScreenSize,
     cursor : ANSI.CursorPosition,
-    menuRow : U16,
-    pageFirstItem : U64,
+    menu_row : U16,
+    page_first_item : U64,
     menu : List Str,
-    fullMenu : List Str,
+    full_menu : List Str,
     selected : List Str,
-    inputs : List ANSI.Input,
-    packageList : List Str,
-    platformList : List Str,
+    # inputs : List ANSI.Input,
+    platforms : Dict Str (List RepositoryRelease),
+    packages : Dict Str (List RepositoryRelease),
+    package_name_map : Dict Str (List Str),
+    platform_name_map : Dict Str (List Str),
+    package_menu : List Str,
+    platform_menu : List Str,
     state : State,
+    sender : State,
+    # theme : Theme, 
+    # including theme in model, whether imported from theme module, or redefined internally using Color causes compiler crash
 }
 
-State: [
-    TypeSelect { config : Configuration },
-    InputAppName { nameBuffer : List U8, config : Configuration },
-    Search { searchBuffer : List U8, config : Configuration, sender : [Platform, Package] },
-    PlatformSelect { config : Configuration },
-    PackageSelect { config : Configuration },
-    Confirmation { config : Configuration },
-    Finished { config : Configuration },
-    Splash { config : Configuration },
+State : [
+    MainMenu { choices : Choices },
+    SettingsMenu { choices : Choices },
+    SettingsSubmenu { choices : Choices, submenu : [Theme, Verbosity, Platform] },
+    InputAppName { name_buffer : List U8, choices : Choices },
+    Search { search_buffer : List U8, choices : Choices },
+    PlatformSelect { choices : Choices },
+    PackageSelect { choices : Choices },
+    VersionSelect { choices : Choices, repo : { name : Str, version : Str } },
+    UpdateSelect { choices : Choices },
+    Confirmation { choices : Choices },
+    Finished { choices : Choices },
+    Splash { choices : Choices },
     UserExited,
 ]
 
-Configuration : {
-    type : [App, Pkg],
-    fileName : Str,
-    platform : Str,
-    packages : List Str,
-}
-
-emptyAppConfig = { fileName: "", platform: "", packages: [], type: App }
+no_choices = NothingToDo
 
 ## Initialize the model
-init : List Str, List Str, { state ? State }  -> Model
-init = \platformList, packageList, { state ? TypeSelect { config: emptyAppConfig } } -> {
-    screen: { width: 0, height: 0 },
-    cursor: { row: 2, col: 2 },
-    menuRow: 2,
-    pageFirstItem: 0,
-    menu: ["App", "Package"],
-    fullMenu: ["App", "Package"],
-    platformList,
-    packageList,
-    selected: [],
-    inputs: List.withCapacity 1000,
-    state,
-}
+init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State } -> Model
+init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
+    package_name_map = RM.build_repo_name_map(Dict.keys(packages))
+    platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
+    package_menu = build_repo_menu(package_name_map)
+    platform_menu = build_repo_menu(platform_name_map)
+    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings"]
+    {
+        screen: { width: 0, height: 0 },
+        cursor: { row: 2, col: 2 },
+        menu_row: 2,
+        page_first_item: 0,
+        menu: menu,
+        full_menu: menu,
+        platforms,
+        packages,
+        package_name_map,
+        platform_name_map,
+        platform_menu: platform_menu,
+        package_menu: package_menu,
+        selected: [],
+        state,
+        sender: state,
+    }
+
+build_repo_menu : Dict Str (List Str) -> List Str
+build_repo_menu = |name_map|
+    Dict.to_list(name_map)
+    |> List.sort_with(|(a, _), (b, _)| Compare.str(a, b))
+    |> List.map(
+        |(name, owners)|
+            when owners is
+                [_] -> [name]
+                _ -> List.map(owners, |owner| "${name} (${owner})") |> List.sort_with(Compare.str),
+    )
+    |> List.join
 
 ## Check if the current page is not the first page
-isNotFirstPage : Model -> Bool
-isNotFirstPage = \model -> model.pageFirstItem > 0
+is_not_first_page : Model -> Bool
+is_not_first_page = |model| model.page_first_item > 0
 
 ## Check if the current page is not the last page
-isNotLastPage : Model -> Bool
-isNotLastPage = \model ->
-    maxItems = 
-        Num.subChecked (model.screen.height) (model.menuRow + 1)
-        |> Result.withDefault 0
-        |> Num.toU64
-    model.pageFirstItem + maxItems < List.len model.fullMenu
+is_not_last_page : Model -> Bool
+is_not_last_page = |model|
+    max_items =
+        Num.sub_checked(model.screen.height, (model.menu_row + 1))
+        |> Result.with_default(0)
+        |> Num.to_u64
+    model.page_first_item + max_items < List.len(model.full_menu)
 
 ## Get the index of the highlighted item
-getHighlightedIndex : Model -> U64
-getHighlightedIndex = \model -> Num.toU64 model.cursor.row - Num.toU64 model.menuRow
+get_highlighted_index : Model -> U64
+get_highlighted_index = |model| Num.to_u64(model.cursor.row) - Num.to_u64(model.menu_row)
 
 ## Get the highlighted item
-getHighlightedItem : Model -> Str
-getHighlightedItem = \model -> List.get model.menu (getHighlightedIndex model) |> Result.withDefault ""
+get_highlighted_item : Model -> Str
+get_highlighted_item = |model| List.get(model.menu, get_highlighted_index(model)) |> Result.with_default("")
 
 ## Get the selected items in a multi-select menu
-getSelectedItems : Model -> List Str
-getSelectedItems = \model -> model.selected
+get_selected_items : Model -> List Str
+get_selected_items = |model| model.selected
 
 ## Check if the menu is currently filtered
-menuIsFiltered : Model -> Bool
-menuIsFiltered = \model ->
+menu_is_filtered : Model -> Bool
+menu_is_filtered = |model|
     when model.state is
-        PlatformSelect _ -> List.len model.fullMenu < List.len model.platformList
-        PackageSelect _ -> List.len model.fullMenu < List.len model.packageList
+        PlatformSelect(_) -> List.len(model.full_menu) < List.len(model.platform_menu)
+        PackageSelect(_) -> List.len(model.full_menu) < List.len(model.package_menu)
         _ -> Bool.false
+
+get_choices : Model -> Choices
+get_choices = |model|
+    when model.state is
+        MainMenu({ choices }) -> choices
+        InputAppName({ choices }) -> choices
+        SettingsMenu({ choices }) -> choices
+        SettingsSubmenu({ choices }) -> choices
+        Search({ choices }) -> choices
+        PlatformSelect({ choices }) -> choices
+        PackageSelect({ choices }) -> choices
+        VersionSelect({ choices }) -> choices
+        UpdateSelect({ choices }) -> choices
+        Confirmation({ choices }) -> choices
+        Finished({ choices }) -> choices
+        Splash({ choices }) -> choices
+        _ -> no_choices

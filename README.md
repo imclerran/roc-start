@@ -10,81 +10,96 @@ Starting a new roc app which requires multiple packages can be a bit cumbersome,
 
 Roc-start is intended to streamline this process.
 
-Roc-start maintains a repository of package and platform git repos. From this list, it will fetch the latest release URLs for each of these packages and platforms. Then with a simple command, you can generate a new roc application file. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
+Roc-start maintains a repository of package and platform git repos. From this list, it will fetch the URLs for all releases for each platform and package. Then with a simple command, you can generate a new roc application or pacakge file, or upgrade the dependencies in an existing one. Roc start even aids in platform and package discovery, by allowing you to browse and search for packages and platforms.
+
+## Installing:
+If you already have the github cli installed (gh, not git), installing roc-start is as easy as running the install script in the root directory of the roc-start repository (install.sh).
+
+> __Important:__
+> Roc-start depends on the github cli tool to get the latest releases, and cannot run at all without `gh` installed.
+> Go to https://cli.github.com to install the `gh` tool, and then run `gh auth login`.
+
+Once the github cli tool is installed and authenticated, chdir into the base roc-start repository directory and run:
+```sh
+chmod +x install.sh && ./install.sh
+```
+Roc-start is now installed to `$HOME/.local/bin/`. The first time you run `roc-start`, it will download all release data for each platform and package in its repository, as well as the code generation scripts. You're all ready to go!
 
 ## Two workflows
 
-1) Include the application name, platform, and packages as CLI args:
-   - `roc-start app my-app basic-cli weaver json`
+1) Use the CLI with your prefered arguments:
+   - `roc-start app roc-ansi roc-json roc-ai:0.10.0`
+
+  ![CLI usage example](assets/cli-usage.png)
+
+   
 2) Launch the TUI app to browse and search for packages and platforms:
-   - `roc-start tui`
+   - `roc-start`
 
+  ![TUI main menu screen](assets/tui-main-menu.png)
 
-  ![TUI app package select screen](assets/package-select-screen.png)
+## Usage
+
+Starting a new app is as easy as running `roc-start app`. This will use your default platform, with the filename "main.roc".
+Alternatively, you can:
+- Use `--platform`, to specify the platform. You may include the version tag or leave it off to use the latest release:
+    - `--platform basic-cli` or `--platform basic-cli:0.19.0`.
+- Append as many packages as you want. These may include or ommit the version like the platform, but no option is required.
+    - `roc-start app roc-json:0.12.0`
+- Specify the output filename, if you want something besides main.roc:
+    - `roc-start app --out hello-world` or `roc-start app --out hello-world.roc`
+- Upgrade an existing app or package with `--upgrade`. In this case, specify the file to upgrade with `--in`, or leave it off to use "main.roc"
+    - otherwise, the arguments will be the same as `app`. 
 
 ## Updating platform/package urls
 
-The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by:
-
-- Running with the `-u` / `--update` option (requires other valid args)
-    - IE: `roc-start -u tui`
-    - OR: `roc-start --update main basic-cli`
-
-- If using `roc-start` `v0.3.4` or later, using the update command:
-    - Update all: `roc-start update`
-    - Update only selected, with `--platforms`, `--packages`, `--app-stubs`
-    - IE: `roc-start update --packages`
-    
-> __Important:__
-> Note that roc-start depends on the github cli tool to get the latest releases, and cannot run at all without `gh` installed.
-
-## Dependencies
-
-As mentioned above, `roc-start` depends on the [github cli](https://cli.github.com) tool to fetch the latest release urls. Please make sure to install and log into `gh` before running `roc-start`.
-
+The first time roc-start is run, it will automatically get the latest release urls for the platforms and packages in its repository. These can be updated again at any time by running:
+- `roc-start update`, which will update everything, or with any or all of `--packages`, `--platforms`, or `--scripts`, to update specific components.
+- `roc-start`, and selecting "update roc-start" from the main menu, and continuing on to confirmation"
+  
 ## Getting your package or platform added to roc-start
 
-Please see [GET_LISTED](repository/GET_LISTED.md) for full instructions on getting your package or platform added to roc-start.
-
-Note that some packages and platforms are already included in the repository, but do not appear in the TUI app, and cannot be imported by the CLI app. This is because these packages do not have a github release, or do not include the proper release assets.
-
+To make your package or platform available in roc-start, simply make a pull request to the https://github.com/imclerran/roc-repo, and add your repo to appropriate CSV file (packages.csv, or platforms.csv).
 
 ## roc-start --help
 ```
-A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.
+A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.
 
 Usage:
-  roc-start [options] <app-name> <platform> <packages...>
+  roc-start -v/--verbosity STR --theme STR [options]
   roc-start <COMMAND>
 
 Commands:
-  tui     Use the TUI app to browse and search for platforms and packages.
-  update  Update the platform and package repositories and app stubs. Update all, or specify which to update.
-
-Arguments:
-  <app-name>     Name your new roc app.
-  <platform>     The platform to use.
-  <packages...>  Any packages to use.
+  tui      Use the TUI app to browse and search for platforms and packages.
+  update   Update the platform and package repositories and scripts. Update all, or specify which to update.
+  app      Create a new roc app with the specified name, platform, and packages.
+  package  Create a new roc package main file with all specified packages dependencies.
+  upgrade  Upgrade the platform and/or packages in an app or package
+  config   Configure the default settings for the roc-start CLI tool.
 
 Options:
-  -u, --update   Update the platform and package repositories.
-  -h, --help     Show this help page.
-  -V, --version  Show the version.
+  -v STR, --verbosity STR  Set the verbosity level to one of: verbose, quiet, or silent.
+  --theme STR              Set the color theme to use one of: roc-mono, roc-c16, roc, warn-only, no-color, coffee-cat-dark, coffee-cat-light.
+  -h, --help               Show this help page.
+  -V, --version            Show the version.
 ```
 
-## roc-start update --help
+## roc-start app --help
 ```
-Update the platform and package repositories and app stubs. Update all, or specify which to update.
+Create a new roc app with the specified name, platform, and packages.
 
 Usage:
-  roc-start update [options]
+  roc-start app -o/--out STR -p/--platform STR [options] <packages...>
+
+Arguments:
+  <packages...>  Any packages to use. Set the version of the package with `<package>:<version>`. If version is not set packages will default to the latest version.
 
 Options:
-  -k, --packages   Update the package repositories.
-  -f, --platforms  Update the platform repositories.
-  -s, --app-stubs  Update the app stubs.
-  -h, --help       Show this help page.
-  -V, --version    Show the version.
+  -f, --force             Force overwrite of existing file.
+  -o STR, --out STR       The name of the output file (Defaults to `main.roc`). Extension is not required.
+  -p STR, --platform STR  The platform to use (Defaults to `basic-cli=latest` unless otherwise configured). Set the version with `--platform <platform>:<version>`.
+  -h, --help              Show this help page.
+  -V, --version           Show the version.
 ```
 
 ## roc-start upgrade --help
@@ -92,15 +107,16 @@ Options:
 Upgrade the platform and/or packages in an app or package
 
 Usage:
-  roc-start upgrade [options] <filename> <to-upgrade...>
+  roc-start upgrade -i/--in STR -p/--platform STR [options] <packages...>
 
 Arguments:
-  <filename>       The name of the file who's platforms and/or packages should be upgraded.
-  <to-upgrade...>  List of platform and package names to upgrade. If ommitted, all will be upgraded.
+  <packages...>  List of packages upgrade. If ommitted, all will be upgraded. Version may be specified, or left out to upgrade to the latest version.
 
 Options:
-  -h, --help     Show this help page.
-  -V, --version  Show the version.
+  -i STR, --in STR        The name of the input file who's platforms and/or packages should be upgraded.
+  -p STR, --platform STR  Specify the platform and version to upgrade to. If ommitted, the platform will not be upgraded. If the specified platform is different than the platform in the upgraded file, the platform will be replaced with the specified one.
+  -h, --help              Show this help page.
+  -V, --version           Show the version.
 ```
 
 <!-- [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb -->
