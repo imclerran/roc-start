@@ -10,8 +10,8 @@ module [
     get_platform,
     set_updates,
     get_updates,
-    set_config_colors,
-    get_config_colors,
+    set_config_theme,
+    get_config_theme,
     set_config_verbosity,
     get_config_verbosity,
     set_config_platform,
@@ -29,7 +29,7 @@ Choices : [
     App { filename : Str, force : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
-    Config { colors : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
+    Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
     Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool },
     NothingToDo,
 ]
@@ -99,7 +99,7 @@ to_config = |choices|
             Config(config)
 
         _ ->
-            Config({ colors: Err(NoValue), platform: Err(NoValue), verbosity: Err(NoValue) })
+            Config({ theme: Err(NoValue), platform: Err(NoValue), verbosity: Err(NoValue) })
 
 set_filename : Choices, Str -> Choices
 set_filename = |choices, f|
@@ -194,16 +194,16 @@ get_updates = |choices|
 
         _ -> []
 
-set_config_colors : Choices, Str -> Choices
-set_config_colors = |choices, colors|
+set_config_theme : Choices, Str -> Choices
+set_config_theme = |choices, theme|
     when choices is
-        Config(config) -> Config({ config & colors: Ok(colors) })
+        Config(config) -> Config({ config & theme: Ok(theme) })
         _ -> choices
 
-get_config_colors : Choices -> Result Str [NoValue]
-get_config_colors = |choices|
+get_config_theme : Choices -> Result Str [NoValue]
+get_config_theme = |choices|
     when choices is
-        Config(config) -> config.colors
+        Config(config) -> config.theme
         _ -> Err(NoValue)
 
 set_config_verbosity : Choices, Str -> Choices

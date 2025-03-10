@@ -459,7 +459,7 @@ to_settings_menu_state = |model|
                         Theme ->
                             suffix = " (Default)"
                             theme = selection |> Str.drop_suffix(suffix) |> Heck.to_kebab_case
-                            { choices: choices |> Choices.set_config_colors(theme), row: model.menu_row }
+                            { choices: choices |> Choices.set_config_theme(theme), row: model.menu_row }
 
                         Verbosity ->
                             { choices: choices |> Choices.set_config_verbosity(selection |> Heck.to_kebab_case), row: model.menu_row + 1 }

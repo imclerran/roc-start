@@ -35,10 +35,10 @@ extended_usage =
 
 cli_parser =
     separator = ", "
-    color_choices = Theme.theme_names |> Str.join_with(separator)
+    theme_choices = Theme.theme_names |> Str.join_with(separator)
     { Cli.weave <-
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
-        color: Opt.maybe_str({ short: "c", long: "colors", help: "Set the color theme to use one of: ${color_choices}." })
+        theme: Opt.maybe_str({ long: "theme", help: "Set the color theme to use one of: ${theme_choices}." })
         |> Cli.map(color_to_theme),
         subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, package_subcommand, upgrade_subcommand, config_subcommand]),
     }
@@ -47,7 +47,7 @@ cli_parser =
             name: "roc-start",
             version: "v0.6.0-unreleased",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
-            description: "A simple CLI tool for starting a new roc project. Specify your platform and packages by name, and roc-start will create a new .roc file with the latest releases.",
+            description: "A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or edit an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.",
             text_style: Color,
         },
     )
@@ -180,10 +180,9 @@ update_subcommand =
 
 config_subcommand =
     { Cli.weave <-
-        colors: Opt.maybe_str({ long: "default-colors", help: "Set the default color theme to use in the CLI." }),
-        verbosity: Opt.maybe_str({ long: "default-verbosity", help: "Set the default verbosity level to use in the CLI." }),
-        platform: Opt.maybe_str({ long: "default-platform", help: "Set the default platform to use when initializing a new app." }),
-        # subcommand: SubCmd.optional([config_colors_subcommand, config_verbosity_subcommand, config_platform_subcommand])
+        theme: Opt.maybe_str({ long: "set-theme", help: "Set the default color theme to use in the CLI." }),
+        verbosity: Opt.maybe_str({ long: "set-verbosity", help: "Set the default verbosity level to use in the CLI." }),
+        platform: Opt.maybe_str({ long: "set-platform", help: "Set the default platform to use when initializing a new app." }),
     }
     |> SubCmd.finish(
         {

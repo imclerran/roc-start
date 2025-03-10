@@ -58,9 +58,9 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 main! = |args|
     config = Df.get_config!({})
     when ArgParser.parse_or_display_message(args, to_os_raw) is
-        Ok({ verbosity, color, subcommand }) ->
+        Ok({ verbosity, theme: colors, subcommand }) ->
             theme =
-                when color is
+                when colors is
                     Ok(th) -> th
                     Err(NoTheme) -> config.theme
             log_level =
@@ -135,7 +135,7 @@ do_config_command! = |args, logging|
     theme = logging.theme
     log_level = logging.log_level
     changes =
-        [("theme", args.colors), ("verbosity", args.verbosity), ("platform", args.platform)]
+        [("theme", args.theme), ("verbosity", args.verbosity), ("platform", args.platform)]
         |> List.keep_oks(
             |(key, maybe_value)|
                 when maybe_value is

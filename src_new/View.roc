@@ -441,7 +441,7 @@ render_update_confirmation = |model, theme|
 render_config_confirmation : Model, Theme -> List ANSI.DrawFn
 render_config_confirmation = |model, theme|
     choices = Model.get_choices(model)
-    colors = ("Theme", Choices.get_config_colors(choices))
+    colors = ("Theme", Choices.get_config_theme(choices))
     verbosity = ("Verbosity", Choices.get_config_verbosity(choices))
     platform = ("Platform", Choices.get_config_platform(choices))
     changes =
