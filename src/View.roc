@@ -36,7 +36,7 @@ control_prompts_dict =
     |> Dict.insert(VersionSelect, "V : VERSION")
     |> Dict.insert(MultiConfirm, "ENTER : CONFIRM")
     |> Dict.insert(TextSubmit, "ENTER : CONFIRM")
-    |> Dict.insert(GoBack, "BKSP : GO BACK")
+    |> Dict.insert(GoBack, "BKSP : BACK")
     |> Dict.insert(Search, "S : SEARCH")
     |> Dict.insert(ClearFilter, "ESC : FULL LIST")
     |> Dict.insert(SearchGo, "ENTER : SEARCH")
@@ -52,12 +52,38 @@ control_prompts_dict =
     |> Dict.insert(PrevPage, "< PREV")
     |> Dict.insert(NextPage, "> NEXT")
 
+control_prompts_trunc_dict : Dict UserAction Str
+control_prompts_trunc_dict = 
+    Dict.empty({})
+    |> Dict.insert(SingleSelect, "ENTER : SEL")
+    |> Dict.insert(MultiSelect, "SPACE : SEL")
+    |> Dict.insert(VersionSelect, "V : VER")
+    |> Dict.insert(MultiConfirm, "ENTER : CONF")
+    |> Dict.insert(TextSubmit, "ENTER : CONF")
+    |> Dict.insert(GoBack, "BKSP : BCK")
+    |> Dict.insert(Search, "S : SRCH")
+    |> Dict.insert(ClearFilter, "ESC : CLR")
+    |> Dict.insert(SearchGo, "ENTER : SRCH")
+    |> Dict.insert(Cancel, "ESC : CNCL")
+    |> Dict.insert(Finish, "ENTER : GO")
+    |> Dict.insert(CursorUp, "")
+    |> Dict.insert(CursorDown, "")
+    |> Dict.insert(TextInput, "")
+    |> Dict.insert(TextBackspace, "")
+    |> Dict.insert(Exit, "")
+    |> Dict.insert(None, "")
+    |> Dict.insert(Secret, "")
+    |> Dict.insert(PrevPage, "<")
+    |> Dict.insert(NextPage, ">")
+
+
 ## Shortened control prompts for smaller screens
 control_prompts_short_dict : Dict UserAction Str
 control_prompts_short_dict =
     Dict.empty({})
     |> Dict.insert(SingleSelect, "ENTER")
     |> Dict.insert(MultiSelect, "SPACE")
+    |> Dict.insert(VersionSelect, "V")
     |> Dict.insert(MultiConfirm, "ENTER")
     |> Dict.insert(TextSubmit, "ENTER")
     |> Dict.insert(GoBack, "BKSP")
@@ -85,7 +111,13 @@ controls_prompt_str = |model|
     if prompt_len <= model.screen.width - 6 and prompt_len > 0 then
         " ${long_str} "
     else if prompt_len > 0 then
-        " ${build_control_prompt_str(actions, control_prompts_short_dict)} "
+        prompt_med = build_control_prompt_str(actions, control_prompts_trunc_dict)
+        prompt_med_len = Num.to_u16(Str.count_utf8_bytes(prompt_med))
+        if prompt_med_len <= model.screen.width - 6 then
+            " ${prompt_med} "
+        else
+            prompt_short = build_control_prompt_str(actions, control_prompts_short_dict)
+            " ${prompt_short} "
     else
         ""
 
