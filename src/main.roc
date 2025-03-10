@@ -52,8 +52,8 @@ import Logger {
 import RocParser as RP
 import ErrorHandlers as E
 
-known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-packages.csv"
-known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/known-platforms.csv"
+known_packages_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/packages.csv"
+known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/platforms.csv"
 
 main! = |args|
     config = Df.get_config!({})
@@ -414,7 +414,7 @@ get_repositories! = |logging|
 do_package_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
 do_package_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating packages" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating packages" |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
         ? |_| NetworkError
@@ -428,7 +428,7 @@ do_package_update! = |{ log_level, theme }|
 do_platform_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict []_
 do_platform_update! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| HomeVarNotSet
-    "Updating platforms" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating platforms" |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
         ? |_| NetworkError
@@ -441,7 +441,7 @@ do_platform_update! = |{ log_level, theme }|
 
 do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
 do_scripts_update! = |maybe_pfs, { log_level, theme }|
-    "Updating scripts" |> ANSI.color({ fg: theme.tertiary }) |> Quiet |> log!(log_level)
+    "Updating scripts" |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
