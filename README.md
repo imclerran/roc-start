@@ -61,7 +61,8 @@ The first time roc-start is run, it will automatically get the latest release ur
 
 To make your package or platform available in roc-start, simply make a pull request to the https://github.com/imclerran/roc-repo, and add your repo to appropriate CSV file (packages.csv, or platforms.csv).
 
-## roc-start --help
+## Help pages
+### roc-start --help
 ```
 A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.
 
@@ -84,7 +85,7 @@ Options:
   -V, --version            Show the version.
 ```
 
-## roc-start app --help
+### roc-start app --help
 ```
 Create a new roc app with the specified name, platform, and packages.
 
@@ -102,7 +103,7 @@ Options:
   -V, --version           Show the version.
 ```
 
-## roc-start upgrade --help
+### roc-start upgrade --help
 ```
 Upgrade the platform and/or packages in an app or package
 
