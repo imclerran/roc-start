@@ -138,7 +138,7 @@ save_config! = |config|
     contents = config_to_str(config)
     write_utf8!(contents, file_path) |> Result.map_err(|_| FileWriteError)
 
-default_config = { verbosity: Verbose, theme: Theme.roc, platform: { name: "basic-cli", version: "latest" } }
+default_config = { verbosity: Verbose, theme: Theme.roc_c16, platform: { name: "basic-cli", version: "latest" } }
 
 save_to_dotfile! : { key : Str, value : Str } => Result {} [HomeVarNotSet, FileWriteError, FileReadError]
 save_to_dotfile! = |{ key, value }|

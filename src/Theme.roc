@@ -1,4 +1,4 @@
-module [Theme, themes, theme_names, from_name, roc, roc_mono, warn_only, no_color]
+module [Theme, themes, theme_names, from_name, roc_c16, roc, roc_mono, warn_only, no_color, coffee_cat_dark, coffee_cat_light]
 
 import ansi.Color
 Color : Color.Color
