@@ -14,21 +14,12 @@ Theme : {
 }
 
 themes : List Theme
-themes = [roc_mono, roc, warn_only, no_color]
+themes = [roc_mono, roc_c16, roc, warn_only, no_color, coffee_cat_dark, coffee_cat_light]
 
 theme_names = themes |> List.map(.name)
 
 from_name = |name|
-    if name == roc.name then
-        Ok(roc)
-    else if name == roc_mono.name then
-        Ok(roc_mono)
-    else if name == warn_only.name then
-        Ok(warn_only)
-    else if name == no_color.name then
-        Ok(no_color)
-    else
-        Err(InvalidTheme)
+    List.keep_if(themes, |th| th.name == name) |> List.first |> Result.map_err(|_| InvalidTheme)
 
 roc : Theme
 roc =
@@ -37,7 +28,7 @@ roc =
     dark_cyan = Rgb((57, 171, 219))
     coral = Rgb((222, 100, 124))
     green = Rgb((122, 222, 100))
-    orange = Rgb((222, 136, 100))
+    orange = Rgb((247, 143, 79))
     {
         name: "roc",
         primary: light_purple,
@@ -48,9 +39,20 @@ roc =
         error: coral,
     }
 
+roc_c16 : Theme
+roc_c16 = {
+    name: "roc-c16",
+    primary: Standard Magenta,
+    secondary: Standard Cyan,
+    tertiary: Standard Magenta,
+    okay: Standard Green,
+    warn: Standard Yellow,
+    error: Standard Red,
+}
+
 roc_mono =
     light_purple = Rgb((137, 101, 222))
-    orange = Rgb((222, 136, 100))
+    orange = Rgb((247, 143, 79))
     coral = Rgb((222, 100, 124))
     {
         name: "roc-mono",
@@ -65,7 +67,7 @@ roc_mono =
 warn_only : Theme
 warn_only =
     coral = Rgb((222, 100, 124))
-    orange = Rgb((222, 136, 100))
+    orange = Rgb((247, 143, 79))
     {
         name: "warn-only",
         primary: Default,
@@ -86,3 +88,41 @@ no_color = {
     warn: Default,
     error: Default,
 }
+
+coffee_cat_dark : Theme
+coffee_cat_dark =
+    mauve = Rgb((203, 166, 247))
+    saffire = Rgb((116, 199, 236))
+    maroon = Rgb((235, 160, 172))
+    red = Rgb((243, 139, 168))
+    peach = Rgb((250, 179, 135))
+    green = Rgb((166, 227, 161))
+    {
+        name: "coffee-cat-dark",
+        primary: mauve,
+        secondary: saffire,
+        tertiary: maroon,
+        okay: green,
+        warn: peach,
+        error: red,
+    }
+
+coffee_cat_light : Theme
+coffee_cat_light =
+    mauve = Rgb((136, 57, 239))
+    saffire = Rgb((32, 159, 181))
+    maroon = Rgb((230, 69, 83))
+    red = Rgb((210, 15, 57))
+    peach = Rgb((254, 100, 11))
+    green = Rgb((64, 160, 43))
+    {
+        name: "coffee-cat-light",
+        primary: mauve,
+        secondary: saffire,
+        tertiary: maroon,
+        okay: green,
+        warn: peach,
+        error: red,
+    }
+
+

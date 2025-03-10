@@ -329,7 +329,7 @@ print_app_finish_message! = |filename, num_packages, num_skipped, { log_level, t
         |> log!(log_level)
     else
         ["Created ", filename, " with ", Num.to_str(num_packages), " ${package_s} and skipped ", Num.to_str(num_skipped), " ${skipped_package_s} ", "✔\n"]
-        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.warn, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
 
@@ -586,7 +586,7 @@ print_upgrade_finish_message! = |filename, platform, pf_upgraded, num_packages, 
         |> log!(log_level)
     else if num_skipped == 0 and pf_requested and !pf_upgraded then
         ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", "1", " platform ", "✔\n"]
-        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.warn, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
     else if num_skipped == 0 and !pf_requested then
@@ -596,18 +596,18 @@ print_upgrade_finish_message! = |filename, platform, pf_upgraded, num_packages, 
         |> log!(log_level)
     else if num_skipped > 0 and pf_upgraded then
         ["Upgraded ", filename, " with ", "1", " platform and ", num_packages_str, " ${package_s} and skipped ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
-        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.warn, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
     else if num_skipped > 0 and pf_requested and !pf_upgraded then
         ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", "1", " platform and ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
-        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.secondary, theme.primary, theme.okay])
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.warn, theme.primary, theme.warn, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
     else
         # num_skipped > 0 and !pf_requested
         ["Upgraded ", filename, " with ", num_packages_str, " ${package_s} and skipped ", num_skipped_str, " ${skipped_package_s} ", "✔\n"]
-        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.error, theme.primary, theme.okay])
+        |> colorize([theme.primary, theme.secondary, theme.primary, theme.secondary, theme.primary, theme.warn, theme.primary, theme.okay])
         |> Quiet
         |> log!(log_level)
 

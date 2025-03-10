@@ -51,17 +51,17 @@ handle_upgrade_platform_repo_error = |name, { log_level, theme, log!, colorize }
         when err is
             RepoNotFound ->
                 log_strs = ["Platform: ", name, " : repo not found - skipping\n"]
-                log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                 Err(Handled)
 
             RepoNotFoundButMaybe(suggestion) ->
                 log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - skipping\n"]
-                log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                 Err(Handled)
 
             AmbiguousName ->
                 log_strs = ["Platform: ", name, " : ambiguous; use <owner>/${name} - skipping\n"]
-                log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                 Err(Handled)
 
 handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
@@ -70,7 +70,7 @@ handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
             RepoNotFound ->
                 _ =
                     ["| ", name, " : package repo not found - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
+                    |> colorize([theme.warn, theme.secondary, theme.warn])
                     |> Verbose
                     |> log!(log_level)
                 Err(Handled)
@@ -78,7 +78,7 @@ handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
             RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["| ", name, " : package repo not found; did you mean ${suggestion}? - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
+                    |> colorize([theme.warn, theme.secondary, theme.warn])
                     |> Verbose
                     |> log!(log_level)
                 Err(Handled)
@@ -86,7 +86,7 @@ handle_package_repo_error = |name, { log_level, theme, log!, colorize }|
             AmbiguousName ->
                 _ =
                     ["| ", name, " : ambiguous; use <owner>/${name} - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
+                    |> colorize([theme.warn, theme.secondary, theme.warn])
                     |> Verbose
                     |> log!(log_level)
                 Err(Handled)
@@ -133,7 +133,7 @@ handle_package_release_error = |packages, repo, name, version, { log_level, them
             RepoNotFound ->
                 _ =
                     ["| ", name, " : package not found - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
+                    |> colorize([theme.error, theme.secondary, theme.warn])
                     |> Verbose
                     |> log!(log_level)
                 Err(Handled)
@@ -141,7 +141,7 @@ handle_package_release_error = |packages, repo, name, version, { log_level, them
             RepoNotFoundButMaybe(suggestion) ->
                 _ =
                     ["| ", name, " : package not found; did you mean ${suggestion}? - skipping\n"]
-                    |> colorize([theme.error, theme.secondary, theme.error])
+                    |> colorize([theme.warn, theme.secondary, theme.warn])
                     |> Verbose
                     |> log!(log_level)
                 Err(Handled)
@@ -151,7 +151,7 @@ handle_package_release_error = |packages, repo, name, version, { log_level, them
                     Ok(suggestion) ->
                         _ =
                             ["| ", name, " : version not found; latest is ${suggestion.tag} - skipping\n"]
-                            |> colorize([theme.error, theme.secondary, theme.error])
+                            |> colorize([theme.warn, theme.secondary, theme.warn])
                             |> Verbose
                             |> log!(log_level)
                         Err(Handled)
@@ -159,7 +159,7 @@ handle_package_release_error = |packages, repo, name, version, { log_level, them
                     Err(_) ->
                         _ =
                             ["| ", name, " : version ${version} not found - skipping\n"]
-                            |> colorize([theme.error, theme.secondary, theme.error])
+                            |> colorize([theme.warn, theme.secondary, theme.warn])
                             |> Verbose
                             |> log!(log_level)
                         Err(Handled)
@@ -214,24 +214,24 @@ handle_upgrade_platform_release_error = |platforms, repo, name, version, { log_l
         when err is
             RepoNotFound ->
                 log_strs = ["Platform: ", name, " : repo not found - skipping\n"]
-                log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                 Err(Handled)
 
             RepoNotFoundButMaybe(suggestion) ->
                 log_strs = ["Platform: ", name, " : repo not found; did you mean ${suggestion}? - skipping\n"]
-                log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                 Err(Handled)
 
             VersionNotFound ->
                 when RM.get_repo_release(platforms, repo, "latest", Platform) is
                     Ok(suggestion) ->
                         log_strs = ["Platform: ", name, " : version not found; latest is ${suggestion.tag} - skipping\n"]
-                        log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                        log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                         Err(Handled)
 
                     Err(_) ->
                         log_strs = ["Platform: ", name, " : version ${version} not found - skipping\n"]
-                        log_strs |> colorize([theme.primary, theme.secondary, theme.error]) |> Verbose |> log!(log_level)
+                        log_strs |> colorize([theme.primary, theme.secondary, theme.warn]) |> Verbose |> log!(log_level)
                         Err(Handled)
 
 handle_upgrade_file_read_error = |filename, { log_level, theme, log!, colorize }|

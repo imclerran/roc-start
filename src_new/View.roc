@@ -147,7 +147,7 @@ render_main_menu = |model|
             render_outer_border(model.screen),
             [
                 "MAIN MENU:" |> render_screen_prompt(roc.secondary),
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
             ],
             render_menu(model),
         ],
@@ -164,7 +164,7 @@ render_settings_menu = |model|
             render_outer_border(model.screen),
             [
                 "SETTINGS:" |> render_screen_prompt(roc.secondary),
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
             ],
             render_menu(model),
         ],
@@ -188,7 +188,7 @@ render_settings_submenu = |model|
                     render_outer_border(model.screen),
                     [
                         prompt |> render_screen_prompt(roc.secondary),
-                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                        ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
                     ],
                     render_menu(model),
                 ],
@@ -208,7 +208,7 @@ render_platform_select = |model|
             render_outer_border(model.screen),
             [
                 "SELECT A PLATFORM:" |> render_screen_prompt(roc.secondary),
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
             ],
             render_menu(model),
         ],
@@ -226,7 +226,7 @@ render_package_select = |model|
             render_outer_border(model.screen),
             [
                 "SELECT 0+ PACKAGES:" |> render_screen_prompt(roc.secondary),
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
             ],
             render_multiple_choice_menu(model),
         ],
@@ -246,7 +246,7 @@ render_version_select = |model|
                     render_outer_border(model.screen),
                     [
                         "SELECT A VERSION (${repo.name}):" |> render_screen_prompt(roc.secondary),
-                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                        ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
                     ],
                     render_menu(model),
                 ],
@@ -265,7 +265,7 @@ render_update_select = |model|
             render_outer_border(model.screen),
             [
                 "SELECT 0+ UPDATES:" |> render_screen_prompt(roc.secondary),
-                ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
             ],
             render_multiple_choice_menu(model),
         ],
@@ -287,7 +287,7 @@ render_input_app_name = |model|
                     if List.is_empty(name_buffer) then [" (Leave blank for \"main\"):" |> ANSI.draw_text({ r: 1, c: 20, fg: roc.secondary })] else [],
                     [
                         "ENTER THE APP NAME:" |> render_screen_prompt(roc.secondary),
-                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                        ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
                         buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: roc.secondary }),
                     ],
                 ],
@@ -316,7 +316,7 @@ render_search = |model|
                     render_outer_border(model.screen),
                     [
                         search_prompt |> render_screen_prompt(roc.secondary),
-                        ANSI.draw_cursor({ fg: roc.primary, char: ">" }),
+                        ANSI.draw_cursor({ fg: roc.tertiary, char: ">" }),
                         buffer_text |> ANSI.draw_text({ r: model.menu_row, c: 4, fg: roc.secondary }),
                     ],
                 ],
