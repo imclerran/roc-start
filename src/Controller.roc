@@ -166,7 +166,7 @@ settings_menu_handler = |model, action|
                 Step(to_settings_submenu_state(model, Theme))
             else if selected == "Verbosity" then
                 Step(to_settings_submenu_state(model, Verbosity))
-            else if selected == "Platform" then
+            else if Str.contains(selected, "platform") then
                 Step(to_platform_select_state(model))
             else
                 Step(to_confirmation_state(model))
@@ -433,7 +433,7 @@ to_main_menu_state = |model|
 
 to_settings_menu_state : Model -> Model
 to_settings_menu_state = |model|
-    menu = ["Theme", "Verbosity", "Platform", "Save changes"]
+    menu = ["Theme", "Verbosity", "Default platform", "Save changes"]
     when model.state is
         MainMenu({ choices }) ->
             new_choices = Choices.to_config(choices)
