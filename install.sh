@@ -19,7 +19,7 @@ if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--no-optimize" ]; then
     OPTIMIZE=""
 fi
 
-SRC_DIR="src_new"
+SRC_DIR="src"
 
 # Notify user that roc-start build process is starting
 echo -en "Building ${MAGENTA}roc-start${RESET}..."
