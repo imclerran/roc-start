@@ -114,7 +114,6 @@ coffee_cat_light =
     saffire = rgb(32, 159, 181)
     pink = rgb(234, 118, 203)
     red = rgb(210, 15, 57)
-    # peach = rgb(254, 100, 11)
     flamingo = rgb(221, 120, 120)
     green = rgb(64, 160, 43)
     {
