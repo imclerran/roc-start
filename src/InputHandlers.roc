@@ -28,8 +28,8 @@ handle_default_input = |model, input|
     action =
         when input is
             Ctrl(C) -> Exit
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             _ -> None
@@ -41,8 +41,8 @@ handle_main_menu_input = |model, input|
         when input is
             Ctrl(C) -> Exit
             Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             _ -> None
@@ -54,8 +54,8 @@ handle_settings_menu_input = |model, input|
         when input is
             Ctrl(C) -> Exit
             Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
@@ -68,8 +68,8 @@ handle_settings_submenu_input = |model, input|
         when input is
             Ctrl(C) -> Exit
             Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
@@ -107,8 +107,8 @@ handle_platform_select_input = |model, input|
             Upper(S) -> Search
             Action(Enter) -> SingleSelect
             Upper(V) | Lower(V) -> VersionSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
@@ -127,8 +127,8 @@ handle_package_select_input = |model, input|
             Action(Enter) -> MultiConfirm
             Action(Space) -> MultiSelect
             Upper(V) | Lower(V) -> VersionSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
@@ -142,8 +142,8 @@ handle_version_select_input = |model, input|
         when input is
             Ctrl(C) -> Exit
             Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
@@ -158,8 +158,8 @@ handle_update_select_input = |model, input|
             Ctrl(C) -> Exit
             Action(Enter) -> MultiConfirm
             Action(Space) -> MultiSelect
-            Arrow(Up) | Lower(J) -> CursorUp
-            Arrow(Down) | Lower(K) -> CursorDown
+            Arrow(Up) | Lower(K) -> CursorUp
+            Arrow(Down) | Lower(J) -> CursorDown
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
