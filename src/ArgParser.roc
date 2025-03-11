@@ -40,18 +40,13 @@ cli_parser =
     |> Cli.finish(
         {
             name: "roc-start",
-            version: "v0.6.2",
+            version: "v0.6.3",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
             description: "A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.",
             text_style: Color,
         },
     )
     |> Cli.assert_valid
-
-#color_to_theme = |color|
-#    when color is
-#        Ok(name) -> Theme.from_name(name) |> Result.map_err(|_| NoTheme)
-#        Err(NoValue) -> Err(NoTheme)
 
 verbosity_to_log_level = |verbosity|
     when verbosity is
@@ -60,7 +55,7 @@ verbosity_to_log_level = |verbosity|
         Ok("silent") -> Ok(Silent)
         _ -> Err(NoLogLevel)
 
-# App and package subcommands
+# App, package and upgrade subcommands
 # -----------------------------------------------------------------------------
 
 app_subcommand =
