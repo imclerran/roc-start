@@ -260,7 +260,7 @@ handle_update_local_repos_error = |{ log_level, theme, colorize }|
         if log_level == Silent then
             Err(Exit(1, ""))
         else
-            err_message = 
+            err_message =
                 when err is
                     FileWriteError -> "Error updating local repositories: file write error."
                     GhAuthError -> "Error updating local repositories: gh cli tool not authenticated - run `gh auth login` to fix."

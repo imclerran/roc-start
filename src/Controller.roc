@@ -4,7 +4,6 @@ import Choices
 import Keys exposing [Key]
 import Model exposing [Model]
 import Utils
-import Theme
 import RepoManager as RM
 import rtils.StrUtils
 import rtils.Compare
@@ -222,7 +221,7 @@ platform_select_handler = |model, action|
                             Upgrade(_) -> Step(to_input_app_name_state(model))
                             _ -> Step(model)
 
-                    Search({ choices }) -> 
+                    Search({ choices }) ->
                         when choices is
                             App(_) -> Step(to_input_app_name_state(model))
                             Config(_) -> Step(to_settings_menu_state(model))
@@ -259,10 +258,11 @@ package_select_handler = |model, action|
                         when choices is
                             App(_) -> Step(to_platform_select_state(model))
                             Package(_) -> Step(to_main_menu_state(model))
-                            Upgrade({ platform }) -> 
+                            Upgrade({ platform }) ->
                                 when platform is
                                     Ok(_) -> Step(to_platform_select_state(model))
                                     Err(_) -> Step(to_main_menu_state(model))
+
                             _ -> Step(model)
 
                     _ -> Step(model)
@@ -457,8 +457,7 @@ to_settings_menu_state = |model|
                 { row, choices: new_choices } =
                     when submenu is
                         Theme ->
-                            suffix = " (Default)"
-                            theme = selection |> Str.drop_suffix(suffix) |> Heck.to_kebab_case
+                            theme = selection |> Heck.to_kebab_case
                             { choices: choices |> Choices.set_config_theme(theme), row: model.menu_row }
 
                         Verbosity ->
@@ -512,7 +511,7 @@ to_settings_submenu_state : Model, [Theme, Verbosity, Platform] -> Model
 to_settings_submenu_state = |model, submenu|
     menu =
         when submenu is
-            Theme -> Theme.theme_names |> List.sort_with(Compare.str) |> List.map(|name| Heck.to_title_case(name) |> |tc| if tc == "Roc C16" then "${tc} (Default)" else tc)
+            Theme -> model.theme_names |> List.sort_with(Compare.str) |> List.map(Heck.to_title_case)
             Verbosity -> ["Verbose", "Quiet", "Silent"]
             Platform -> model.platform_menu
 
@@ -585,7 +584,7 @@ to_platform_select_state = |model|
         InputAppName({ choices, name_buffer }) ->
             filename = name_buffer |> Str.from_utf8 |> Result.with_default("main") |> |name| if Str.is_empty(name) then "main" else name
             new_choices = choices |> Choices.set_filename(filename)
-            menu = 
+            menu =
                 when new_choices is
                     Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
@@ -614,7 +613,7 @@ to_platform_select_state = |model|
         PackageSelect({ choices }) ->
             package_repos = model.selected |> List.map(menu_item_to_repo)
             new_choices = choices |> Choices.set_packages(package_repos)
-            menu = 
+            menu =
                 when new_choices is
                     Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
@@ -706,7 +705,7 @@ to_package_select_state = |model|
                             Package -> Choices.to_package(choices)
                             Upgrade -> Choices.to_upgrade(choices)
                             Invalid -> choices
-                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items              
+                    selected = Choices.get_packages(new_choices) |> packages_to_menu_items
                     { model &
                         page_first_item: 0,
                         menu: model.package_menu,
@@ -814,14 +813,15 @@ to_package_select_state = |model|
 
 to_update_select_state : Model -> Model
 to_update_select_state = |model|
+    menu = ["Platforms", "Packages", "Scripts", "Themes"]
     when model.state is
         MainMenu({ choices }) ->
             new_choices = Choices.to_update(choices)
             selected = Choices.get_updates(new_choices)
             { model &
                 page_first_item: 0,
-                menu: ["Platforms", "Packages", "Scripts"],
-                full_menu: ["Platforms", "Packages", "Scripts"],
+                menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
                 selected,
                 state: UpdateSelect({ choices: new_choices }),
@@ -832,8 +832,8 @@ to_update_select_state = |model|
             selected = Choices.get_updates(choices)
             { model &
                 page_first_item: 0,
-                menu: ["Platforms", "Packages", "Scripts"],
-                full_menu: ["Platforms", "Packages", "Scripts"],
+                menu,
+                full_menu: menu,
                 cursor: { row: 2, col: 2 },
                 selected,
                 state: UpdateSelect({ choices }),
@@ -901,7 +901,7 @@ clear_search_filter = |model|
             }
 
         PlatformSelect({ choices }) ->
-            menu = 
+            menu =
                 when choices is
                     Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
                     _ -> model.platform_menu
@@ -918,7 +918,7 @@ append_to_buffer = |model, str|
     when model.state is
         Search({ search_buffer, choices }) ->
             new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
-            { model & state: Search({ choices, search_buffer: new_buffer }) } 
+            { model & state: Search({ choices, search_buffer: new_buffer }) }
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
@@ -930,7 +930,7 @@ append_to_buffer = |model, str|
 backspace_buffer : Model -> Model
 backspace_buffer = |model|
     when model.state is
-        Search({ search_buffer, choices }) -> 
+        Search({ search_buffer, choices }) ->
             new_buffer = List.drop_last(search_buffer, 1)
             { model & state: Search({ choices, search_buffer: new_buffer }) }
 
@@ -944,8 +944,8 @@ backspace_buffer = |model|
 clear_buffer : Model -> Model
 clear_buffer = |model|
     when model.state is
-        Search({ choices }) -> 
-            { model & state: Search({ choices, search_buffer: [] }) } 
+        Search({ choices }) ->
+            { model & state: Search({ choices, search_buffer: [] }) }
 
         InputAppName({ choices }) ->
             { model & state: InputAppName({ choices, name_buffer: [] }) }

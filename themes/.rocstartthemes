@@ -1,0 +1,56 @@
+[
+  {
+    "name": "roc",
+    "primary": "#8965DE",
+    "secondary": "#39ABDB",
+    "tertiary": "#FFFFFF",
+    "okay": "#7ADE64",
+    "warn": "#FAB387",
+    "error": "#DE647C"
+  },
+  {
+    "name": "roc-mono",
+    "primary": "#8965DE",
+    "secondary": "#8965DE",
+    "tertiary": "#8965DE",
+    "okay": "#7ADE64",
+    "warn": "#FAB387",
+    "error": "#DE647C"
+  },
+  {
+    "name": "warn-only",
+    "primary": "",
+    "secondary": "",
+    "tertiary": "",
+    "okay": "",
+    "warn": "#FAB387",
+    "error": "#DE647C"
+  },
+  {
+    "name": "no-color",
+    "primary": "",
+    "secondary": "",
+    "tertiary": "",
+    "okay": "",
+    "warn": "",
+    "error": ""
+  },
+  {
+    "name": "cattpuccin-mocha",
+    "primary": "#cba6f7",
+    "secondary": "#89b4fa",
+    "tertiary": "#cdd6f4",
+    "okay": "#a6e3a1",
+    "warn": "#fab387",
+    "error": "#f38ba8"
+  },
+  {
+    "name": "catppuccin-latte",
+    "primary": "#8839ef",
+    "secondary": "#1e66f5",
+    "tertiary": "#4c4f69",
+    "okay": "#40a02b",
+    "warn": "#fe640b",
+    "error": "#d20f39"
+  }
+]
