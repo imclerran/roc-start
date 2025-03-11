@@ -60,7 +60,9 @@ read_theme_file! = |file_path|
     file_contents =
         read_bytes!(file_path)
         |> Result.with_default([])
-    Decode.from_bytes_partial(file_contents, Json.utf8) |> .result |> Result.with_default([])
+    decoded : Decode.DecodeResult (List JsonTheme)
+    decoded = Decode.from_bytes_partial(file_contents, Json.utf8)
+    decoded |> .result |> Result.with_default([])
 
 JsonTheme : {
     name : Str,
