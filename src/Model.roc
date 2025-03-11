@@ -24,6 +24,7 @@ Model : {
     full_menu : List Str,
     selected : List Str,
     # inputs : List ANSI.Input,
+    theme_names : List Str,
     platforms : Dict Str (List RepositoryRelease),
     packages : Dict Str (List RepositoryRelease),
     package_name_map : Dict Str (List Str),
@@ -32,7 +33,7 @@ Model : {
     platform_menu : List Str,
     state : State,
     sender : State,
-    # theme : Theme, 
+    # theme : Theme,
     # including theme in model, whether imported from theme module, or redefined internally using Color causes compiler crash
 }
 
@@ -55,8 +56,8 @@ State : [
 no_choices = NothingToDo
 
 ## Initialize the model
-init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State } -> Model
-init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
+init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State, theme_names ?? List Str } -> Model
+init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }), theme_names ?? ["default"] }|
     package_name_map = RM.build_repo_name_map(Dict.keys(packages))
     platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
     package_menu = build_repo_menu(package_name_map)
@@ -69,6 +70,7 @@ init = |platforms, packages, { state ?? MainMenu({ choices: no_choices }) }|
         page_first_item: 0,
         menu: menu,
         full_menu: menu,
+        theme_names,
         platforms,
         packages,
         package_name_map,

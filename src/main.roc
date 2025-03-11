@@ -40,11 +40,19 @@ import ScriptManager {
         list_dir!: Dir.list!,
         path_to_str: Path.display,
     } exposing [cache_scripts!]
+import ThemeManager {
+    env_var!: Env.var!,
+    is_file!: File.is_file!,
+    read_bytes!: File.read_bytes!,
+    write_bytes!: File.write_bytes!,
+    http_send!: Http.send!,
+} as TM
 import Dotfile {
     env_var!: Env.var!,
     is_file!: File.is_file!,
     read_utf8!: File.read_utf8!,
     write_utf8!: File.write_utf8!,
+    load_themes!: TM.load_themes!,
 } as Df
 import Logger {
         write!: Stdout.write!,
@@ -58,11 +66,8 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 main! = |args|
     config = Df.get_config!({})
     when ArgParser.parse_or_display_message(args, to_os_raw) is
-        Ok({ verbosity, theme: colors, subcommand }) ->
-            theme =
-                when colors is
-                    Ok(th) -> th
-                    Err(NoTheme) -> config.theme
+        Ok({ verbosity, subcommand }) ->
+            theme = config.theme
             log_level =
                 when verbosity is
                     Ok(v) -> v
@@ -147,24 +152,25 @@ do_config_command! = |args, logging|
                     Silent ->
                         Exit(1, ""),
         )?
-        ["Configuration saved. ", "✔️\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
+        ["Configuration saved. ", "✔\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
 
-do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
-do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
+do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool, do_themes : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
+do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logging|
+    do_all = List.all([do_platforms, do_packages, do_scripts, do_themes], |b| !b)
     pf_res =
-        if do_platforms or !(do_platforms or do_packages or do_scripts) then
+        if do_platforms or do_all then
             do_platform_update!(logging)
         else
             Ok(Dict.empty({}))
 
     pk_res =
-        if do_packages or !(do_platforms or do_packages or do_scripts) then
+        if do_packages or do_all then
             do_package_update!(logging)
         else
             Ok(Dict.empty({}))
 
     sc_res =
-        if do_scripts or !(do_platforms or do_packages or do_scripts) then
+        if do_scripts or do_all then
             maybe_pfs =
                 when pf_res is
                     Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
@@ -173,11 +179,18 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts }, logging|
         else
             Ok({})
 
-    when (pf_res, pk_res, sc_res) is
-        (Ok(_), Ok(_), Ok(_)) -> Ok({})
-        (Err(e), _, _) -> Err(e)
-        (_, Err(e), _) -> Err(e)
-        (_, _, Err(e)) -> Err(e)
+    th_res =
+        if do_themes or do_all then
+            do_themes_update!(logging)
+        else
+            Ok({})
+
+    when (pf_res, pk_res, sc_res, th_res) is
+        (Ok(_), Ok(_), Ok(_), Ok(_)) -> Ok({})
+        (Err(e), _, _, _) -> Err(e)
+        (_, Err(e), _, _) -> Err(e)
+        (_, _, Err(e), _) -> Err(e)
+        (_, _, _, Err(e)) -> Err(e)
 
 do_app_command! : { filename : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
@@ -371,7 +384,7 @@ resolve_package_releases! = |packages, repo_name_map, requested_packages, { log_
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
-get_repositories! : { log_level : LogLevel, theme : Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } _ # [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData, Exit (Num *) Str]
+get_repositories! : { log_level : LogLevel, theme : Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } [Exit (Num *) Str]
 get_repositories! = |logging|
     repo_dir =
         get_repo_dir!({})
@@ -384,8 +397,9 @@ get_repositories! = |logging|
         when File.is_file!(packages_path) is
             Ok(bool) if bool ->
                 File.read_bytes!(packages_path)
-                ? |_| FileReadError
-                |> RM.get_repos_from_json_bytes?
+                ? |_| Exit(1, ["Error getting packages: failed to read package data."] |> colorize([logging.theme.error]))
+                |> RM.get_repos_from_json_bytes
+                |> Result.map_err(|_| Exit(1, ["Error getting packages: bad release data - running an update may fix this."] |> colorize([logging.theme.error])))?
 
             _ -> do_package_update!(logging)?
 
@@ -393,8 +407,9 @@ get_repositories! = |logging|
         when File.is_file!(platforms_path) is
             Ok(bool) if bool ->
                 File.read_bytes!(platforms_path)
-                ? |_| FileReadError
-                |> RM.get_repos_from_json_bytes?
+                ? |_| Exit(1, ["Error reading platform data."] |> colorize([logging.theme.error]))
+                |> RM.get_repos_from_json_bytes
+                |> Result.map_err(|_| Exit(1, ["Error getting platforms: bad release data - running an update may fix this."] |> colorize([logging.theme.error])))?
 
             _ -> do_platform_update!(logging)?
 
@@ -405,7 +420,6 @@ do_package_update! = |{ log_level, theme }|
     repo_dir =
         get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-    # ? |_| HomeVarNotSet
     "Updating packages " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
@@ -425,7 +439,6 @@ do_platform_update! = |{ log_level, theme }|
     repo_dir =
         get_repo_dir!({})
         ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-    # ? |_| HomeVarNotSet
     "Updating platforms " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
@@ -457,8 +470,17 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
     cache_scripts!(platforms, cache_dir, logger!)
     |> Result.on_err(E.handle_cache_scripts_error({ log_level, theme, log!, colorize }))?
-    # ? |_| Exit(1, ["File write error while caching scripts."] |> colorize([theme.error]))
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
+    Ok({})
+
+do_themes_update! : { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
+do_themes_update! = |{ log_level, theme }|
+    home = Env.var!("HOME") ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+    file_path = "${home}/.rocstartthemes"
+    "Updating themes " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
+    TM.update_themes!(file_path)
+    |> Result.map_err(|e| Exit(1, ["Error updating themes: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
+    ["[=====] ", "✔\n"] |> colorize([theme.secondary, theme.okay]) |> Quiet |> log!(log_level)
     Ok({})
 
 do_upgrade_command! = |args, { log_level, theme }|
@@ -661,7 +683,8 @@ do_tui_command! = |{ log_level, theme }|
     repo_dir = get_repo_dir!({}) ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
     scripts_exists = dir_exits!("${repo_dir}/scripts")
     _ = if !(scripts_exists) then do_scripts_update!(Some(platforms), { log_level, theme }) else Ok({})
-    initial_model = Model.init(platforms, packages, {})
+    theme_names = TM.load_themes!({}) |> List.map(|t| t.name)
+    initial_model = Model.init(platforms, packages, { theme_names })
     Tty.enable_raw_mode!({})
     final_model = ui_loop!(initial_model, theme)?
     Stdout.write!(ANSI.to_str(Reset))?

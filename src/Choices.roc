@@ -30,7 +30,7 @@ Choices : [
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
     Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
-    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool },
+    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes: Bool },
     NothingToDo,
 ]
 
@@ -90,7 +90,7 @@ to_update = |choices|
             Update(config)
 
         _ ->
-            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_scripts: Bool.false })
+            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_scripts: Bool.false, do_themes: Bool.false })
 
 to_config : Choices -> Choices
 to_config = |choices|
@@ -154,8 +154,10 @@ set_platform = |choices, platform|
                 Upgrade({ config & platform: Err(NoPLatformSpecified) })
             else
                 Upgrade({ config & platform: Ok(platform_name_and_version_with_default(platform)) })
+
         App(config) ->
             App({ config & platform: platform_name_and_version_with_default(platform) })
+
         _ -> choices
 
 get_platform : Choices -> { name : Str, version : Str }
@@ -178,6 +180,7 @@ set_updates = |choices, updates|
                     do_platforms: List.contains(updates, "Platforms"),
                     do_packages: List.contains(updates, "Packages"),
                     do_scripts: List.contains(updates, "Scripts"),
+                    do_themes: List.contains(updates, "Themes"),
                 },
             )
 
@@ -186,11 +189,12 @@ set_updates = |choices, updates|
 get_updates : Choices -> List Str
 get_updates = |choices|
     when choices is
-        Update({ do_platforms, do_packages, do_scripts }) ->
+        Update({ do_platforms, do_packages, do_scripts, do_themes }) ->
             []
             |> |ul| if do_platforms then List.append(ul, "Platforms") else ul
             |> |ul| if do_packages then List.append(ul, "Packages") else ul
             |> |ul| if do_scripts then List.append(ul, "Scripts") else ul
+            |> |ul| if do_themes then List.append(ul, "Themes") else ul
 
         _ -> []
 
@@ -221,11 +225,12 @@ get_config_verbosity = |choices|
 set_config_platform : Choices, Str -> Choices
 set_config_platform = |choices, platform|
     when choices is
-        Config(config) -> 
-            if Str.is_empty(platform) then 
+        Config(config) ->
+            if Str.is_empty(platform) then
                 Config({ config & platform: Err(NoValue) })
             else
                 Config({ config & platform: Ok(platform) })
+
         _ -> choices
 
 get_config_platform : Choices -> Result Str [NoValue]

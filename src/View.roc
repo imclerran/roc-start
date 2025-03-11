@@ -53,7 +53,7 @@ control_prompts_dict =
     |> Dict.insert(NextPage, "> NEXT")
 
 control_prompts_trunc_dict : Dict UserAction Str
-control_prompts_trunc_dict = 
+control_prompts_trunc_dict =
     Dict.empty({})
     |> Dict.insert(SingleSelect, "ENTER : SEL")
     |> Dict.insert(MultiSelect, "SPACE : SEL")
@@ -75,7 +75,6 @@ control_prompts_trunc_dict =
     |> Dict.insert(Secret, "")
     |> Dict.insert(PrevPage, "<")
     |> Dict.insert(NextPage, ">")
-
 
 ## Shortened control prompts for smaller screens
 control_prompts_short_dict : Dict UserAction Str
@@ -268,7 +267,7 @@ render_package_select = |model, theme|
 render_version_select : Model, Theme -> List ANSI.DrawFn
 render_version_select = |model, theme|
     when model.state is
-        VersionSelect({ repo }) -> 
+        VersionSelect({ repo }) ->
             List.join(
                 [
                     [
@@ -444,7 +443,7 @@ render_package_confirmation = |model, theme|
 render_update_confirmation : Model, Theme -> List ANSI.DrawFn
 render_update_confirmation = |model, theme|
     choices = Model.get_choices(model)
-    updates = choices |> Choices.get_updates |> |lu| if List.is_empty(lu) then ["Platforms", "Packages", "Scripts"] else lu
+    updates = choices |> Choices.get_updates |> |lu| if List.is_empty(lu) then ["Platforms", "Packages", "Scripts", "Themes"] else lu
     List.join(
         [
             [
@@ -507,9 +506,10 @@ render_upgrade_confirmation = |model, theme|
         Upgrade({ filename, platform: maybe_platform, packages: package_repos }) ->
             { platform, render_platform, platform_offset } =
                 when maybe_platform is
-                    Ok({ name, version }) -> 
+                    Ok({ name, version }) ->
                         platform_str = if Str.is_empty(version) then name else "${name}:${version}"
                         { platform: platform_str, render_platform: Bool.true, platform_offset: 1 }
+
                     Err(_) -> { platform: "", render_platform: Bool.false, platform_offset: 0 }
             packages = package_repos |> List.map(|p| if Str.is_empty(p.version) then p.name else "${p.name}:${p.version}")
             List.join(

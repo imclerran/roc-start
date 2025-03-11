@@ -6,7 +6,6 @@ import weaver.Opt
 import weaver.Param
 import weaver.SubCmd
 import rtils.StrUtils
-import Theme
 
 ## Usage messages
 # -----------------------------------------------------------------------------
@@ -34,12 +33,8 @@ extended_usage =
 # -----------------------------------------------------------------------------
 
 cli_parser =
-    separator = ", "
-    theme_choices = Theme.theme_names |> Str.join_with(separator)
     { Cli.weave <-
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
-        theme: Opt.maybe_str({ long: "theme", help: "Set the color theme to use one of: ${theme_choices}." })
-        |> Cli.map(color_to_theme),
         subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, package_subcommand, upgrade_subcommand, config_subcommand]),
     }
     |> Cli.finish(
@@ -53,10 +48,10 @@ cli_parser =
     )
     |> Cli.assert_valid
 
-color_to_theme = |color|
-    when color is
-        Ok(name) -> Theme.from_name(name) |> Result.map_err(|_| NoTheme)
-        Err(NoValue) -> Err(NoTheme)
+#color_to_theme = |color|
+#    when color is
+#        Ok(name) -> Theme.from_name(name) |> Result.map_err(|_| NoTheme)
+#        Err(NoValue) -> Err(NoTheme)
 
 verbosity_to_log_level = |verbosity|
     when verbosity is
@@ -169,6 +164,7 @@ update_subcommand =
         do_packages: Opt.flag({ short: "k", long: "packages", help: "Update the package repositories." }),
         do_platforms: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
         do_scripts: Opt.flag({ short: "s", long: "scripts", help: "Update the platform scripts." }),
+        do_themes: Opt.flag({ short: "t", long: "themes", help: "Update the available color themes." }),
     }
     |> SubCmd.finish(
         {
