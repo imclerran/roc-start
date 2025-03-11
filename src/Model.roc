@@ -40,7 +40,7 @@ Model : {
 State : [
     MainMenu { choices : Choices },
     SettingsMenu { choices : Choices },
-    SettingsSubmenu { choices : Choices, submenu : [Theme, Verbosity, Platform] },
+    SettingsSubmenu { choices : Choices, submenu : [Theme, Verbosity] },
     InputAppName { name_buffer : List U8, choices : Choices },
     Search { search_buffer : List U8, choices : Choices },
     PlatformSelect { choices : Choices },

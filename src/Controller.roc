@@ -212,7 +212,7 @@ platform_select_handler = |model, action|
                         Step(to_input_app_name_state(model))
 
                     SettingsMenu(_) ->
-                        Step(to_settings_menu_state(model))
+                        Step(to_settings_menu_state({ model & cursor: { row: 0, col: 2 } }))
 
                     VersionSelect({ choices }) ->
                         when choices is
@@ -445,37 +445,35 @@ to_settings_menu_state = |model|
             }
 
         SettingsSubmenu({ choices, submenu }) ->
-            if model.cursor.row < model.menu_row then
-                { model &
-                    cursor: { row: model.menu_row, col: 2 },
-                    full_menu: menu,
-                    state: SettingsMenu({ choices }),
-                    sender: model.state,
-                }
-            else
-                selection = Model.get_highlighted_item(model)
-                { row, choices: new_choices } =
+            { row, choices: new_choices } = 
+                if model.cursor.row < model.menu_row then
                     when submenu is
                         Theme ->
-                            theme = selection |> Heck.to_kebab_case
-                            { choices: choices |> Choices.set_config_theme(theme), row: model.menu_row }
-
+                            { row: model.menu_row, choices }
                         Verbosity ->
-                            { choices: choices |> Choices.set_config_verbosity(selection |> Heck.to_kebab_case), row: model.menu_row + 1 }
+                            { row: model.menu_row + 1, choices }
+                else
+                    selection = Model.get_highlighted_item(model)
+                    when submenu is
+                        Theme -> 
+                            { row: model.menu_row, choices: choices |> Choices.set_config_theme(selection |> Heck.to_kebab_case) }
+                        Verbosity -> 
+                            { row: model.menu_row + 1, choices: choices |> Choices.set_config_verbosity(selection |> Heck.to_kebab_case) }
 
-                        Platform ->
-                            { choices: choices |> Choices.set_config_platform(selection), row: model.menu_row + 2 }
-
-                { model &
-                    cursor: { row, col: 2 },
-                    full_menu: menu,
-                    state: SettingsMenu({ choices: new_choices }),
-                    sender: model.state,
-                }
+            { model &
+                cursor: { row, col: 2 },
+                full_menu: menu,
+                state: SettingsMenu({ choices: new_choices }),
+                sender: model.state,
+            }
 
         PlatformSelect({ choices }) ->
-            platform = Model.get_highlighted_item(model)
-            new_choices = choices |> Choices.set_config_platform(platform)
+            new_choices = 
+                if model.cursor.row < model.menu_row then
+                    choices
+                else
+                    platform = Model.get_highlighted_item(model)
+                    choices |> Choices.set_config_platform(platform)
             { model &
                 cursor: { row: model.menu_row + 2, col: 2 },
                 full_menu: menu,
@@ -507,13 +505,13 @@ to_settings_menu_state = |model|
 
         _ -> model
 
-to_settings_submenu_state : Model, [Theme, Verbosity, Platform] -> Model
+to_settings_submenu_state : Model, [Theme, Verbosity] -> Model
 to_settings_submenu_state = |model, submenu|
     menu =
         when submenu is
             Theme -> model.theme_names |> List.sort_with(Compare.str) |> List.map(Heck.to_title_case)
             Verbosity -> ["Verbose", "Quiet", "Silent"]
-            Platform -> model.platform_menu
+            # Platform -> model.platform_menu
 
     choices = Model.get_choices(model)
     { model &

@@ -209,7 +209,6 @@ render_settings_submenu = |model, theme|
                 when submenu is
                     Theme -> "DEFAULT THEME:"
                     Verbosity -> "DEFAULT VERBOSITY:"
-                    Platform -> "DEFAULT PLATFORM:"
             List.join(
                 [
                     [
