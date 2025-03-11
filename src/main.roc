@@ -57,7 +57,6 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 
 main! = |args|
     config = Df.get_config!({})
-    dbg config.theme.name
     when ArgParser.parse_or_display_message(args, to_os_raw) is
         Ok({ verbosity, theme: colors, subcommand }) ->
             theme =
