@@ -16,7 +16,7 @@ Theme : {
 rgb = |r, g, b| Rgb((r, g, b))
 
 themes : List Theme
-themes = [roc_mono, roc_c16, roc, warn_only, no_color, coffee_cat_dark, coffee_cat_light]
+themes = [roc, roc_mono, roc_c16, warn_only, no_color, coffee_cat_dark, coffee_cat_light]
 
 theme_names = themes |> List.map(.name)
 
@@ -125,5 +125,3 @@ coffee_cat_light =
         warn: peach,
         error: red,
     }
-
-

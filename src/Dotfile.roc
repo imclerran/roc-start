@@ -7,6 +7,7 @@ module
     } -> [Config, get_config!, load_dotfile!, create_default_dotfile!, default_config, save_to_dotfile!, save_config!]
 
 import rtils.StrUtils
+import rtils.ListUtils
 import parse.Parse as P
 import Theme exposing [Theme]
 LogLevel : [Silent, Quiet, Verbose]
@@ -57,7 +58,7 @@ file_exists! = |path| is_file!(path) |> Result.with_default(Bool.false)
 
 parse_dotfile : Str -> Result Config [InvalidDotFile]
 parse_dotfile = |str|
-    lines = Str.split_on(str, "\n")
+    lines = Str.to_utf8(str) |> ListUtils.split_with_delims_tail(|c| c == '\n') |> List.map(Str.from_utf8_lossy)
     verbosity =
         when
             lines |> List.keep_oks(parse_verbosity)
@@ -79,14 +80,14 @@ parse_dotfile = |str|
     Ok({ verbosity, theme, platform })
 
 parse_theme = |str|
-    themes = Theme.theme_names |> List.map(|s| P.string(s))
+    themes = Theme.theme_names |> List.map(|s| P.string(s) |> P.lhs(newline))
     pattern = P.string("theme:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(P.one_of(themes))
     parser = pattern |> P.map(Theme.from_name)
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidTheme)
 
 parse_verbosity = |str|
     verbosity_levels = ["silent", "quiet", "verbose"] |> List.map(|s| P.string(s))
-    pattern = P.string("verbosity:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(P.one_of(verbosity_levels))
+    pattern = P.string("verbosity:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(P.one_of(verbosity_levels)) |> P.lhs(newline)
     parser =
         pattern
         |> P.map(
@@ -100,7 +101,7 @@ parse_verbosity = |str|
     parser(str) |> P.finalize |> Result.map_err(|_| InvalidLogLevel)
 
 parse_platform = |str|
-    pattern = P.string("platform:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(platform_string)
+    pattern = P.string("platform:") |> P.rhs(P.maybe(P.whitespace)) |> P.rhs(platform_string) |> P.lhs(newline)
     parser =
         pattern
         |> P.map(
@@ -125,6 +126,8 @@ platform_chars =
             or
             (List.contains(['-', '_', '/', '=', ':', '-', '+', '.'], c)),
     )
+
+newline = P.char |> P.filter(|c| c == '\n')
 
 create_default_dotfile! : {} => Result Config [HomeVarNotSet, FileWriteError]
 create_default_dotfile! = |{}|
