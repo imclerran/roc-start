@@ -57,6 +57,7 @@ known_platforms_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs
 
 main! = |args|
     config = Df.get_config!({})
+    dbg config.theme.name
     when ArgParser.parse_or_display_message(args, to_os_raw) is
         Ok({ verbosity, theme: colors, subcommand }) ->
             theme =
@@ -231,7 +232,7 @@ do_app_command! = |arg_data, logging|
             cmd_args = build_script_args(arg_data.filename, platform_release, package_releases)
             num_packages = List.len(package_releases)
             num_skipped = List.len(arg_data.packages) - num_packages
-            cache_dir = 
+            cache_dir =
                 get_repo_dir!({})
                 ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
                 |> Str.concat("/scripts/")
@@ -371,10 +372,10 @@ resolve_package_releases! = |packages, repo_name_map, requested_packages, { log_
 
 get_repo_dir! = |{}| Env.var!("HOME")? |> Str.concat("/.cache/roc-start") |> Ok
 
-get_repositories! : { log_level : LogLevel, theme : Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } _ #[FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData, Exit (Num *) Str]
+get_repositories! : { log_level : LogLevel, theme : Theme } => Result { packages : RepositoryDict, platforms : RepositoryDict } _ # [FileReadError, FileWriteError, GhAuthError, GhNotInstalled, HomeVarNotSet, NetworkError, ParsingError, BadRepoReleasesData, Exit (Num *) Str]
 get_repositories! = |logging|
-    repo_dir = 
-        get_repo_dir!({}) 
+    repo_dir =
+        get_repo_dir!({})
         ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([logging.theme.error]))
     Dir.create_all!(repo_dir)
     ? |_| Exit(1, ["Error creating cache directory."] |> colorize([logging.theme.error]))
@@ -402,10 +403,10 @@ get_repositories! = |logging|
 
 do_package_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict [Exit (Num *) Str]
 do_package_update! = |{ log_level, theme }|
-    repo_dir = 
+    repo_dir =
         get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-        # ? |_| HomeVarNotSet
+    # ? |_| HomeVarNotSet
     "Updating packages " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
@@ -413,18 +414,19 @@ do_package_update! = |{ log_level, theme }|
         |> .body
         |> Str.from_utf8_lossy
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    packages = 
-        known_packages_csv |> RU.update_local_repos!("${repo_dir}/package-releases", logger!)
+    packages =
+        known_packages_csv
+        |> RU.update_local_repos!("${repo_dir}/package-releases", logger!)
         |> Result.on_err(E.handle_update_local_repos_error({ log_level, theme, colorize }))?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(packages)
 
 do_platform_update! : { log_level : LogLevel, theme : Theme } => Result RepositoryDict [Exit (Num *) Str]
 do_platform_update! = |{ log_level, theme }|
-    repo_dir = 
-        get_repo_dir!({}) 
+    repo_dir =
+        get_repo_dir!({})
         ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-        # ? |_| HomeVarNotSet
+    # ? |_| HomeVarNotSet
     "Updating platforms " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
@@ -432,8 +434,9 @@ do_platform_update! = |{ log_level, theme }|
         |> .body
         |> Str.from_utf8_lossy
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    platforms = 
-        known_platforms_csv |> RU.update_local_repos!("${repo_dir}/platform-releases", logger!)
+    platforms =
+        known_platforms_csv
+        |> RU.update_local_repos!("${repo_dir}/platform-releases", logger!)
         |> Result.on_err(E.handle_update_local_repos_error({ log_level, theme, colorize }))?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
@@ -714,4 +717,3 @@ render = |model, theme|
         Confirmation(_) -> View.render_confirmation(model, theme)
         Splash(_) -> View.render_splash(model, theme)
         _ -> []
-
