@@ -111,18 +111,18 @@ coffee_cat_dark =
 coffee_cat_light : Theme
 coffee_cat_light =
     mauve = rgb(136, 57, 239)
-    saffire = rgb(32, 159, 181)
-    pink = rgb(234, 118, 203)
+    blue = rgb(30, 102, 245)
+    teal = rgb(23, 146, 153)
     red = rgb(210, 15, 57)
-    flamingo = rgb(221, 120, 120)
+    peach = rgb(254, 100, 11)
     green = rgb(64, 160, 43)
     {
         name: "coffee-cat-light",
         primary: mauve,
-        secondary: saffire,
-        tertiary: pink,
+        secondary: blue,
+        tertiary: teal,
         okay: green,
-        warn: flamingo,
+        warn: peach,
         error: red,
     }
 
