@@ -2,7 +2,32 @@ module [handle_input]
 
 import ansi.ANSI
 import Model exposing [Model]
-import Controller
+import Controller #exposing [UserAction]
+
+# UserAction : [
+#     Cancel,
+#     ClearFilter,
+#     CursorDown,
+#     CursorUp,
+#     Exit,
+#     Finish,
+#     GoBack,
+#     MultiConfirm,
+#     MultiSelect,
+#     VersionSelect,
+#     NextPage,
+#     PrevPage,
+#     Search,
+#     SearchGo,
+#     SingleSelect,
+#     TextInput,
+#     TextBackspace,
+#     TextSubmit,
+#     Secret,
+#     None,
+# ]
+
+# handle_cancel
 
 handle_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_input = |model, input|
@@ -33,7 +58,7 @@ handle_default_input = |model, input|
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_main_menu_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_main_menu_input = |model, input|
@@ -46,7 +71,7 @@ handle_main_menu_input = |model, input|
             Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_settings_menu_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_settings_menu_input = |model, input|
@@ -60,7 +85,7 @@ handle_settings_menu_input = |model, input|
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_settings_submenu_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_settings_submenu_input = |model, input|
@@ -74,7 +99,7 @@ handle_settings_submenu_input = |model, input|
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 ## The input handler for the InputAppName state.
 handle_input_app_name_input : Model, ANSI.Input -> [Step Model, Done Model]
@@ -83,19 +108,19 @@ handle_input_app_name_input = |model, input|
         when model.state is
             InputAppName({ name_buffer }) -> List.len(name_buffer)
             _ -> 0
-    (action, key_press) =
+    action =
         when input is
-            Ctrl(C) -> (Exit, None)
-            Action(Enter) -> (TextSubmit, None)
-            Ctrl(H) -> if buffer_len == 0 then (GoBack, None) else (TextBackspace, None)
-            Action(Delete) -> if buffer_len == 0 then (GoBack, None) else (TextBackspace, None)
-            Action(Space) -> (TextInput, Action(Space))
-            Symbol(symbol) -> (TextInput, Symbol(symbol))
-            Number(number) -> (TextInput, Number(number))
-            Lower(letter) -> (TextInput, Lower(letter))
-            Upper(letter) -> (TextInput, Lower(letter))
-            _ -> (None, None)
-    Controller.apply_action({ model, action, key_press })
+            Ctrl(C) -> Exit
+            Action(Enter) -> TextSubmit
+            Ctrl(H) -> if buffer_len == 0 then GoBack else TextBackspace
+            Action(Delete) -> if buffer_len == 0 then GoBack else TextBackspace
+            Action(Space) -> TextInput(Action(Space))
+            Symbol(symbol) -> TextInput(Symbol(symbol))
+            Number(number) -> TextInput(Number(number))
+            Lower(letter) -> TextInput(Lower(letter))
+            Upper(letter) -> TextInput(Lower(letter))
+            _ -> None
+    Controller.apply_action(model, action)
 
 ## The input handler for the PlatformSelect state.
 handle_platform_select_input : Model, ANSI.Input -> [Step Model, Done Model]
@@ -114,7 +139,7 @@ handle_platform_select_input = |model, input|
             Action(Delete) -> GoBack
             Action(Escape) -> ClearFilter
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 ## The input handler for the PackageSelect state.
 handle_package_select_input : Model, ANSI.Input -> [Step Model, Done Model]
@@ -134,7 +159,7 @@ handle_package_select_input = |model, input|
             Action(Delete) -> GoBack
             Action(Escape) -> ClearFilter
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_version_select_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_version_select_input = |model, input|
@@ -149,7 +174,7 @@ handle_version_select_input = |model, input|
             Action(Delete) -> GoBack
             Action(Escape) -> ClearFilter
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_update_select_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_update_select_input = |model, input|
@@ -164,25 +189,25 @@ handle_update_select_input = |model, input|
             Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
             Action(Delete) -> GoBack
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 ## The input handler for the Search state.
 handle_search_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_search_input = |model, input|
-    (action, key_press) =
+    action =
         when input is
-            Ctrl(C) -> (Exit, None)
-            Action(Enter) -> (SearchGo, None)
-            Action(Escape) -> (Cancel, None)
-            Ctrl(H) -> (TextBackspace, None)
-            Action(Delete) -> (TextBackspace, None)
-            Action(Space) -> (TextInput, Action(Space))
-            Symbol(symbol) -> (TextInput, Symbol(symbol))
-            Number(number) -> (TextInput, Number(number))
-            Lower(letter) -> (TextInput, Lower(letter))
-            Upper(letter) -> (TextInput, Upper(letter))
-            _ -> (None, None)
-    Controller.apply_action({ model, action, key_press })
+            Ctrl(C) -> Exit
+            Action(Enter) -> SearchGo
+            Action(Escape) -> Cancel
+            Ctrl(H) -> TextBackspace
+            Action(Delete) -> TextBackspace
+            Action(Space) -> TextInput(Action(Space))
+            Symbol(s) -> TextInput(Symbol(s))
+            Number(n) -> TextInput(Number(n))
+            Lower(l) -> TextInput(Lower(l))
+            Upper(l) -> TextInput(Upper(l))
+            _ -> None
+    Controller.apply_action(model, action)
 
 ## The input handler for the Confirmation state.
 handle_confirmation_input : Model, ANSI.Input -> [Step Model, Done Model]
@@ -193,7 +218,7 @@ handle_confirmation_input = |model, input|
             Action(Enter) -> Finish
             Action(Delete) -> GoBack
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)
 
 handle_splash_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_splash_input = |model, input|
@@ -202,4 +227,4 @@ handle_splash_input = |model, input|
             Ctrl(C) -> Exit
             Action(Delete) -> GoBack
             _ -> None
-    Controller.apply_action({ model, action })
+    Controller.apply_action(model, action)

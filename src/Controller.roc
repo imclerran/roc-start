@@ -25,7 +25,7 @@ UserAction : [
     Search,
     SearchGo,
     SingleSelect,
-    TextInput,
+    TextInput(Key),
     TextBackspace,
     TextSubmit,
     Secret,
@@ -58,7 +58,7 @@ get_actions = |model|
             |> with_next_page(model)
 
         InputAppName({ name_buffer }) ->
-            [Exit, TextSubmit, TextInput]
+            [Exit, TextSubmit, TextInput(None)]
             |> |actions| List.append(actions, (if List.is_empty(name_buffer) then GoBack else TextBackspace))
 
         VersionSelect(_) ->
@@ -82,7 +82,7 @@ get_actions = |model|
             |> with_next_page(model)
 
         Confirmation(_) -> [Exit, Finish, GoBack]
-        Search(_) -> [Exit, SearchGo, Cancel, TextInput, TextBackspace]
+        Search(_) -> [Exit, SearchGo, Cancel, TextInput(None), TextBackspace]
         Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
@@ -92,24 +92,27 @@ with_next_page = |actions, model| if Model.is_not_last_page(model) then List.app
 
 ## Check if the user action is available in the current state
 action_is_available : Model, UserAction -> Bool
-action_is_available = |model, action| List.contains(get_actions(model), action)
+action_is_available = |model, action| 
+    actions = get_actions(model)
+    when action is
+        TextInput(_) -> List.contains(actions, TextInput(None))
+        _ -> List.contains(actions, action)
 
 ## Translate the user action into a state transition by dispatching to the appropriate handler
-apply_action : { model : Model, action : UserAction, key_press ?? Key } -> [Step Model, Done Model]
-apply_action = |{ model, action, key_press ?? None }|
-    char = key_press |> Keys.key_to_str |> |str| if Str.is_empty(str) then None else Char(str)
+apply_action : Model, UserAction -> [Step Model, Done Model]
+apply_action = |model, action|
     if action_is_available(model, action) then
         when model.state is
             MainMenu(_) -> main_menu_handler(model, action)
             SettingsMenu(_) -> settings_menu_handler(model, action)
             SettingsSubmenu(_) -> settings_submenu_handler(model, action)
-            InputAppName(_) -> input_app_name_handler(model, action, { char })
+            InputAppName(_) -> input_app_name_handler(model, action)
             PlatformSelect(_) -> platform_select_handler(model, action)
             PackageSelect(_) -> package_select_handler(model, action)
             VersionSelect(_) -> version_select_handler(model, action)
             UpdateSelect(_) -> update_select_handler(model, action)
             Confirmation(_) -> confirmation_handler(model, action)
-            Search(_) -> search_handler(model, action, { char })
+            Search(_) -> search_handler(model, action)
             Splash(_) -> splash_handler(model, action)
             _ -> default_handler(model, action)
     else
@@ -314,8 +317,8 @@ update_select_handler = |model, action|
         _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Search state
-search_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
-search_handler = |model, action, { char ?? None }|
+search_handler : Model, UserAction -> [Step Model, Done Model]
+search_handler = |model, action|
     when action is
         Exit -> Done(to_user_exited_state(model))
         SearchGo ->
@@ -325,8 +328,9 @@ search_handler = |model, action, { char ?? None }|
                 _ -> Step(model)
 
         TextBackspace -> Step(backspace_buffer(model))
-        TextInput ->
-            when char is
+        TextInput(key) ->
+            ch = key |> Keys.key_to_str |> |str| if Str.is_empty(str) then None else Char(str)
+            when ch is
                 Char(c) -> Step(append_to_buffer(model, c))
                 None -> Step(model)
 
@@ -339,13 +343,14 @@ search_handler = |model, action, { char ?? None }|
         _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the InputAppName state
-input_app_name_handler : Model, UserAction, { char ?? [Char Str, None] } -> [Step Model, Done Model]
-input_app_name_handler = |model, action, { char ?? None }|
+input_app_name_handler : Model, UserAction -> [Step Model, Done Model]
+input_app_name_handler = |model, action|
     when action is
         Exit -> Done(to_user_exited_state(model))
         TextSubmit -> Step(to_platform_select_state(model))
-        TextInput ->
-            when char is
+        TextInput(key) ->
+            ch = key |> Keys.key_to_str |> |str| if Str.is_empty(str) then None else Char(str)
+            when ch is
                 Char(c) -> Step(append_to_buffer(model, c))
                 None -> Step(model)
 
