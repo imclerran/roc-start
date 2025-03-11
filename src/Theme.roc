@@ -93,18 +93,18 @@ no_color = {
 coffee_cat_dark : Theme
 coffee_cat_dark =
     mauve = rgb(203, 166, 247)
-    saffire = rgb(116, 199, 236)
-    teal = rgb(148, 226, 213)
+    blue = rgb(137, 180, 250)
+    sky = rgb(137, 220, 235)
     red = rgb(243, 139, 168)
-    maroon = rgb(235, 160, 172)
+    peach = rgb(250, 179, 135)
     green = rgb(166, 227, 161)
     {
         name: "coffee-cat-dark",
         primary: mauve,
-        secondary: saffire,
-        tertiary: teal,
+        secondary: blue,
+        tertiary: sky,
         okay: green,
-        warn: maroon,
+        warn: peach,
         error: red,
     }
 
