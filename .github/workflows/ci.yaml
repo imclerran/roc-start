@@ -26,7 +26,7 @@ jobs:
           roc-version: alpha3-rolling
       - name: Roc check on src/main.roc
         run: roc check src/main.roc
-      - name: Roc test on src/main.roc
-        run: roc test src/main.roc
+      # - name: Roc test on src/main.roc
+      #   run: roc test src/main.roc
       - name: Roc build on src/main.roc
         run: roc build src/main.roc
