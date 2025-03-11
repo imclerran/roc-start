@@ -97,6 +97,7 @@ main! = |args|
 
                 Err(NoSubcommand) ->
                     do_tui_command!(logging)
+                    |> Result.map_err(handle_unhandled_errors(log_level, theme))
 
         Err(e) ->
             "${e}\n" |> Quiet |> log!(Verbose)
@@ -106,6 +107,7 @@ handle_unhandled_errors = |log_level, theme|
     |e|
         when e is
             _ if log_level == Silent -> Exit(1, "")
+            Handled -> Exit(1, "")
             Exit(_, _) -> e
             _ -> Exit(1, [Inspect.to_str(e)] |> colorize([theme.error]))
 
