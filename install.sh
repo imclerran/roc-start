@@ -1,4 +1,16 @@
-#!/bin/zsh
+#!/bin/bash
+
+# Check if the script is running on macOS or Linux
+OS_TYPE=$(uname)
+if [ "$OS_TYPE" = "Darwin" ]; then
+    LINKER="--linker=legacy"
+elif [ "$OS_TYPE" = "Linux" ]; then
+    LINKER="--linker=surgical"
+else
+    echo "Unsupported OS: $OS_TYPE"
+    exit 1
+fi
+
 LOCAL_BIN="$HOME/.local/bin"
 
 YELLOW="\033[33m"
@@ -22,9 +34,10 @@ echo -en "Building ${MAGENTA}roc-start${RESET}..."
 echo -e "${OPTIMIZE:+ (please be patient, this may take a minute or two)}"
 [ -z "$OPTIMIZE" ] && echo -e "${YELLOW}WARNING:${RESET} using dev build is not recommended for general use"
 
-roc build $SRC_DIR/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
+roc build $SRC_DIR/main.roc --output roc-start $LINKER $OPTIMIZE > /dev/null 2>&1
 # If build succeeded, copy the executable to $LOCAL_BIN and notify user
 if [ -f "./roc-start" ]; then
+    chmod +x ./roc-start
     mv ./roc-start $LOCAL_BIN
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
 else
@@ -38,7 +51,7 @@ if ! command -v gh > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if $LOCAL_BIN is in the PATH
-if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+# Check if $LOCAL_BIN or ~/.local/bin is in the PATH
+if [[ ":$PATH:" != *":$LOCAL_BIN:"* && ":$PATH:" != *":~/.local/bin:"* ]]; then
     echo -e "${YELLOW}- NOTE:${RESET} $LOCAL_BIN is not in your PATH. Please make sure to add it to your shell's configuration file (e.g. ~/.zshrc, ~/.bashrc, etc.)"
 fi
