@@ -28,7 +28,7 @@ default = {
     name: "default",
     primary: Standard Magenta,
     secondary: Standard Cyan,
-    tertiary: Standard White,
+    tertiary: Default,
     okay: Standard Green,
     warn: Standard Yellow,
     error: Standard Red,
