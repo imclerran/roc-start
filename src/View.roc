@@ -575,7 +575,8 @@ render_menu = |model, theme|
         |item, idx|
             row = Num.to_u16(idx) + model.menu_row
             if model.cursor.row == row then
-                "> ${item}" |> ANSI.draw_text({ r: row, c: 2, fg: theme.primary })
+                color = if item != "Exit" then theme.primary else theme.error
+                "> ${item}" |> ANSI.draw_text({ r: row, c: 2, fg: color })
             else
                 "- ${item}" |> ANSI.draw_text({ r: row, c: 2, fg: theme.tertiary }),
     )
