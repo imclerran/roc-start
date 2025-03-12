@@ -254,7 +254,7 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) ->
-                    Cmd.exec!("chmod", ["+x", script_path]) ? |_| Exit(1, ["Failed to make generation script executable."] |> colorize([theme.error]))
+                    Cmd.exec!("chmod", ["+x", script_path]) ? |e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error]))
                     res =
                         Cmd.new(script_path)
                         |> Cmd.args(cmd_args)
@@ -263,10 +263,10 @@ do_app_command! = |arg_data, logging|
                         Ok(_) ->
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
-                        Err(_) ->
-                            Err(Exit(1, ["Failed to run generation script."] |> colorize([theme.error])))
+                        Err(e) ->
+                            Err(Exit(1, ["Failed to run generation script: ${Inspect.to_str(e)}"] |> colorize([theme.error])))
 
-                Err(_) ->
+                Err(NoMatch) ->
                     build_default_app!(arg_data.filename, platform_release, package_releases)
                     |> Result.map_err(|_| Exit(1, ["Error writing to ${arg_data.filename}."] |> colorize([theme.error])))?
                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
