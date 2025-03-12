@@ -1,205 +1,165 @@
 module [handle_input]
 
-import ansi.ANSI
+import ansi.ANSI exposing [Input]
 import Model exposing [Model]
-import Controller
+import Controller exposing [UserAction]
 
 handle_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_input = |model, input|
-    when model.state is
-        MainMenu(_) -> handle_main_menu_input(model, input)
-        SettingsMenu(_) -> handle_settings_menu_input(model, input)
-        SettingsSubmenu(_) -> handle_settings_submenu_input(model, input)
-        InputAppName(_) -> handle_input_app_name_input(model, input)
-        PlatformSelect(_) -> handle_platform_select_input(model, input)
-        PackageSelect(_) -> handle_package_select_input(model, input)
-        VersionSelect(_) -> handle_version_select_input(model, input)
-        UpdateSelect(_) -> handle_update_select_input(model, input)
-        Search(_) -> handle_search_input(model, input)
-        Confirmation(_) -> handle_confirmation_input(model, input)
-        Splash(_) -> handle_splash_input(model, input)
-        _ -> handle_default_input(model, input)
+    input_handlers = Controller.get_actions(model) |> List.map(action_to_input_handler)
+    action = List.walk_until(
+        input_handlers,
+        None,
+        |_, handler|
+            when handler(model, input) is
+                Ok(act) -> Break(act)
+                Err(Unhandled) -> Continue(None)
+    )
+    Controller.apply_action(model, action)
 
-## Default input handler which ensures that the program can always be exited.
-## This ensures that even if you forget to handle input for a state, or end up
-## in a state that doesn't have an input handler, the program can still be exited.
-handle_default_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_default_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            _ -> None
-    Controller.apply_action({ model, action })
+action_to_input_handler = |action|
+    when action is
+        Cancel -> handle_cancel
+        ClearFilter -> handle_clear_filter
+        CursorDown -> handle_cursor_down
+        CursorUp -> handle_cursor_up
+        Exit -> handle_exit
+        Finish -> handle_finish
+        GoBack -> handle_go_back
+        MultiConfirm -> handle_multi_confirm
+        MultiSelect -> handle_multi_select
+        VersionSelect -> handle_version_select
+        NextPage -> handle_next_page
+        PrevPage -> handle_prev_page
+        Search -> handle_search
+        SearchGo -> handle_search_go
+        SingleSelect -> handle_single_select
+        TextInput(None) -> handle_text_input
+        TextBackspace -> handle_text_backspace
+        TextSubmit -> handle_text_submit
+        Secret -> handle_secret
+        _ -> catch_unhandled
 
-handle_main_menu_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_main_menu_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_cancel : Model, Input -> Result UserAction [Unhandled]
+handle_cancel = |_model, input|
+    when input is 
+        Action(Escape) -> Ok(Cancel)
+        _ -> Err(Unhandled)
 
-handle_settings_menu_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_settings_menu_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_clear_filter : Model, Input -> Result UserAction [Unhandled]
+handle_clear_filter = |_model, input|
+    when input is 
+        Action(Escape) -> Ok(ClearFilter)
+        _ -> Err(Unhandled)
 
-handle_settings_submenu_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_settings_submenu_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_cursor_down : Model, Input -> Result UserAction [Unhandled]
+handle_cursor_down = |_model, input|
+    when input is 
+        Arrow(Down) | Lower(J) -> Ok(CursorDown)
+        _ -> Err(Unhandled)
 
-## The input handler for the InputAppName state.
-handle_input_app_name_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_input_app_name_input = |model, input|
-    buffer_len =
-        when model.state is
-            InputAppName({ name_buffer }) -> List.len(name_buffer)
-            _ -> 0
-    (action, key_press) =
-        when input is
-            Ctrl(C) -> (Exit, None)
-            Action(Enter) -> (TextSubmit, None)
-            Ctrl(H) -> if buffer_len == 0 then (GoBack, None) else (TextBackspace, None)
-            Action(Delete) -> if buffer_len == 0 then (GoBack, None) else (TextBackspace, None)
-            Action(Space) -> (TextInput, Action(Space))
-            Symbol(symbol) -> (TextInput, Symbol(symbol))
-            Number(number) -> (TextInput, Number(number))
-            Lower(letter) -> (TextInput, Lower(letter))
-            Upper(letter) -> (TextInput, Lower(letter))
-            _ -> (None, None)
-    Controller.apply_action({ model, action, key_press })
+handle_cursor_up : Model, Input -> Result UserAction [Unhandled]     
+handle_cursor_up = |_model, input|
+    when input is 
+        Arrow(Up) | Lower(K) -> Ok(CursorUp)
+        _ -> Err(Unhandled)
 
-## The input handler for the PlatformSelect state.
-handle_platform_select_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_platform_select_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Lower(S) -> Search
-            Upper(S) -> Search
-            Action(Enter) -> SingleSelect
-            Upper(V) | Lower(V) -> VersionSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            Action(Escape) -> ClearFilter
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_exit : Model, Input -> Result UserAction [Unhandled]
+handle_exit = |_model, input|
+    when input is 
+        Ctrl(C) -> Ok(Exit)
+        _ -> Err(Unhandled)
 
-## The input handler for the PackageSelect state.
-handle_package_select_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_package_select_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Lower(S) -> Search
-            Upper(S) -> Search
-            Action(Enter) -> MultiConfirm
-            Action(Space) -> MultiSelect
-            Upper(V) | Lower(V) -> VersionSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            Action(Escape) -> ClearFilter
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_finish : Model, Input -> Result UserAction [Unhandled]
+handle_finish = |_model, input|
+    when input is 
+        Action(Enter) -> Ok(Finish)
+        _ -> Err(Unhandled)
 
-handle_version_select_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_version_select_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> SingleSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            Action(Escape) -> ClearFilter
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_go_back : Model, Input -> Result UserAction [Unhandled]
+handle_go_back = |model, input|
+    buffer_len = Model.get_buffer_len(model)
+    when input is 
+        Action(Delete) | Ctrl(H) if buffer_len == 0 -> Ok(GoBack)
+        _ -> Err(Unhandled)
 
-handle_update_select_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_update_select_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> MultiConfirm
-            Action(Space) -> MultiSelect
-            Arrow(Up) | Lower(K) -> CursorUp
-            Arrow(Down) | Lower(J) -> CursorDown
-            Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> PrevPage
-            Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> NextPage
-            Action(Delete) -> GoBack
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_multi_confirm : Model, Input -> Result UserAction [Unhandled]
+handle_multi_confirm = |_model, input|
+    when input is 
+        Action(Enter) -> Ok(MultiConfirm)
+        _ -> Err(Unhandled)
 
-## The input handler for the Search state.
-handle_search_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_search_input = |model, input|
-    (action, key_press) =
-        when input is
-            Ctrl(C) -> (Exit, None)
-            Action(Enter) -> (SearchGo, None)
-            Action(Escape) -> (Cancel, None)
-            Ctrl(H) -> (TextBackspace, None)
-            Action(Delete) -> (TextBackspace, None)
-            Action(Space) -> (TextInput, Action(Space))
-            Symbol(symbol) -> (TextInput, Symbol(symbol))
-            Number(number) -> (TextInput, Number(number))
-            Lower(letter) -> (TextInput, Lower(letter))
-            Upper(letter) -> (TextInput, Upper(letter))
-            _ -> (None, None)
-    Controller.apply_action({ model, action, key_press })
+handle_multi_select : Model, Input -> Result UserAction [Unhandled]
+handle_multi_select = |_model, input|
+    when input is 
+        Action(Space) -> Ok(MultiSelect)
+        _ -> Err(Unhandled)
 
-## The input handler for the Confirmation state.
-handle_confirmation_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_confirmation_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Enter) -> Finish
-            Action(Delete) -> GoBack
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_version_select : Model, Input -> Result UserAction [Unhandled]
+handle_version_select = |_model, input|
+    when input is 
+        Upper(V) | Lower(V) -> Ok(VersionSelect)
+        _ -> Err(Unhandled)
 
-handle_splash_input : Model, ANSI.Input -> [Step Model, Done Model]
-handle_splash_input = |model, input|
-    action =
-        when input is
-            Ctrl(C) -> Exit
-            Action(Delete) -> GoBack
-            _ -> None
-    Controller.apply_action({ model, action })
+handle_next_page : Model, Input -> Result UserAction [Unhandled]
+handle_next_page = |_model, input|
+    when input is 
+        Arrow(Right) | Symbol(GreaterThanSign) | Symbol(FullStop) | Lower(L) -> Ok(NextPage)
+        _ -> Err(Unhandled)
+
+handle_prev_page : Model, Input -> Result UserAction [Unhandled]
+handle_prev_page = |_model, input|
+    when input is 
+        Arrow(Left) | Symbol(LessThanSign) | Symbol(Comma) | Lower(H) -> Ok(PrevPage)
+        _ -> Err(Unhandled)
+
+handle_search : Model, Input -> Result UserAction [Unhandled]
+handle_search = |_model, input|
+    when input is 
+        Lower(S) | Upper(S) -> Ok(Search)
+        _ -> Err(Unhandled)
+
+handle_search_go : Model, Input -> Result UserAction [Unhandled]
+handle_search_go = |_model, input|
+    when input is 
+        Action(Enter) -> Ok(SearchGo)
+        _ -> Err(Unhandled)
+
+handle_single_select : Model, Input -> Result UserAction [Unhandled]
+handle_single_select = |_model, input|
+    when input is 
+        Action(Enter) -> Ok(SingleSelect)
+        _ -> Err(Unhandled)
+
+handle_text_input : Model, Input -> Result UserAction [Unhandled]
+handle_text_input = |_model, input|
+    when input is 
+        Action(Space) -> Ok(TextInput(Action(Space)))
+        Symbol(s) -> Ok(TextInput(Symbol(s)))
+        Number(n) -> Ok(TextInput(Number(n)))
+        Lower(l) | Upper(l) -> Ok(TextInput(Lower(l)))
+        _ -> Err(Unhandled)
+
+handle_text_backspace : Model, Input -> Result UserAction [Unhandled]
+handle_text_backspace = |model, input|
+    buffer_len = Model.get_buffer_len(model)
+    when input is 
+        Ctrl(H) if buffer_len > 0 -> Ok(TextBackspace)
+        Action(Delete) if buffer_len > 0 -> Ok(TextBackspace)
+        _ -> Err(Unhandled)
+
+handle_text_submit : Model, Input -> Result UserAction [Unhandled]
+handle_text_submit = |_model, input|
+    when input is 
+        Action(Enter) -> Ok(TextSubmit)
+        _ -> Err(Unhandled)
+
+handle_secret : Model, Input -> Result UserAction [Unhandled]
+handle_secret = |_model, input|
+    when input is 
+        Symbol(GraveAccent) -> Ok(Secret)
+        _ -> Err(Unhandled)
+
+catch_unhandled : Model, Input -> Result UserAction [Unhandled]
+catch_unhandled = |_model, _input|
+    Ok(None)
