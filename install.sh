@@ -23,7 +23,7 @@ RESET="\033[0m"
 [ ! -d "$LOCAL_BIN" ] && mkdir -p "$LOCAL_BIN"
 
 OPTIMIZE="--optimize"
-if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--dev" ] || [ "$1" = "--no-optimize" ]; then
+if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--dev" ] || [ "$1" = "--no-optimize" ] || [ "$OS_TYPE" = "Linux" ]; then
     OPTIMIZE=""
 fi
 
