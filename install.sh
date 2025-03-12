@@ -2,6 +2,7 @@
 LOCAL_BIN="$HOME/.local/bin"
 
 YELLOW="\033[33m"
+RED="\033[31m"
 MAGENTA="\033[35m"
 CYAN="\033[36m"
 RESET="\033[0m"
@@ -9,13 +10,8 @@ RESET="\033[0m"
 # Check if $LOCAL_BIN exists and create it if it does not
 [ ! -d "$LOCAL_BIN" ] && mkdir -p "$LOCAL_BIN"
 
-# Parse arguments
-# OPTIMIZE=""
-# if [ "$1" = "--optimize" ] || [ "$1" = "-o" ]; then
-#     OPTIMIZE="--optimize"
-# fi
 OPTIMIZE="--optimize"
-if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--no-optimize" ]; then
+if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--dev" ] || [ "$1" = "--no-optimize" ]; then
     OPTIMIZE=""
 fi
 
@@ -24,12 +20,16 @@ SRC_DIR="src"
 # Notify user that roc-start build process is starting
 echo -en "Building ${MAGENTA}roc-start${RESET}..."
 echo -e "${OPTIMIZE:+ (please be patient, this may take a minute or two)}"
-roc build $SRC_DIR/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
+[ -z "$OPTIMIZE" ] && echo -e "${YELLOW}WARNING:${RESET} using dev build is not recommended for general use"
 
-# If build succeeds, copy the executable to $LOCAL_BIN and notify user
-if [ $? -eq 0 ]; then
+roc build $SRC_DIR/main.roc --output roc-start $OPTIMIZE > /dev/null 2>&1
+# If build succeeded, copy the executable to $LOCAL_BIN and notify user
+if [ -f "./roc-start" ]; then
     mv ./roc-start $LOCAL_BIN
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
+else
+    echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed."
+    exit 1
 fi
 
 # Check if the GitHub CLI (gh) is installed
