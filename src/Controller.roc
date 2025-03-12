@@ -261,8 +261,10 @@ package_select_handler = |model, action|
             if Model.menu_is_filtered(model) then
                 Step(clear_search_filter(model))
             else
-                when model.state is
-                    PackageSelect({ choices }) ->
+                when model.sender is
+                    PlatformSelect(_) -> Step(to_platform_select_state(model))
+                    MainMenu(_) -> Step(to_main_menu_state(model))
+                    Confirmation({ choices }) ->
                         when choices is
                             App(_) -> Step(to_platform_select_state(model))
                             Package(_) -> Step(to_main_menu_state(model))
@@ -270,10 +272,9 @@ package_select_handler = |model, action|
                                 when platform is
                                     Ok(_) -> Step(to_platform_select_state(model))
                                     Err(_) if filename != "main.roc" -> Step(to_platform_select_state(model))
-                                    Err(_) -> Step(to_main_menu_state(model))
+                                    _ -> Step(to_main_menu_state(model))
 
                             _ -> Step(model)
-
                     _ -> Step(model)
 
         ClearFilter -> Step(clear_search_filter(model))
@@ -612,7 +613,7 @@ to_platform_select_state = |model|
                 sender: model.state,
             }
 
-        Search({ choices, search_buffer }) ->
+        Search({ choices, search_buffer, prior_sender }) ->
             filtered_menu =
                 model.platform_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
@@ -622,7 +623,7 @@ to_platform_select_state = |model|
                 full_menu: filtered_menu,
                 cursor: { row: 2, col: 2 },
                 state: PlatformSelect({ choices }),
-                sender: model.state,
+                sender: prior_sender,
             }
 
         PackageSelect({ choices }) ->
@@ -747,7 +748,7 @@ to_package_select_state = |model|
                 sender: model.state,
             }
 
-        Search({ choices, search_buffer }) ->
+        Search({ choices, search_buffer, prior_sender }) ->
             filtered_menu =
                 model.package_menu
                 |> List.keep_if(|item| Str.contains(item, (search_buffer |> Str.from_utf8 |> Result.with_default(""))))
@@ -759,7 +760,7 @@ to_package_select_state = |model|
                 cursor: { row: 2, col: 2 },
                 selected,
                 state: PackageSelect({ choices }),
-                sender: model.state,
+                sender: prior_sender,
             }
 
         Confirmation({ choices }) ->
@@ -890,7 +891,7 @@ to_search_state = |model|
         PlatformSelect({ choices }) ->
             { model &
                 cursor: { row: model.menu_row, col: 2 },
-                state: Search({ choices, search_buffer: [] }),
+                state: Search({ choices, search_buffer: [], prior_sender: model.sender }),
                 sender: model.state,
             }
 
@@ -899,7 +900,7 @@ to_search_state = |model|
             new_choices = choices |> Choices.set_packages(package_repos)
             { model &
                 cursor: { row: model.menu_row, col: 2 },
-                state: Search({ choices: new_choices, search_buffer: [] }),
+                state: Search({ choices: new_choices, search_buffer: [], prior_sender: model.sender }),
                 sender: model.state,
             }
 
@@ -931,9 +932,9 @@ clear_search_filter = |model|
 append_to_buffer : Model, Str -> Model
 append_to_buffer = |model, str|
     when model.state is
-        Search({ search_buffer, choices }) ->
+        Search({ search_buffer, choices , prior_sender }) ->
             new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
-            { model & state: Search({ choices, search_buffer: new_buffer }) }
+            { model & state: Search({ choices, search_buffer: new_buffer, prior_sender }) }
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
@@ -945,9 +946,9 @@ append_to_buffer = |model, str|
 backspace_buffer : Model -> Model
 backspace_buffer = |model|
     when model.state is
-        Search({ search_buffer, choices }) ->
+        Search({ search_buffer, choices, prior_sender }) ->
             new_buffer = List.drop_last(search_buffer, 1)
-            { model & state: Search({ choices, search_buffer: new_buffer }) }
+            { model & state: Search({ choices, search_buffer: new_buffer, prior_sender }) }
 
         InputAppName({ name_buffer, choices }) ->
             new_buffer = List.drop_last(name_buffer, 1)
@@ -959,8 +960,8 @@ backspace_buffer = |model|
 clear_buffer : Model -> Model
 clear_buffer = |model|
     when model.state is
-        Search({ choices }) ->
-            { model & state: Search({ choices, search_buffer: [] }) }
+        Search({ choices, prior_sender }) ->
+            { model & state: Search({ choices, search_buffer: [], prior_sender }) }
 
         InputAppName({ choices }) ->
             { model & state: InputAppName({ choices, name_buffer: [] }) }
