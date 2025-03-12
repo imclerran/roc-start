@@ -151,6 +151,8 @@ main_menu_handler = |model, action|
                 Step(to_update_select_state(model))
             else if selected == "Settings" then
                 Step(to_settings_menu_state(model))
+            else if selected == "Exit" then
+                Done(to_user_exited_state(model))
             else
                 Step(model)
 
@@ -398,7 +400,7 @@ to_user_exited_state = |model| { model & state: UserExited, sender: model.state 
 ## Transition to the MainMenu state
 to_main_menu_state : Model -> Model
 to_main_menu_state = |model|
-    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings"]
+    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings", "Exit"]
     { row, choices: new_choices } =
         when model.state is
             InputAppName({ choices, name_buffer }) ->
