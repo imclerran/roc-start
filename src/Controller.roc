@@ -82,7 +82,10 @@ get_actions = |model|
             |> with_next_page(model)
 
         Confirmation(_) -> [Exit, Finish, GoBack]
-        Search(_) -> [Exit, SearchGo, Cancel, TextInput(None), TextBackspace]
+        Search({ search_buffer }) -> 
+            [Exit, SearchGo, Cancel, TextInput(None)] 
+            |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
+            # [TextInput(None), TextBackspace]
         Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
@@ -338,6 +341,12 @@ search_handler = |model, action|
             when model.sender is
                 PlatformSelect(_) -> Step(model |> clear_buffer |> to_platform_select_state)
                 PackageSelect(_) -> Step(model |> clear_buffer |> to_package_select_state)
+                _ -> Step(model)
+
+        GoBack ->
+            when model.sender is
+                PlatformSelect(_) -> Step(to_platform_select_state(model))
+                PackageSelect(_) -> Step(to_package_select_state(model))
                 _ -> Step(model)
 
         _ -> Step(model)

@@ -8,6 +8,7 @@ module [
     get_selected_items,
     menu_is_filtered,
     get_choices,
+    get_buffer_len,
 ]
 
 import ansi.ANSI
@@ -143,3 +144,10 @@ get_choices = |model|
         Finished({ choices }) -> choices
         Splash({ choices }) -> choices
         _ -> no_choices
+
+get_buffer_len : Model -> U64
+get_buffer_len = |model|
+    when model.state is
+        InputAppName({ name_buffer }) -> List.len(name_buffer)
+        Search({ search_buffer }) -> List.len(search_buffer)
+        _ -> 0
