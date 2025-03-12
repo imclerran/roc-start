@@ -478,8 +478,8 @@ do_themes_update! = |{ log_level, theme }|
     home = Env.var!("HOME") ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
     file_path = "${home}/.rocstartthemes"
     "Updating themes " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
-    TM.update_themes!(file_path)
-    |> Result.map_err(|e| Exit(1, ["Error updating themes: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
+    TM.update_themes!(file_path)?
+    # |> Result.map_err(|e| Exit(1, ["Error updating themes: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
     ["[=====] ", "✔\n"] |> colorize([theme.secondary, theme.okay]) |> Quiet |> log!(log_level)
     Ok({})
 

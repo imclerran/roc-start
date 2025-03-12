@@ -25,11 +25,12 @@ update_themes! = |save_path|
             },
         )
         |> Result.map_ok(|resp| if resp.status == 200 then resp.body else [])
-        |> Result.map_err(|_| HttpError)?
+        |> Result.map_err(|e| Exit(1, "Error updating themes: ${Inspect.to_str(e)}"))?
     if !List.is_empty(file_contents) then
-        write_bytes!(file_contents, save_path)
+        write_bytes!(file_contents, save_path) 
+        |> Result.map_err(|_| Exit(1, "Error updating themes: could not write to filesystem"))
     else
-        Ok({})
+        Err(Exit(1, "Error updating themes: got an empty themes file"))
 
 file_exists! = |path| is_file!(path) |> Result.with_default(Bool.false)
 
