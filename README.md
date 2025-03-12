@@ -37,6 +37,11 @@ chmod +x install.sh && ./install.sh
 ```
 Roc-start is now installed to `$HOME/.local/bin/`. The first time you run `roc-start`, it will download all release data for each platform and package in its repository, as well as the code generation scripts. You're all ready to go!
 
+> __Linux Users:__
+> Due to ongoing problems with both the surgical and legacy linkers on Linux, roc-start may have issues on your machine. In my testing, building roc-start with the legacy linker causes a segfault when the executable is run, and building with the surgical linker with the `--optimize` flag fails entirely. 
+>
+> For these reasons, the install script does not use the optimize flag when installing on Linux. The CLI app still works great, and you should be able to use it without issue. However, the TUI depends heavily on these optimizations, and it is likely you may encounter poor performance and even crashes in the TUI when built without optimization.
+
 ## Two workflows
 
 1) Use the CLI with your prefered arguments:
