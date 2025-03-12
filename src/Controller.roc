@@ -266,9 +266,10 @@ package_select_handler = |model, action|
                         when choices is
                             App(_) -> Step(to_platform_select_state(model))
                             Package(_) -> Step(to_main_menu_state(model))
-                            Upgrade({ platform }) ->
+                            Upgrade({ platform, filename }) ->
                                 when platform is
                                     Ok(_) -> Step(to_platform_select_state(model))
+                                    Err(_) if filename != "main.roc" -> Step(to_platform_select_state(model))
                                     Err(_) -> Step(to_main_menu_state(model))
 
                             _ -> Step(model)
