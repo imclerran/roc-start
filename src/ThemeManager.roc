@@ -11,7 +11,7 @@ import parse.Parse as P
 import json.Json
 import Theme exposing [Theme]
 
-themes_file_url = "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/themes/.rocstartthemes"
+themes_file_url = "https://raw.githubusercontent.com/imclerran/roc-start/refs/heads/main/themes/.rocstartthemes"
 
 update_themes! = |save_path|
     file_contents =
