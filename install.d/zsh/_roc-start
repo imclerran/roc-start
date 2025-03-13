@@ -14,30 +14,18 @@ _roc_start() {
   )
 
   case "$context" in
-    update)
-      _arguments \
-        $global_opts \
-        '-k[Update the package repositories]' \
-        '--packages[Update the package repositories]' \
-        '-f[Update the platform repositories]' \
-        '--platforms[Update the platform repositories]' \
-        '-s[Update the platform scripts]' \
-        '--scripts[Update the platform scripts]' \
-        '-t[Update the available color themes]' \
-        '--themes[Update the available color themes]'
-      ;;
     upgrade)
       _arguments \
-        $global_opts \
+        "${global_opts[@]}" \
         '-i+[Input file to upgrade]:input file:_files' \
         '--in=[Input file to upgrade]:input file:_files' \
-        '-p+[Specify platform and version]:platform' \
-        '--platform=[Specify platform and version]:platform' \
+        '-p+[Specify platform]:platform' \
+        '--platform=[Specify platform]:platform' \
         '*:packages:'
       ;;
     app)
       _arguments \
-        $global_opts \
+        "${global_opts[@]}" \
         '-f[Force overwrite of existing file]' \
         '--force[Force overwrite of existing file]' \
         '-o+[Output file name]:output file:_files' \
@@ -48,28 +36,40 @@ _roc_start() {
       ;;
     package)
       _arguments \
-        $global_opts \
+        "${global_opts[@]}" \
         '-f[Force overwrite of existing file]' \
         '--force[Force overwrite of existing file]' \
         '*:packages:'
       ;;
     config)
       _arguments \
-        $global_opts \
+        "${global_opts[@]}" \
         '--set-theme=[Set default CLI color theme]:theme' \
         '--set-verbosity=[Set default verbosity level]:verbosity:(verbose quiet silent)' \
         '--set-default-platform=[Set default platform]:platform'
       ;;
+    update)
+      _arguments \
+        "${global_opts[@]}" \
+        '-k[Update the package repositories]' \
+        '--packages[Update the package repositories]' \
+        '-f[Update the platform repositories]' \
+        '--platforms[Update the platform repositories]' \
+        '-s[Update the platform scripts]' \
+        '--scripts[Update the platform scripts]' \
+        '-t[Update the available color themes]' \
+        '--themes[Update the available color themes]'
+      ;;
     *)
       # Default subcommand suggestions with global options
       _arguments \
-        $global_opts \
+        "${global_opts[@]}" \
         "1: :(
-          update
           upgrade
           app
           package
           config
+          update
         )"
       ;;
   esac
