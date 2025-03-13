@@ -12,7 +12,7 @@ import RepoManager exposing [RepositoryDict, RepositoryReleaseSerialized]
 # Run updates
 # ------------------------------------------------------------------------------
 
-update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, ParsingError]
+update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, GhError(_), ParsingError]
 update_local_repos! = |known_repos_csv_text, save_path, logger!|
     parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
     num_repos = List.len(parsed_repos)
@@ -30,7 +30,6 @@ update_local_repos! = |known_repos_csv_text, save_path, logger!|
                     get_releases_cmd(repo, alias)
                     |> cmd_output!
                     |> get_gh_cmd_stdout?
-                    |> Str.from_utf8_lossy
                 if current_fifth > last_fifth then logger!("=") else {}
                 when new_releases_str is
                     "" ->
@@ -64,12 +63,20 @@ get_releases_cmd = |repo, alias|
     cmd_new("gh")
     |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|(endswith(\".tar.br\") or endswith(\".tar.gz\"))) | select(.name | (contains(\"docs\") or contains(\"Source code\")) | not) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
 
-get_gh_cmd_stdout = |cmd_output|
-    when cmd_output.status is
-        Ok(0) -> Ok(cmd_output.stdout)
+get_gh_cmd_stdout = |output|
+    stdout = output.stdout |> Str.from_utf8_lossy
+    stderr = output.stderr |> Str.from_utf8_lossy
+    when output.status is
+        Ok(0) -> Ok(stdout)
         Ok(4) -> Err(GhAuthError)
-        Ok(_) -> Ok([])
-        Err(_) -> Err(GhNotInstalled)
+        Ok(_) -> Err(GhNotInstalled)
+        Err(Other(s)) -> 
+            if Str.contains(stderr, "gh auth login") or Str.contains(stdout, "gh auth login") then 
+                Err(GhAuthError) 
+            else 
+                Err(GhError(Other(s)))
+        Err(NotFound) -> Err(GhNotInstalled)
+        Err(e) -> Err(GhError(e))
 
 # Parse known repositories csv
 # ------------------------------------------------------------------------------
