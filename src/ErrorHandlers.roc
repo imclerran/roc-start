@@ -265,6 +265,7 @@ handle_update_local_repos_error = |{ log_level, theme, colorize }|
                     FileWriteError -> "Error updating local repositories: file write error."
                     GhAuthError -> "Error updating local repositories: gh cli tool not authenticated - run `gh auth login` to fix."
                     GhNotInstalled -> "Error updating local repositories: gh cli tool not installed - install it from https://cli.github.com."
+                    GhError(e) -> "Error updating local repositories: when calling `gh` cmd: ${Inspect.to_str(e)}"
                     ParsingError -> "Error updating local repositories: error parsing remote data - please file an issue at https://github.com/imclerran/roc-start"
 
             Err(Exit(1, [err_message] |> colorize([theme.error])))
