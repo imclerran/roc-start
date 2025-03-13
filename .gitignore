@@ -16,6 +16,9 @@
 !ci/
 !src_new/
 !themes/
+!install.d/bash/
+!/install.d/zsh/
+!install.d/zsh/_*
 
 # reignore files
 *.DS_Store
