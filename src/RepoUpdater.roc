@@ -69,7 +69,11 @@ get_gh_cmd_stdout = |cmd_output|
         Ok(0) -> Ok(cmd_output.stdout)
         Ok(4) -> Err(GhAuthError)
         Ok(_) -> Ok([])
-        Err(_) -> Err(GhNotInstalled)
+        Err(_) -> 
+            if(cmd_output.stderr |> Str.from_utf8_lossy |> Str.contains("gh auth login")) then 
+                Err(GhNotInstalled)
+            else
+                Err(GhNotInstalled)
 
 # Parse known repositories csv
 # ------------------------------------------------------------------------------
