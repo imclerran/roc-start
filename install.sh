@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Get the directory of the current script
+if [ -n "$ZSH_VERSION" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${(%):-%N}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
 # Check if the script is running on macOS or Linux
 OS_TYPE=$(uname)
 if [ "$OS_TYPE" = "Darwin" ]; then
@@ -40,6 +47,12 @@ if [ -f "./roc-start" ]; then
     chmod +x ./roc-start
     mv ./roc-start $LOCAL_BIN
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
+
+    # Prompt the user to install shell completions
+    read -p "Do you want to install shell completions? (Y/n): " install_completions
+    if [[ "$install_completions" =~ ^[Yy]$ || -z "$install_completions" ]]; then
+        source "$SCRIPT_DIR/install.d/setup_completion.sh"
+    fi
 else
     echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed."
     exit 1
