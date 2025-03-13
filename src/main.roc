@@ -254,7 +254,16 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) ->
-                    Cmd.exec!("chmod", ["+x", script_path]) ? |e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error]))
+                    Cmd.new("chmod")
+                    |> Cmd.args(["+x", script_path])
+                    |> Cmd.output!
+                    |> |chmod_res|
+                        chmod_stderr = chmod_res.stderr |> Str.from_utf8_lossy
+                        when chmod_res.status is
+                            Ok(0) -> Ok({})
+                            Ok(_) -> Err(ChmodErr(Other(chmod_stderr)))
+                            Err(e) -> Err(e)
+                    |> Result.map_err(|e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     res =
                         Cmd.new(script_path)
                         |> Cmd.args(cmd_args)
