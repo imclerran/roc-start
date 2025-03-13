@@ -254,21 +254,33 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) ->
-                    Cmd.exec!("chmod", ["+x", script_path]) ? |e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error]))
+                    Cmd.new("chmod")
+                    |> Cmd.args(["+x", script_path])
+                    |> Cmd.output!
+                    |> |chmod_res|
+                        chmod_stderr = chmod_res.stderr |> Str.from_utf8_lossy
+                        when chmod_res.status is
+                            Ok(0) -> Ok({})
+                            Ok(_) -> Err(ChmodErr(Other(chmod_stderr)))
+                            Err(e) -> Err(e)
+                    |> Result.map_err(|e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     res =
                         Cmd.new(script_path)
                         |> Cmd.args(cmd_args)
                         |> Cmd.output!
                     when res.status is
-                        Ok(_) ->
+                        Ok(0) ->
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
+
+                        Ok(_) ->
+                            Err(Exit(1, ["Failed to run generation script: non-zero exit code"] |> colorize([theme.error])))
 
                         Err(e) ->
                             Err(Exit(1, ["Failed to run generation script: ${Inspect.to_str(e)}"] |> colorize([theme.error])))
 
                 Err(NoMatch) ->
                     build_default_app!(arg_data.filename, platform_release, package_releases)
-                    |> Result.map_err(|_| Exit(1, ["Error writing to ${arg_data.filename}."] |> colorize([theme.error])))?
+                    |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
 build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
@@ -479,7 +491,6 @@ do_themes_update! = |{ log_level, theme }|
     file_path = "${home}/.rocstartthemes"
     "Updating themes " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     TM.update_themes!(file_path)?
-    # |> Result.map_err(|e| Exit(1, ["Error updating themes: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
     ["[=====] ", "✔\n"] |> colorize([theme.secondary, theme.okay]) |> Quiet |> log!(log_level)
     Ok({})
 
