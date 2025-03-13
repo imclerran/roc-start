@@ -269,8 +269,11 @@ do_app_command! = |arg_data, logging|
                         |> Cmd.args(cmd_args)
                         |> Cmd.output!
                     when res.status is
-                        Ok(_) ->
+                        Ok(0) ->
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
+
+                        Ok(_) ->
+                            Err(Exit(1, ["Failed to run generation script: non-zero exit code"] |> colorize([theme.error])))
 
                         Err(e) ->
                             Err(Exit(1, ["Failed to run generation script: ${Inspect.to_str(e)}"] |> colorize([theme.error])))
