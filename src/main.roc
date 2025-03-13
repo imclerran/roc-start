@@ -277,7 +277,7 @@ do_app_command! = |arg_data, logging|
 
                 Err(NoMatch) ->
                     build_default_app!(arg_data.filename, platform_release, package_releases)
-                    |> Result.map_err(|_| Exit(1, ["Error writing to ${arg_data.filename}."] |> colorize([theme.error])))?
+                    |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
 build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
