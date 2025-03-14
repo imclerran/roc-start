@@ -4,6 +4,10 @@ module [
     get_filename,
     set_force,
     get_force,
+    set_no_script,
+    get_no_script,
+    set_flags,
+    get_flags,
     set_packages,
     get_packages,
     set_platform,
@@ -24,13 +28,14 @@ module [
 ]
 
 import rtils.StrUtils
+import heck.Heck
 
 Choices : [
-    App { filename : Str, force : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
+    App { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
     Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
-    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes: Bool },
+    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes : Bool },
     NothingToDo,
 ]
 
@@ -41,17 +46,17 @@ to_app = |choices|
             App(config)
 
         Package({ force, packages }) ->
-            App({ filename: "main.roc", force, packages, platform: { name: "", version: "" } })
+            App({ filename: "main.roc", force, packages, platform: { name: "", version: "" }, no_script: Bool.false })
 
         Upgrade({ filename, packages, platform: maybe_pf }) ->
             platform =
                 when maybe_pf is
                     Ok(pf) -> pf
                     Err(_) -> { name: "", version: "" }
-            App({ filename, force: Bool.false, packages, platform })
+            App({ filename, force: Bool.false, packages, platform, no_script: Bool.false })
 
         _ ->
-            App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" } })
+            App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" }, no_script: Bool.false })
 
 to_package : Choices -> Choices
 to_package = |choices|
@@ -129,6 +134,52 @@ get_force = |choices|
         App(config) -> config.force
         Package(config) -> config.force
         _ -> Bool.false
+
+set_no_script : Choices, Bool -> Choices
+set_no_script = |choices, no_script|
+    when choices is
+        App(config) -> App({ config & no_script })
+        _ -> choices
+
+get_no_script : Choices -> Bool
+get_no_script = |choices|
+    when choices is
+        App(config) -> config.no_script
+        _ -> Bool.false
+
+set_flags : Choices, List Str -> Choices
+set_flags = |choices, flags|
+    kebab_flags = List.map(flags, |f| Heck.to_kebab_case(f))
+    when choices is
+        App(config) ->
+            App(
+                { config &
+                    force: List.contains(kebab_flags, "force"),
+                    no_script: List.contains(kebab_flags, "no-script"),
+                },
+            )
+
+        Package(config) ->
+            Package(
+                { config &
+                    force: List.contains(kebab_flags, "force"),
+                },
+            )
+
+        _ -> choices
+
+get_flags : Choices -> List Str
+get_flags = |choices|
+    when choices is
+        App(config) ->
+            []
+            |> |ul| if config.force then List.append(ul, "force") else ul
+            |> |ul| if config.no_script then List.append(ul, "no-script") else ul
+
+        Package(config) ->
+            if config.force then ["force"] else []
+
+        _ -> []
 
 set_packages : Choices, List Str -> Choices
 set_packages = |choices, packages|

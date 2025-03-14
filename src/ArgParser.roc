@@ -61,6 +61,7 @@ verbosity_to_log_level = |verbosity|
 app_subcommand =
     { Cli.weave <-
         force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
+        no_script: Opt.flag({ long: "no-script", help: "Force roc-start to use fallback generation insteaad of platform specific script." }),
         filename: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." })
         |> Cli.map(default_filename)
         |> Cli.map(with_extension),

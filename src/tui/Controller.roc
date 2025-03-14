@@ -28,6 +28,7 @@ UserAction : [
     TextInput Key,
     TextBackspace,
     TextSubmit,
+    SetFlags,
     Secret,
     None,
 ]
@@ -81,18 +82,30 @@ get_actions = |model|
             |> with_prev_page(model)
             |> with_next_page(model)
 
-        Confirmation(_) -> [Exit, Finish, GoBack]
+        Confirmation(_) ->
+            [Exit, Finish]
+            |> with_set_flags(model)
+            |> |actions| List.append(actions, GoBack)
+
+        ChooseFlags(_) ->
+            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
+            |> with_prev_page(model)
+            |> with_next_page(model)
+
         Search({ search_buffer }) ->
             [Exit, SearchGo, Cancel, TextInput(None)]
             |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
 
-        # [TextInput(None), TextBackspace]
         Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
 with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
 with_prev_page = |actions, model| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
 with_next_page = |actions, model| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
+with_set_flags = |actions, model|
+    when Model.get_choices(model) is
+        App(_) | Package(_) -> List.append(actions, SetFlags)
+        _ -> actions
 
 ## Check if the user action is available in the current state
 action_is_available : Model, UserAction -> Bool
@@ -105,7 +118,9 @@ action_is_available = |model, action|
 ## Translate the user action into a state transition by dispatching to the appropriate handler
 apply_action : Model, UserAction -> [Step Model, Done Model]
 apply_action = |model, action|
-    if action_is_available(model, action) then
+    if action == Exit then
+        Done(to_user_exited_state(model))
+    else if action_is_available(model, action) then
         when model.state is
             MainMenu(_) -> main_menu_handler(model, action)
             SettingsMenu(_) -> settings_menu_handler(model, action)
@@ -116,6 +131,7 @@ apply_action = |model, action|
             VersionSelect(_) -> version_select_handler(model, action)
             UpdateSelect(_) -> update_select_handler(model, action)
             Confirmation(_) -> confirmation_handler(model, action)
+            ChooseFlags(_) -> choose_flags_handler(model, action)
             Search(_) -> search_handler(model, action)
             Splash(_) -> splash_handler(model, action)
             _ -> default_handler(model, action)
@@ -384,9 +400,27 @@ confirmation_handler = |model, action|
                 PackageSelect(_) -> Step(to_package_select_state(model))
                 UpdateSelect(_) -> Step(to_update_select_state(model))
                 SettingsMenu(_) -> Step(to_settings_menu_state(model))
+                ChooseFlags({ choices }) ->
+                    when choices is
+                        App(_) | Package(_) -> Step(to_package_select_state(model))
+                        _ -> Step(model)
+
                 _ -> Step(model)
 
-        # Step(to_package_select_state(model))
+        SetFlags -> Step(to_choose_flags_state(model))
+        _ -> Step(model)
+
+choose_flags_handler : Model, UserAction -> [Step Model, Done Model]
+choose_flags_handler = |model, action|
+    when action is
+        # Exit -> Done(to_user_exited_state(model))
+        MultiSelect -> Step(toggle_selected(model))
+        MultiConfirm -> Step(to_confirmation_state(model))
+        CursorUp -> Step(move_cursor(model, Up))
+        CursorDown -> Step(move_cursor(model, Down))
+        NextPage -> Step(next_page(model))
+        PrevPage -> Step(prev_page(model))
+        GoBack -> Step(to_confirmation_state(model))
         _ -> Step(model)
 
 ## Map the user action to the appropriate state transition from the Splash state
@@ -439,6 +473,7 @@ to_main_menu_state = |model|
             Search({ choices }) -> { choices, row: 2 }
             VersionSelect({ choices }) -> { choices, row: 2 }
             Confirmation({ choices }) -> { choices, row: 2 }
+            ChooseFlags({ choices }) -> { choices, row: 2 }
             Finished({ choices }) -> { choices, row: 2 }
             Splash({ choices }) -> { choices, row: 2 }
             UserExited -> { choices: NothingToDo, row: 2 }
@@ -885,7 +920,36 @@ to_confirmation_state = |model|
             new_choices = choices |> Choices.set_updates(Model.get_selected_items(model))
             { model & state: Confirmation({ choices: new_choices }), sender: model.state }
 
+        ChooseFlags({ choices }) ->
+            new_choices = choices |> Choices.set_flags(Model.get_selected_items(model))
+            { model & state: Confirmation({ choices: new_choices }), sender: model.state }
+
         SettingsMenu({ choices }) -> { model & state: Confirmation({ choices }), sender: model.state }
+        _ -> model
+
+# # Transition to the ChooseFlags state
+to_choose_flags_state : Model -> Model
+to_choose_flags_state = |model|
+    when model.state is
+        Confirmation({ choices }) ->
+            menu =
+                when choices is
+                    App(_) -> ["Force", "No Script"]
+                    Package(_) -> ["Force"]
+                    _ -> []
+            when choices is
+                App(_) | Package(_) ->
+                    selected = Choices.get_flags(choices) |> List.map(Heck.to_title_case)
+                    { model &
+                        cursor: { row: 2, col: 2 },
+                        full_menu: menu,
+                        state: ChooseFlags({ choices }),
+                        selected,
+                        sender: model.state,
+                    }
+
+                _ -> model
+
         _ -> model
 
 ## Transition to the Search state

@@ -1,17 +1,5 @@
 module [
     render,
-    # render_main_menu,
-    # render_settings_menu,
-    # render_settings_submenu,
-    # render_input_app_name,
-    # render_platform_select,
-    # render_package_select,
-    # render_version_select,
-    # render_update_select,
-    # render_search,
-    # render_confirmation,
-    # render_splash,
-    # render_box,
 ]
 
 import AsciiArt
@@ -36,6 +24,7 @@ render = |model, theme|
         UpdateSelect(_) -> render_update_select(model, theme)
         Search(_) -> render_search(model, theme)
         Confirmation(_) -> render_confirmation(model, theme)
+        ChooseFlags(_) -> render_choose_flags(model, theme)
         Splash(_) -> render_splash(model, theme)
         _ -> []
 
@@ -60,13 +49,7 @@ control_prompts_dict =
     |> Dict.insert(SearchGo, "ENTER : SEARCH")
     |> Dict.insert(Cancel, "ESC : CANCEL")
     |> Dict.insert(Finish, "ENTER : FINISH")
-    |> Dict.insert(CursorUp, "")
-    |> Dict.insert(CursorDown, "")
-    |> Dict.insert(TextInput(None), "")
-    |> Dict.insert(TextBackspace, "")
-    |> Dict.insert(Exit, "")
-    |> Dict.insert(None, "")
-    |> Dict.insert(Secret, "")
+    |> Dict.insert(SetFlags, "F : FLAGS")
     |> Dict.insert(PrevPage, "< PREV")
     |> Dict.insert(NextPage, "> NEXT")
 
@@ -84,13 +67,7 @@ control_prompts_trunc_dict =
     |> Dict.insert(SearchGo, "ENTER : SRCH")
     |> Dict.insert(Cancel, "ESC : CNCL")
     |> Dict.insert(Finish, "ENTER : GO")
-    |> Dict.insert(CursorUp, "")
-    |> Dict.insert(CursorDown, "")
-    |> Dict.insert(TextInput(None), "")
-    |> Dict.insert(TextBackspace, "")
-    |> Dict.insert(Exit, "")
-    |> Dict.insert(None, "")
-    |> Dict.insert(Secret, "")
+    |> Dict.insert(SetFlags, "F : FLGS")
     |> Dict.insert(PrevPage, "<")
     |> Dict.insert(NextPage, ">")
 
@@ -109,13 +86,7 @@ control_prompts_short_dict =
     |> Dict.insert(SearchGo, "ENTER")
     |> Dict.insert(Cancel, "ESC")
     |> Dict.insert(Finish, "ENTER")
-    |> Dict.insert(CursorUp, "")
-    |> Dict.insert(CursorDown, "")
-    |> Dict.insert(TextInput(None), "")
-    |> Dict.insert(TextBackspace, "")
-    |> Dict.insert(Exit, "")
-    |> Dict.insert(None, "")
-    |> Dict.insert(Secret, "")
+    |> Dict.insert(SetFlags, "F")
     |> Dict.insert(PrevPage, "<")
     |> Dict.insert(NextPage, ">")
 
@@ -405,11 +376,14 @@ render_app_confirmation = |model, theme|
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: theme.primary }),
             ],
             if List.is_empty(packages) then
-                [
-                    "none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: theme.secondary }),
-                ]
+                List.join(
+                    [
+                        ["none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: theme.secondary })],
+                        render_flags(model, theme, model.menu_row + 3),
+                    ],
+                )
             else
-                render_multi_line_text(
+                lines = render_multi_line_text(
                     packages,
                     {
                         start_col: 12,
@@ -419,9 +393,41 @@ render_app_confirmation = |model, theme|
                         word_delim: ", ",
                         fg: theme.secondary,
                     },
+                )
+                flags_renderers = render_flags(model, theme, model.menu_row + 2 + Num.int_cast(List.len(lines)))
+                List.join(
+                    [
+                        lines,
+                        flags_renderers,
+                    ],
                 ),
         ],
     )
+
+render_flags : Model, Theme, U16 -> List ANSI.DrawFn
+render_flags = |model, theme, row|
+    flags = Model.get_choices(model) |> Choices.get_flags
+    if List.is_empty(flags) then
+        []
+    else
+        prompt_renderer = "Flags:" |> ANSI.draw_text({ r: row, c: 2, fg: theme.primary })
+        flags_renderers = render_multi_line_text(
+            flags,
+            {
+                start_col: 9,
+                start_row: row,
+                max_col: model.screen.width - 1,
+                wrap_col: 2,
+                word_delim: ", ",
+                fg: theme.warn,
+            },
+        )
+        List.join(
+            [
+                [prompt_renderer],
+                flags_renderers,
+            ],
+        )
 
 render_package_confirmation : Model, Theme -> List ANSI.DrawFn
 render_package_confirmation = |model, theme|
@@ -439,11 +445,14 @@ render_package_confirmation = |model, theme|
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: theme.primary }),
             ],
             if List.is_empty(packages) then
-                [
-                    "none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: theme.secondary }),
-                ]
+                List.join(
+                    [
+                        ["none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: theme.secondary })],
+                        render_flags(model, theme, model.menu_row + 1),
+                    ],
+                )
             else
-                render_multi_line_text(
+                lines = render_multi_line_text(
                     packages,
                     {
                         start_col: 12,
@@ -453,6 +462,13 @@ render_package_confirmation = |model, theme|
                         word_delim: ", ",
                         fg: theme.secondary,
                     },
+                )
+                flags_renderers = render_flags(model, theme, model.menu_row + Num.int_cast(List.len(lines)))
+                List.join(
+                    [
+                        lines,
+                        flags_renderers,
+                    ],
                 ),
         ],
     )
@@ -571,6 +587,23 @@ render_upgrade_confirmation = |model, theme|
             )
 
         _ -> []
+
+render_choose_flags : Model, Theme -> List ANSI.DrawFn
+render_choose_flags = |model, theme|
+    List.join(
+        [
+            [
+                render_exit_prompt(model.screen, theme.error),
+                render_controls_prompt(controls_prompt_str(model), model.screen, theme.secondary),
+            ],
+            render_outer_border(model.screen, theme.primary),
+            [
+                "CHOOSE FLAGS:" |> render_screen_prompt(theme.secondary),
+                ANSI.draw_cursor({ fg: theme.primary, char: ">" }),
+            ],
+            render_multiple_choice_menu(model, theme),
+        ],
+    )
 
 ## Generate the list of functions to draw a box.
 render_box : U16, U16, U16, U16, BoxStyle, ANSI.Color -> List ANSI.DrawFn

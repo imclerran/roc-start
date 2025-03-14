@@ -5,7 +5,9 @@ app [main!] {
     themes: "themes/main.roc",
     repos: "repos/main.roc",
     tui: "tui/main.roc",
-    
+    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
+    parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
+    semver: "https://github.com/imclerran/roc-semver/releases/download/v0.2.0%2Bimclerran/ePmzscvLvhwfllSFZGgTp77uiTFIwZQPgK_TiM6k_1s.tar.br",
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -191,7 +193,7 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logg
         (_, _, Err(e), _) -> Err(e)
         (_, _, _, Err(e)) -> Err(e)
 
-do_app_command! : { filename : Str, force : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
+do_app_command! : { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
     log_level = logging.log_level
     theme = logging.theme
@@ -252,7 +254,7 @@ do_app_command! = |arg_data, logging|
                 ScriptManager.choose_script(platform_release.tag, scripts)
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
-                Ok(script_path) ->
+                Ok(script_path) if !arg_data.no_script ->
                     Cmd.new("chmod")
                     |> Cmd.args(["+x", script_path])
                     |> Cmd.output!
@@ -277,7 +279,7 @@ do_app_command! = |arg_data, logging|
                         Err(e) ->
                             Err(Exit(1, ["Failed to run generation script: ${Inspect.to_str(e)}"] |> colorize([theme.error])))
 
-                Err(NoMatch) ->
+                _ ->
                     build_default_app!(arg_data.filename, platform_release, package_releases)
                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
