@@ -49,6 +49,7 @@ State : [
     VersionSelect { choices : Choices, repo : { name : Str, version : Str } },
     UpdateSelect { choices : Choices },
     Confirmation { choices : Choices },
+    ChooseFlags { choices : Choices },
     Finished { choices : Choices },
     Splash { choices : Choices },
     UserExited,

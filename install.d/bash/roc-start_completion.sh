@@ -18,7 +18,7 @@ _roc_start() {
             COMPREPLY=( $(compgen -W "-i --in -p --platform ${global_opts[*]}" -- "$cur") )
             ;;
         app)
-            COMPREPLY=( $(compgen -W "-f --force -o --out -p --platform ${global_opts[*]}" -- "$cur") )
+            COMPREPLY=( $(compgen -W "-f --force -o --out -p --platform --no-script ${global_opts[*]}" -- "$cur") )
             ;;
         package)
             COMPREPLY=( $(compgen -W "-f --force ${global_opts[*]}" -- "$cur") )

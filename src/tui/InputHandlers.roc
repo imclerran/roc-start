@@ -37,6 +37,7 @@ action_to_input_handler = |action|
         TextInput(None) -> handle_text_input
         TextBackspace -> handle_text_backspace
         TextSubmit -> handle_text_submit
+        SetFlags -> handle_set_flags
         Secret -> handle_secret
         _ -> catch_unhandled
 
@@ -152,6 +153,12 @@ handle_text_submit : Model, Input -> Result UserAction [Unhandled]
 handle_text_submit = |_model, input|
     when input is 
         Action(Enter) -> Ok(TextSubmit)
+        _ -> Err(Unhandled)
+
+handle_set_flags : Model, Input -> Result UserAction [Unhandled]
+handle_set_flags = |_model, input|
+    when input is 
+        Lower(F) | Upper(F) -> Ok(SetFlags)
         _ -> Err(Unhandled)
 
 handle_secret : Model, Input -> Result UserAction [Unhandled]

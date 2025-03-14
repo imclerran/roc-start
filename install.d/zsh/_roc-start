@@ -32,6 +32,7 @@ _roc_start() {
         '--out=[Output file name]:output file:_files' \
         '-p+[Specify platform]:platform' \
         '--platform=[Specify platform]:platform' \
+        '--no-script[Force the use of fallback generation]' \
         '*:packages:'
       ;;
     package)
