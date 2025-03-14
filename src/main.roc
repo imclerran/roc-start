@@ -2,12 +2,13 @@ app [main!] {
     cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.19.0/Hj-J_zxz7V9YurCSTFcFdu6cQJie4guzsPMUi5kBYUk.tar.br",
     weaver: "https://github.com/smores56/weaver/releases/download/0.6.0/4GmRnyE7EFjzv6dDpebJoWWwXV285OMt4ntHIc6qvmY.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
-    themes: "themes/main.roc",
-    repos: "repos/main.roc",
-    tui: "tui/main.roc",
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
     parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     semver: "https://github.com/imclerran/roc-semver/releases/download/v0.2.0%2Bimclerran/ePmzscvLvhwfllSFZGgTp77uiTFIwZQPgK_TiM6k_1s.tar.br",
+    themes: "themes/main.roc",
+    repos: "repos/main.roc",
+    tui: "tui/main.roc",
+    
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -255,29 +256,44 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) if !arg_data.no_script ->
-                    Cmd.new("chmod")
-                    |> Cmd.args(["+x", script_path])
-                    |> Cmd.output!
-                    |> |chmod_res|
-                        chmod_stderr = chmod_res.stderr |> Str.from_utf8_lossy
-                        when chmod_res.status is
-                            Ok(0) -> Ok({})
-                            Ok(_) -> Err(ChmodErr(Other(chmod_stderr)))
-                            Err(e) -> Err(e)
-                    |> Result.map_err(|e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
-                    res =
-                        Cmd.new(script_path)
-                        |> Cmd.args(cmd_args)
+                    chmod_res = 
+                        Cmd.new("chmod")
+                        |> Cmd.args(["+x", script_path])
                         |> Cmd.output!
-                    when res.status is
-                        Ok(0) ->
+                        |> |chmod_output|
+                            chmod_stderr = chmod_output.stderr |> Str.from_utf8_lossy
+                            when chmod_output.status is
+                                Ok(0) -> Ok({})
+                                Ok(_) -> Err(ChmodErr(Other(chmod_stderr)))
+                                Err(e) -> Err(e)
+                    when chmod_res is
+                        Err(err) ->
+                            ["| Failed to make generation script executable: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                            build_default_app!(arg_data.filename, platform_release, package_releases)
+                            |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                         Ok(_) ->
-                            Err(Exit(1, ["Failed to run generation script: non-zero exit code"] |> colorize([theme.error])))
+                        # |> Result.map_err(|e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
+                            res =
+                                Cmd.new(script_path)
+                                |> Cmd.args(cmd_args)
+                                |> Cmd.output!
+                            when res.status is
+                                Ok(0) ->
+                                    print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
-                        Err(e) ->
-                            Err(Exit(1, ["Failed to run generation script: ${Inspect.to_str(e)}"] |> colorize([theme.error])))
+                                Ok(_)  ->
+                                    ["| Failed to run generation script: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    build_default_app!(arg_data.filename, platform_release, package_releases)
+                                    |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
+                                    print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
+
+                                Err(err) ->
+                                    ["| Failed to run generation script: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    build_default_app!(arg_data.filename, platform_release, package_releases)
+                                    |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
+                                    print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                 _ ->
                     build_default_app!(arg_data.filename, platform_release, package_releases)
