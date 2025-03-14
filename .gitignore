@@ -4,18 +4,12 @@
 # unignore files
 !*.*
 !*.roc
-!*.rvn
-!repos/
 !src/
-!src/roc-ansi/
-!repository
-!repository/app-stubs
-!repository/app-stubs/*
+!repos/
+!tui/
+!themes/
 !assets
 !.github/workflows/
-!ci/
-!src_new/
-!themes/
 !install.d/bash/
 !/install.d/zsh/
 !install.d/zsh/_*
@@ -24,4 +18,3 @@
 *.DS_Store
 *.py
 progress.roc
-src_new/test.roc

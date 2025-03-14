@@ -7,6 +7,9 @@ app [main!] {
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
     heck: "https://github.com/imclerran/roc-heck/releases/download/v0.1.0/jxGXBo18syk4Ej1V5Y7lP5JnjKlCg_yIzdadvx7Tqc8.tar.br",
+    themes: "themes/main.roc",
+    repos: "repos/main.roc",
+    tui: "tui/main.roc",
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -20,19 +23,19 @@ import cli.Env
 import cli.Path
 import cli.Tty
 import ansi.ANSI
-import Model exposing [Model]
-import View
-import Controller
-import InputHandlers exposing [handle_input]
-import Theme exposing [Theme]
+import tui.Model exposing [Model]
+import tui.View
+import tui.Controller
+import tui.InputHandlers exposing [handle_input]
+import themes.Theme exposing [Theme]
 import ArgParser
-import RepoUpdater {
+import repos.Updater {
     write_bytes!: File.write_bytes!,
     cmd_output!: Cmd.output!,
     cmd_new: Cmd.new,
     cmd_args: Cmd.args,
 } as RU
-import RepoManager as RM exposing [RepositoryDict, RepositoryRelease]
+import repos.Manager as RM exposing [RepositoryDict, RepositoryRelease]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -40,7 +43,7 @@ import ScriptManager {
         list_dir!: Dir.list!,
         path_to_str: Path.display,
     } exposing [cache_scripts!]
-import ThemeManager {
+import themes.Manager {
     env_var!: Env.var!,
     is_file!: File.is_file!,
     read_bytes!: File.read_bytes!,

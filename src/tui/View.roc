@@ -19,7 +19,7 @@ import Controller exposing [UserAction]
 import Model exposing [Model]
 import ansi.ANSI
 import Choices
-import Theme exposing [Theme]
+import themes.Theme exposing [Theme]
 
 ## Render functions for each page
 render_screen_prompt = |text, color| text |> ANSI.draw_text({ r: 1, c: 2, fg: color })

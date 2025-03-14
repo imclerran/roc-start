@@ -7,12 +7,12 @@ import parse.CSV exposing [csv_string]
 import parse.Parse exposing [one_or_more, maybe, string, lhs, rhs, map, zip_3, zip_4, whitespace, finalize]
 import semver.Semver
 
-import RepoManager exposing [RepositoryDict, RepositoryReleaseSerialized]
+import Manager exposing [RepositoryDict, RepositoryReleaseSerialized]
 
 # Run updates
 # ------------------------------------------------------------------------------
 
-update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, GhError(_), ParsingError]
+update_local_repos! : Str, Str, (Str => {}) => Result RepositoryDict [FileWriteError, GhAuthError, GhNotInstalled, GhError _, ParsingError]
 update_local_repos! = |known_repos_csv_text, save_path, logger!|
     parsed_repos = parse_known_repos(known_repos_csv_text) ? |_| ParsingError
     num_repos = List.len(parsed_repos)
@@ -70,11 +70,12 @@ get_gh_cmd_stdout = |output|
         Ok(0) -> Ok(stdout)
         Ok(4) -> Err(GhAuthError)
         Ok(_) -> Err(GhNotInstalled)
-        Err(Other(s)) -> 
-            if Str.contains(stderr, "gh auth login") or Str.contains(stdout, "gh auth login") then 
-                Err(GhAuthError) 
-            else 
+        Err(Other(s)) ->
+            if Str.contains(stderr, "gh auth login") or Str.contains(stdout, "gh auth login") then
+                Err(GhAuthError)
+            else
                 Err(GhError(Other(s)))
+
         Err(NotFound) -> Err(GhNotInstalled)
         Err(e) -> Err(GhError(e))
 

@@ -11,7 +11,7 @@ import rtils.StrUtils
 import rtils.ListUtils
 import parse.Parse as P
 import json.Json
-import Theme exposing [Theme]
+import themes.Theme exposing [Theme]
 LogLevel : [Silent, Quiet, Verbose]
 
 Config : { verbosity : LogLevel, theme : Theme, platform : { name : Str, version : Str } }

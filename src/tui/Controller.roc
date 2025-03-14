@@ -4,7 +4,7 @@ import Choices
 import Keys exposing [Key]
 import Model exposing [Model]
 import Utils
-import RepoManager as RM
+import repos.Manager as RM
 import rtils.StrUtils
 import rtils.Compare
 import heck.Heck
@@ -25,7 +25,7 @@ UserAction : [
     Search,
     SearchGo,
     SingleSelect,
-    TextInput(Key),
+    TextInput Key,
     TextBackspace,
     TextSubmit,
     Secret,
@@ -82,10 +82,11 @@ get_actions = |model|
             |> with_next_page(model)
 
         Confirmation(_) -> [Exit, Finish, GoBack]
-        Search({ search_buffer }) -> 
-            [Exit, SearchGo, Cancel, TextInput(None)] 
+        Search({ search_buffer }) ->
+            [Exit, SearchGo, Cancel, TextInput(None)]
             |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
-            # [TextInput(None), TextBackspace]
+
+        # [TextInput(None), TextBackspace]
         Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
@@ -95,7 +96,7 @@ with_next_page = |actions, model| if Model.is_not_last_page(model) then List.app
 
 ## Check if the user action is available in the current state
 action_is_available : Model, UserAction -> Bool
-action_is_available = |model, action| 
+action_is_available = |model, action|
     actions = get_actions(model)
     when action is
         TextInput(_) -> List.contains(actions, TextInput(None))
@@ -275,6 +276,7 @@ package_select_handler = |model, action|
                                     _ -> Step(to_main_menu_state(model))
 
                             _ -> Step(model)
+
                     _ -> Step(model)
 
         ClearFilter -> Step(clear_search_filter(model))
@@ -463,19 +465,21 @@ to_settings_menu_state = |model|
             }
 
         SettingsSubmenu({ choices, submenu }) ->
-            { row, choices: new_choices } = 
+            { row, choices: new_choices } =
                 if model.cursor.row < model.menu_row then
                     when submenu is
                         Theme ->
                             { row: model.menu_row, choices }
+
                         Verbosity ->
                             { row: model.menu_row + 1, choices }
                 else
                     selection = Model.get_highlighted_item(model)
                     when submenu is
-                        Theme -> 
+                        Theme ->
                             { row: model.menu_row, choices: choices |> Choices.set_config_theme(selection |> Heck.to_kebab_case) }
-                        Verbosity -> 
+
+                        Verbosity ->
                             { row: model.menu_row + 1, choices: choices |> Choices.set_config_verbosity(selection |> Heck.to_kebab_case) }
 
             { model &
@@ -486,7 +490,7 @@ to_settings_menu_state = |model|
             }
 
         PlatformSelect({ choices }) ->
-            new_choices = 
+            new_choices =
                 if model.cursor.row < model.menu_row then
                     choices
                 else
@@ -529,7 +533,7 @@ to_settings_submenu_state = |model, submenu|
         when submenu is
             Theme -> model.theme_names |> List.sort_with(Compare.str) |> List.map(Heck.to_title_case)
             Verbosity -> ["Verbose", "Quiet", "Silent"]
-            # Platform -> model.platform_menu
+    # Platform -> model.platform_menu
 
     choices = Model.get_choices(model)
     { model &
@@ -932,7 +936,7 @@ clear_search_filter = |model|
 append_to_buffer : Model, Str -> Model
 append_to_buffer = |model, str|
     when model.state is
-        Search({ search_buffer, choices , prior_sender }) ->
+        Search({ search_buffer, choices, prior_sender }) ->
             new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
             { model & state: Search({ choices, search_buffer: new_buffer, prior_sender }) }
 
