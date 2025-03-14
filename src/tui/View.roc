@@ -376,11 +376,14 @@ render_app_confirmation = |model, theme|
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row + 2, c: 2, fg: theme.primary }),
             ],
             if List.is_empty(packages) then
-                [
-                    "none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: theme.secondary }),
-                ]
+                List.join(
+                    [
+                        ["none" |> ANSI.draw_text({ r: model.menu_row + 2, c: 12, fg: theme.secondary })],
+                        render_flags(model, theme, model.menu_row + 3),
+                    ],
+                )
             else
-                render_multi_line_text(
+                lines = render_multi_line_text(
                     packages,
                     {
                         start_col: 12,
@@ -390,9 +393,41 @@ render_app_confirmation = |model, theme|
                         word_delim: ", ",
                         fg: theme.secondary,
                     },
+                )
+                flags_renderers = render_flags(model, theme, model.menu_row + 2 + Num.int_cast(List.len(lines)))
+                List.join(
+                    [
+                        lines,
+                        flags_renderers,
+                    ],
                 ),
         ],
     )
+
+render_flags : Model, Theme, U16 -> List ANSI.DrawFn
+render_flags = |model, theme, row|
+    flags = Model.get_choices(model) |> Choices.get_flags
+    if List.is_empty(flags) then
+        []
+    else
+        prompt_renderer = "Flags:" |> ANSI.draw_text({ r: row, c: 2, fg: theme.primary })
+        flags_renderers = render_multi_line_text(
+            flags,
+            {
+                start_col: 9,
+                start_row: row,
+                max_col: model.screen.width - 1,
+                wrap_col: 2,
+                word_delim: ", ",
+                fg: theme.warn,
+            },
+        )
+        List.join(
+            [
+                [prompt_renderer],
+                flags_renderers,
+            ],
+        )
 
 render_package_confirmation : Model, Theme -> List ANSI.DrawFn
 render_package_confirmation = |model, theme|
@@ -410,11 +445,14 @@ render_package_confirmation = |model, theme|
                 "Packages:" |> ANSI.draw_text({ r: model.menu_row, c: 2, fg: theme.primary }),
             ],
             if List.is_empty(packages) then
-                [
-                    "none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: theme.secondary }),
-                ]
+                List.join(
+                    [
+                        ["none" |> ANSI.draw_text({ r: model.menu_row, c: 12, fg: theme.secondary })],
+                        render_flags(model, theme, model.menu_row + 1),
+                    ],
+                )
             else
-                render_multi_line_text(
+                lines = render_multi_line_text(
                     packages,
                     {
                         start_col: 12,
@@ -424,6 +462,13 @@ render_package_confirmation = |model, theme|
                         word_delim: ", ",
                         fg: theme.secondary,
                     },
+                )
+                flags_renderers = render_flags(model, theme, model.menu_row + Num.int_cast(List.len(lines)))
+                List.join(
+                    [
+                        lines,
+                        flags_renderers,
+                    ],
                 ),
         ],
     )
@@ -544,7 +589,7 @@ render_upgrade_confirmation = |model, theme|
         _ -> []
 
 render_choose_flags : Model, Theme -> List ANSI.DrawFn
-render_choose_flags = |model, theme| 
+render_choose_flags = |model, theme|
     List.join(
         [
             [

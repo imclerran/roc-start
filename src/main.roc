@@ -193,7 +193,7 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logg
         (_, _, Err(e), _) -> Err(e)
         (_, _, _, Err(e)) -> Err(e)
 
-do_app_command! : { filename : Str, force : Bool, no_script: Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
+do_app_command! : { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
     log_level = logging.log_level
     theme = logging.theme

@@ -82,16 +82,16 @@ get_actions = |model|
             |> with_prev_page(model)
             |> with_next_page(model)
 
-        Confirmation(_) -> 
+        Confirmation(_) ->
             [Exit, Finish]
             |> with_set_flags(model)
             |> |actions| List.append(actions, GoBack)
 
         ChooseFlags(_) ->
-            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown, GoBack]
+            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
             |> with_prev_page(model)
             |> with_next_page(model)
-        
+
         Search({ search_buffer }) ->
             [Exit, SearchGo, Cancel, TextInput(None)]
             |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
@@ -102,7 +102,7 @@ get_actions = |model|
 with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
 with_prev_page = |actions, model| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
 with_next_page = |actions, model| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
-with_set_flags = |actions, model| 
+with_set_flags = |actions, model|
     when Model.get_choices(model) is
         App(_) | Package(_) -> List.append(actions, SetFlags)
         _ -> actions
@@ -401,11 +401,12 @@ confirmation_handler = |model, action|
                 UpdateSelect(_) -> Step(to_update_select_state(model))
                 SettingsMenu(_) -> Step(to_settings_menu_state(model))
                 ChooseFlags({ choices }) ->
-                    when choices is 
+                    when choices is
                         App(_) | Package(_) -> Step(to_package_select_state(model))
                         _ -> Step(model)
+
                 _ -> Step(model)
-        
+
         SetFlags -> Step(to_choose_flags_state(model))
         _ -> Step(model)
 
@@ -931,7 +932,7 @@ to_choose_flags_state : Model -> Model
 to_choose_flags_state = |model|
     when model.state is
         Confirmation({ choices }) ->
-            menu = 
+            menu =
                 when choices is
                     App(_) -> ["Force", "No Script"]
                     Package(_) -> ["Force"]
@@ -946,7 +947,7 @@ to_choose_flags_state = |model|
                         selected,
                         sender: model.state,
                     }
-                
+
                 _ -> model
 
         _ -> model

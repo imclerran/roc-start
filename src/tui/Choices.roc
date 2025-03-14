@@ -31,11 +31,11 @@ import rtils.StrUtils
 import heck.Heck
 
 Choices : [
-    App { filename : Str, force : Bool, no_script: Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
+    App { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
     Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
-    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes: Bool },
+    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes : Bool },
     NothingToDo,
 ]
 
@@ -156,14 +156,14 @@ set_flags = |choices, flags|
                 { config &
                     force: List.contains(kebab_flags, "force"),
                     no_script: List.contains(kebab_flags, "no-script"),
-                }
+                },
             )
 
         Package(config) ->
             Package(
                 { config &
                     force: List.contains(kebab_flags, "force"),
-                }
+                },
             )
 
         _ -> choices
