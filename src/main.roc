@@ -267,7 +267,7 @@ do_app_command! = |arg_data, logging|
                                 Err(e) -> Err(e)
                     when chmod_res is
                         Err(err) ->
-                            ["| Failed to make generation script executable: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                            ["| Failed to make platform script executable: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                             build_default_app!(arg_data.filename, platform_release, package_releases)
                             |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
@@ -282,13 +282,13 @@ do_app_command! = |arg_data, logging|
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                                 Ok(_) ->
-                                    ["| Failed to run generation script: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    ["| Failed to run platform script: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                                     build_default_app!(arg_data.filename, platform_release, package_releases)
                                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                                 Err(err) ->
-                                    ["| Failed to run generation script: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    ["| Failed to run platform script: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                                     build_default_app!(arg_data.filename, platform_release, package_releases)
                                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
