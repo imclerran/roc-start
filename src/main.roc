@@ -1,12 +1,11 @@
 app [main!] {
     cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.19.0/Hj-J_zxz7V9YurCSTFcFdu6cQJie4guzsPMUi5kBYUk.tar.br",
-    semver: "https://github.com/imclerran/roc-semver/releases/download/v0.2.0%2Bimclerran/ePmzscvLvhwfllSFZGgTp77uiTFIwZQPgK_TiM6k_1s.tar.br",
     weaver: "https://github.com/smores56/weaver/releases/download/0.6.0/4GmRnyE7EFjzv6dDpebJoWWwXV285OMt4ntHIc6qvmY.tar.br",
-    parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
-    rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
-    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
-    heck: "https://github.com/imclerran/roc-heck/releases/download/v0.1.0/jxGXBo18syk4Ej1V5Y7lP5JnjKlCg_yIzdadvx7Tqc8.tar.br",
+    themes: "themes/main.roc",
+    repos: "repos/main.roc",
+    tui: "tui/main.roc",
+    
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -20,19 +19,19 @@ import cli.Env
 import cli.Path
 import cli.Tty
 import ansi.ANSI
-import Model exposing [Model]
-import View
-import Controller
-import InputHandlers exposing [handle_input]
-import Theme exposing [Theme]
+import tui.Model exposing [Model]
+import tui.View
+import tui.Controller
+import tui.InputHandlers exposing [handle_input]
+import themes.Theme exposing [Theme]
 import ArgParser
-import RepoUpdater {
+import repos.Updater {
     write_bytes!: File.write_bytes!,
     cmd_output!: Cmd.output!,
     cmd_new: Cmd.new,
     cmd_args: Cmd.args,
 } as RU
-import RepoManager as RM exposing [RepositoryDict, RepositoryRelease]
+import repos.Manager as RM exposing [RepositoryDict, RepositoryRelease]
 import ScriptManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
@@ -40,7 +39,7 @@ import ScriptManager {
         list_dir!: Dir.list!,
         path_to_str: Path.display,
     } exposing [cache_scripts!]
-import ThemeManager {
+import themes.Manager {
     env_var!: Env.var!,
     is_file!: File.is_file!,
     read_bytes!: File.read_bytes!,
@@ -718,7 +717,7 @@ ui_loop! : Model, Theme => Result Model _
 ui_loop! = |prev_model, theme|
     terminal_size = get_terminal_size!({})?
     model = Controller.paginate({ prev_model & screen: terminal_size })
-    ANSI.draw_screen(model, render(model, theme)) |> Stdout.write!?
+    ANSI.draw_screen(model, View.render(model, theme)) |> Stdout.write!?
     input = Stdin.bytes!({}) |> Result.map_ok(ANSI.parse_raw_stdin)?
     when handle_input(model, input) is
         Step(next_model) -> ui_loop!(next_model, theme)
@@ -735,18 +734,3 @@ get_terminal_size! = |{}|
     |> Result.map_ok(|{ row, col }| { width: col, height: row })
     |> Result.map_err(|e| Exit(1, "Error while getting terminal size: ${Inspect.to_str(e)}"))
 
-render : Model, Theme -> List ANSI.DrawFn
-render = |model, theme|
-    when model.state is
-        MainMenu(_) -> View.render_main_menu(model, theme)
-        SettingsMenu(_) -> View.render_settings_menu(model, theme)
-        SettingsSubmenu(_) -> View.render_settings_submenu(model, theme)
-        InputAppName(_) -> View.render_input_app_name(model, theme)
-        PlatformSelect(_) -> View.render_platform_select(model, theme)
-        PackageSelect(_) -> View.render_package_select(model, theme)
-        VersionSelect(_) -> View.render_version_select(model, theme)
-        UpdateSelect(_) -> View.render_update_select(model, theme)
-        Search(_) -> View.render_search(model, theme)
-        Confirmation(_) -> View.render_confirmation(model, theme)
-        Splash(_) -> View.render_splash(model, theme)
-        _ -> []

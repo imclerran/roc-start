@@ -14,7 +14,7 @@ module [
 import ansi.ANSI
 import rtils.Compare
 import Choices exposing [Choices]
-import RepoManager as RM exposing [RepositoryRelease]
+import repos.Manager as RM exposing [RepositoryRelease]
 
 Model : {
     screen : ANSI.ScreenSize,

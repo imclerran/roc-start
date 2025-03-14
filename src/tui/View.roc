@@ -1,16 +1,17 @@
 module [
-    render_main_menu,
-    render_settings_menu,
-    render_settings_submenu,
-    render_input_app_name,
-    render_platform_select,
-    render_package_select,
-    render_version_select,
-    render_update_select,
-    render_search,
-    render_confirmation,
-    render_splash,
-    render_box,
+    render,
+    # render_main_menu,
+    # render_settings_menu,
+    # render_settings_submenu,
+    # render_input_app_name,
+    # render_platform_select,
+    # render_package_select,
+    # render_version_select,
+    # render_update_select,
+    # render_search,
+    # render_confirmation,
+    # render_splash,
+    # render_box,
 ]
 
 import AsciiArt
@@ -19,7 +20,24 @@ import Controller exposing [UserAction]
 import Model exposing [Model]
 import ansi.ANSI
 import Choices
-import Theme exposing [Theme]
+import themes.Theme exposing [Theme]
+
+# Main render function for rendering the model
+render : Model, Theme -> List ANSI.DrawFn
+render = |model, theme|
+    when model.state is
+        MainMenu(_) -> render_main_menu(model, theme)
+        SettingsMenu(_) -> render_settings_menu(model, theme)
+        SettingsSubmenu(_) -> render_settings_submenu(model, theme)
+        InputAppName(_) -> render_input_app_name(model, theme)
+        PlatformSelect(_) -> render_platform_select(model, theme)
+        PackageSelect(_) -> render_package_select(model, theme)
+        VersionSelect(_) -> render_version_select(model, theme)
+        UpdateSelect(_) -> render_update_select(model, theme)
+        Search(_) -> render_search(model, theme)
+        Confirmation(_) -> render_confirmation(model, theme)
+        Splash(_) -> render_splash(model, theme)
+        _ -> []
 
 ## Render functions for each page
 render_screen_prompt = |text, color| text |> ANSI.draw_text({ r: 1, c: 2, fg: color })

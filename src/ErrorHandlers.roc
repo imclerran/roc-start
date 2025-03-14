@@ -12,7 +12,7 @@ module [
     handle_update_local_repos_error,
 ]
 
-import RepoManager as RM
+import repos.Manager as RM
 
 handle_platform_repo_error = |name, { log_level, theme, log!, colorize }|
     |err|
