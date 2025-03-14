@@ -8,7 +8,6 @@ app [main!] {
     themes: "themes/main.roc",
     repos: "repos/main.roc",
     tui: "tui/main.roc",
-    
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -256,7 +255,7 @@ do_app_command! = |arg_data, logging|
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
             when script_path_res is
                 Ok(script_path) if !arg_data.no_script ->
-                    chmod_res = 
+                    chmod_res =
                         Cmd.new("chmod")
                         |> Cmd.args(["+x", script_path])
                         |> Cmd.output!
@@ -274,7 +273,6 @@ do_app_command! = |arg_data, logging|
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                         Ok(_) ->
-                        # |> Result.map_err(|e| Exit(1, ["Failed to make generation script executable: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                             res =
                                 Cmd.new(script_path)
                                 |> Cmd.args(cmd_args)
@@ -283,7 +281,7 @@ do_app_command! = |arg_data, logging|
                                 Ok(0) ->
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
-                                Ok(_)  ->
+                                Ok(_) ->
                                     ["| Failed to run generation script: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                                     build_default_app!(arg_data.filename, platform_release, package_releases)
                                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
