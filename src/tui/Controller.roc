@@ -1,126 +1,21 @@
-module [UserAction, get_actions, apply_action, action_is_available, paginate]
+module [apply_action, paginate]
 
 import Choices
-import Keys exposing [Key]
+import Keys
 import Model exposing [Model]
+import UserAction exposing [UserAction]
 import Utils
 import repos.Manager as RM
 import rtils.StrUtils
 import rtils.Compare
 import heck.Heck
 
-UserAction : [
-    Cancel,
-    ClearFilter,
-    CursorDown,
-    CursorUp,
-    Exit,
-    Finish,
-    GoBack,
-    MultiConfirm,
-    MultiSelect,
-    VersionSelect,
-    NextPage,
-    PrevPage,
-    Search,
-    SearchGo,
-    SingleSelect,
-    TextInput Key,
-    TextBackspace,
-    TextSubmit,
-    SetFlags,
-    Secret,
-    None,
-]
-
-## Get the available actions for the current state
-get_actions : Model -> List UserAction
-get_actions = |model|
-    when model.state is
-        PlatformSelect(_) ->
-            [Exit, SingleSelect]
-            |> |actions| if Model.get_highlighted_item(model) == "No change" then actions else List.append(actions, VersionSelect)
-            |> |actions| List.join([actions, [CursorUp, CursorDown]])
-            |> with_search_or_clear_filter(model)
-            |> List.append(GoBack)
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        PackageSelect(_) ->
-            [Exit, MultiSelect, VersionSelect, MultiConfirm, CursorUp, CursorDown]
-            |> with_search_or_clear_filter(model)
-            |> List.append(GoBack)
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        MainMenu(_) ->
-            [Exit, SingleSelect, CursorUp, CursorDown, Secret]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        InputAppName({ name_buffer }) ->
-            [Exit, TextSubmit, TextInput(None)]
-            |> |actions| List.append(actions, (if List.is_empty(name_buffer) then GoBack else TextBackspace))
-
-        VersionSelect(_) ->
-            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        UpdateSelect(_) ->
-            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown, GoBack]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        SettingsMenu(_) ->
-            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        SettingsSubmenu(_) ->
-            [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        Confirmation(_) ->
-            [Exit, Finish]
-            |> with_set_flags(model)
-            |> |actions| List.append(actions, GoBack)
-
-        ChooseFlags(_) ->
-            [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
-            |> with_prev_page(model)
-            |> with_next_page(model)
-
-        Search({ search_buffer }) ->
-            [Exit, SearchGo, Cancel, TextInput(None)]
-            |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
-
-        Splash(_) -> [Exit, GoBack]
-        _ -> [Exit]
-
-with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
-with_prev_page = |actions, model| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
-with_next_page = |actions, model| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
-with_set_flags = |actions, model|
-    when Model.get_choices(model) is
-        App(_) | Package(_) -> List.append(actions, SetFlags)
-        _ -> actions
-
-## Check if the user action is available in the current state
-action_is_available : Model, UserAction -> Bool
-action_is_available = |model, action|
-    actions = get_actions(model)
-    when action is
-        TextInput(_) -> List.contains(actions, TextInput(None))
-        _ -> List.contains(actions, action)
-
 ## Translate the user action into a state transition by dispatching to the appropriate handler
 apply_action : Model, UserAction -> [Step Model, Done Model]
 apply_action = |model, action|
     if action == Exit then
         Done(to_user_exited_state(model))
-    else if action_is_available(model, action) then
+    else if Model.action_is_available(model, action) then
         when model.state is
             MainMenu(_) -> main_menu_handler(model, action)
             SettingsMenu(_) -> settings_menu_handler(model, action)

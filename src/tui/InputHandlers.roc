@@ -2,11 +2,12 @@ module [handle_input]
 
 import ansi.ANSI exposing [Input]
 import Model exposing [Model]
-import Controller exposing [UserAction]
+import UserAction exposing [UserAction]
+import Controller
 
 handle_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_input = |model, input|
-    input_handlers = Controller.get_actions(model) |> List.map(action_to_input_handler)
+    input_handlers = Model.get_actions(model) |> List.map(action_to_input_handler)
     action = List.walk_until(
         input_handlers,
         None,
