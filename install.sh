@@ -49,7 +49,7 @@ if [ -f "./roc-start" ]; then
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
 
     # Prompt the user to install shell completions
-    read -p "Do you want to install shell completions? (Y/n): " install_completions
+    read -p "Do you want to install shell auto completions? (Y/n): " install_completions
     if [[ "$install_completions" =~ ^[Yy]$ || -z "$install_completions" ]]; then
         source "$SCRIPT_DIR/install.d/setup_completion.sh"
     fi
