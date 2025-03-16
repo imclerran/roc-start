@@ -12,8 +12,10 @@ module [
 ]
 
 import ansi.ANSI
+
 import rtils.Compare
 import Choices exposing [Choices]
+import State exposing [State]
 import repos.Manager as RM exposing [RepositoryRelease]
 
 Model : {
@@ -37,23 +39,6 @@ Model : {
     # theme : Theme,
     # including theme in model, whether imported from theme module, or redefined internally using Color causes compiler crash
 }
-
-State : [
-    MainMenu { choices : Choices },
-    SettingsMenu { choices : Choices },
-    SettingsSubmenu { choices : Choices, submenu : [Theme, Verbosity] },
-    InputAppName { name_buffer : List U8, choices : Choices },
-    Search { search_buffer : List U8, choices : Choices, prior_sender : State },
-    PlatformSelect { choices : Choices },
-    PackageSelect { choices : Choices },
-    VersionSelect { choices : Choices, repo : { name : Str, version : Str } },
-    UpdateSelect { choices : Choices },
-    Confirmation { choices : Choices },
-    ChooseFlags { choices : Choices },
-    Finished { choices : Choices },
-    Splash { choices : Choices },
-    UserExited,
-]
 
 no_choices = NothingToDo
 
