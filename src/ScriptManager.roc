@@ -77,7 +77,7 @@ download_script! = |url, dir_path, filename|
     else
         text = resp.body |> Str.from_utf8_lossy
         create_all_dirs!("${dir_path}") ? |_| FileWriteError
-        file_path = "${dir_path}/${filename}"
+        file_path = dir_path |> Str.drop_suffix("/") |> |path| "${path}/${filename}"
         file_write_utf8!(text, file_path) |> Result.map_err(|_| FileWriteError)
 
 # Script selection
@@ -104,7 +104,8 @@ semver_with_default = |s| Semver.parse(Str.drop_prefix(s, "v")) |> Result.with_d
 
 get_available_scripts! : Str, Str => List Str
 get_available_scripts! = |cache_dir, repo|
-    list_dir!("${cache_dir}/${repo}")
+    dir_path = cache_dir |> Str.drop_suffix("/")
+    list_dir!("${dir_path}/${repo}")
     |> Result.with_default([])
     |> List.map(
         |path|

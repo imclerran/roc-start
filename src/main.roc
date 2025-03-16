@@ -5,9 +5,10 @@ app [main!] {
     rtils: "https://github.com/imclerran/rtils/releases/download/v0.1.5/qkk2T6MxEFLNKfQFq9GBk3nq6S2TMkbtHPt7KIHnIew.tar.br",
     parse: "https://github.com/imclerran/roc-tinyparse/releases/download/v0.3.3/kKiVNqjpbgYFhE-aFB7FfxNmkXQiIo2f_mGUwUlZ3O0.tar.br",
     semver: "https://github.com/imclerran/roc-semver/releases/download/v0.2.0%2Bimclerran/ePmzscvLvhwfllSFZGgTp77uiTFIwZQPgK_TiM6k_1s.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
     themes: "themes/main.roc",
     repos: "repos/main.roc",
-    tui: "tui/main.roc",
+    tui: "tui/main.roc", 
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -248,7 +249,7 @@ do_app_command! = |arg_data, logging|
             cache_dir =
                 get_repo_dir!({})
                 ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-                |> Str.concat("/scripts/")
+                |> Str.concat("/scripts")
             scripts = ScriptManager.get_available_scripts!(cache_dir, platform_repo)
             script_path_res =
                 ScriptManager.choose_script(platform_release.tag, scripts)
@@ -447,6 +448,7 @@ do_package_update! = |{ log_level, theme }|
     repo_dir =
         get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
     "Updating packages " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_packages_csv =
         Http.send!({ Http.default_request & uri: known_packages_url })
@@ -466,6 +468,7 @@ do_platform_update! = |{ log_level, theme }|
     repo_dir =
         get_repo_dir!({})
         ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
     "Updating platforms " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     known_platforms_csv =
         Http.send!({ Http.default_request & uri: known_platforms_url })
@@ -493,6 +496,7 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
     cache_dir =
         get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
         |> Str.concat("/scripts")
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
     cache_scripts!(platforms, cache_dir, logger!)
@@ -502,7 +506,10 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
 
 do_themes_update! : { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
 do_themes_update! = |{ log_level, theme }|
-    home = Env.var!("HOME") ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+    home = 
+        Env.var!("HOME") 
+        ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartthemes"
     "Updating themes " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     TM.update_themes!(file_path)?
@@ -706,7 +713,10 @@ do_tui_command! = |{ log_level, theme }|
     { platforms, packages } =
         get_repositories!({ log_level, theme })
         |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
-    repo_dir = get_repo_dir!({}) ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+    repo_dir = 
+        get_repo_dir!({}) 
+        ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
     scripts_exists = dir_exits!("${repo_dir}/scripts")
     _ = if !(scripts_exists) then do_scripts_update!(Some(platforms), { log_level, theme }) else Ok({})
     theme_names = TM.load_themes!({}) |> List.map(|t| t.name)

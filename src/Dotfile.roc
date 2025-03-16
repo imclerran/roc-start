@@ -48,7 +48,10 @@ config_to_str = |config|
 
 load_dotfile! : {} => Result Config [HomeVarNotSet, NoDotFileFound, InvalidDotFile, FileReadError]
 load_dotfile! = |{}|
-    home = env_var!("HOME") ? |_| HomeVarNotSet
+    home = 
+        env_var!("HOME") 
+        ? |_| HomeVarNotSet
+        |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
     if file_exists!(file_path) then
         file_contents = read_utf8!(file_path) ? |_| FileReadError
@@ -141,7 +144,10 @@ create_default_dotfile! = |{}|
 
 save_config! : Config => Result {} [HomeVarNotSet, FileWriteError]
 save_config! = |config|
-    home = env_var!("HOME") ? |_| HomeVarNotSet
+    home = 
+        env_var!("HOME") 
+        ? |_| HomeVarNotSet
+        |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
     contents = config_to_str(config)
     write_utf8!(contents, file_path) |> Result.map_err(|_| FileWriteError)
@@ -150,7 +156,10 @@ default_config = { verbosity: Verbose, theme: Theme.default, platform: { name: "
 
 save_to_dotfile! : { key : Str, value : Str } => Result {} [HomeVarNotSet, FileWriteError, FileReadError]
 save_to_dotfile! = |{ key, value }|
-    home = env_var!("HOME") ? |_| HomeVarNotSet
+    home = 
+        env_var!("HOME") 
+        ? |_| HomeVarNotSet
+        |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
     if file_exists!(file_path) then
         file_contents = read_utf8!(file_path) ? |_| FileReadError
@@ -182,7 +191,7 @@ load_custom_themes! = |{}|
         if home_res == Err(HomeVarNotSet) then
             return Ok([])
         else
-            home_res |> Result.with_default("")
+            home_res |> Result.with_default("") |> Str.drop_suffix("/")
 
     file_path = "${home}/.rocstartthemes"
     if file_exists!(file_path) then
