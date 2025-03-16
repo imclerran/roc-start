@@ -35,7 +35,7 @@ extended_usage =
 cli_parser =
     { Cli.weave <-
         verbosity: Opt.maybe_str({ short: "v", long: "verbosity", help: "Set the verbosity level to one of: verbose, quiet, or silent." }) |> Cli.map(verbosity_to_log_level),
-        subcommand: SubCmd.optional([tui_subcommand, update_subcommand, app_subcommand, package_subcommand, upgrade_subcommand, config_subcommand]),
+        subcommand: SubCmd.optional([update_subcommand, app_subcommand, package_subcommand, upgrade_subcommand, config_subcommand]),
     }
     |> Cli.finish(
         {
@@ -142,18 +142,8 @@ package_subcommand =
         },
     )
 
-# Other subcommands
+# Roc-start management subcommands
 # -----------------------------------------------------------------------------
-
-tui_subcommand =
-    Opt.flag({ short: "s", long: "secret" })
-    |> SubCmd.finish(
-        {
-            name: "tui",
-            description: "Use the TUI app to browse and search for platforms and packages.",
-            mapper: Tui,
-        },
-    )
 
 update_subcommand =
     { Cli.weave <-

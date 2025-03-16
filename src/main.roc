@@ -94,10 +94,6 @@ main! = |args|
                     do_upgrade_command!(upgrade_args, logging)
                     |> Result.map_err(handle_unhandled_errors(log_level, theme))
 
-                Ok(Tui(_tui_args)) ->
-                    do_tui_command!(logging)
-                    |> Result.map_err(handle_unhandled_errors(log_level, theme))
-
                 Ok(Config(config_args)) ->
                     do_config_command!(config_args, logging)
                     |> Result.map_err(handle_unhandled_errors(log_level, theme))
