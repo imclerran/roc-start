@@ -11,15 +11,26 @@ module [
     menu_is_filtered,
     get_choices,
     get_buffer_len,
+    paginate,
+    add_selected_packages_to_config,
+    clear_search_filter,
+    append_to_buffer,
+    backspace_buffer,
+    clear_buffer,
+    toggle_selected,
+    next_page,
+    prev_page,
+    move_cursor,
 ]
 
-import ansi.ANSI
-
-import rtils.Compare
+import Utils
 import Choices exposing [Choices]
 import State exposing [State]
 import UserAction exposing [UserAction]
+import ansi.ANSI
 import repos.Manager as RM exposing [RepositoryRelease]
+import rtils.Compare
+
 
 Model : {
     screen : ANSI.ScreenSize,
@@ -220,3 +231,150 @@ get_buffer_len = |model|
         InputAppName({ name_buffer }) -> List.len(name_buffer)
         Search({ search_buffer }) -> List.len(search_buffer)
         _ -> 0
+
+## Split the menu into pages, and adjust the cursor position if necessary
+paginate : Model -> Model
+paginate = |model|
+    max_items =
+        Num.sub_checked(model.screen.height, (model.menu_row + 1))
+        |> Result.with_default(0)
+        |> Num.to_u64
+    page_first_item =
+        if List.len(model.menu) < max_items and model.page_first_item > 0 then
+            idx = Num.to_i64(List.len(model.full_menu)) - Num.to_i64(max_items)
+            if idx >= 0 then Num.to_u64(idx) else 0
+        else
+            model.page_first_item
+    menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+    cursor_row =
+        if model.cursor.row >= model.menu_row + Num.to_u16(List.len(menu)) and List.len(menu) > 0 then
+            model.menu_row + Num.to_u16(List.len(menu)) - 1
+        else
+            model.cursor.row
+    cursor = { row: cursor_row, col: model.cursor.col }
+    { model & menu, page_first_item, cursor }
+
+## Add the selected packages to the configuration
+add_selected_packages_to_config : Model -> Model
+add_selected_packages_to_config = |model|
+    when model.state is
+        PackageSelect(data) ->
+            package_repos = Model.get_selected_items(model) |> List.map(Utils.menu_item_to_repo)
+            new_choices = data.choices |> Choices.set_packages(package_repos)
+            { model & state: PackageSelect({ data & choices: new_choices }) }
+
+        _ -> model
+
+## Clear the search filter
+clear_search_filter : Model -> Model
+clear_search_filter = |model|
+    when model.state is
+        PackageSelect(_) ->
+            { model &
+                full_menu: model.package_menu,
+                cursor: { row: 2, col: 2 },
+            }
+
+        PlatformSelect({ choices }) ->
+            menu =
+                when choices is
+                    Upgrade(_) -> [["No change"], model.platform_menu] |> List.join
+                    _ -> model.platform_menu
+            { model &
+                full_menu: menu,
+                cursor: { row: 2, col: 2 },
+            }
+
+        _ -> model
+
+## Append a key to the name or search buffer
+append_to_buffer : Model, Str -> Model
+append_to_buffer = |model, str|
+    when model.state is
+        Search({ search_buffer, choices, prior_sender }) ->
+            new_buffer = List.concat(search_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
+            { model & state: Search({ choices, search_buffer: new_buffer, prior_sender }) }
+
+        InputAppName({ name_buffer, choices }) ->
+            new_buffer = List.concat(name_buffer, (Utils.str_to_slug(str) |> Str.to_utf8))
+            { model & state: InputAppName({ choices, name_buffer: new_buffer }) }
+
+        _ -> model
+
+## Remove the last character from the name or search buffer
+backspace_buffer : Model -> Model
+backspace_buffer = |model|
+    when model.state is
+        Search({ search_buffer, choices, prior_sender }) ->
+            new_buffer = List.drop_last(search_buffer, 1)
+            { model & state: Search({ choices, search_buffer: new_buffer, prior_sender }) }
+
+        InputAppName({ name_buffer, choices }) ->
+            new_buffer = List.drop_last(name_buffer, 1)
+            { model & state: InputAppName({ choices, name_buffer: new_buffer }) }
+
+        _ -> model
+
+## Clear the search buffer
+clear_buffer : Model -> Model
+clear_buffer = |model|
+    when model.state is
+        Search({ choices, prior_sender }) ->
+            { model & state: Search({ choices, search_buffer: [], prior_sender }) }
+
+        InputAppName({ choices }) ->
+            { model & state: InputAppName({ choices, name_buffer: [] }) }
+
+        _ -> model
+
+## Toggle the selected state of an item in a multi-select menu
+toggle_selected : Model -> Model
+toggle_selected = |model|
+    item = Model.get_highlighted_item(model)
+    if List.contains(model.selected, item) then
+        { model & selected: List.drop_if(model.selected, |i| i == item) }
+    else
+        { model & selected: List.append(model.selected, item) }
+
+## Move to the next page if possible
+next_page : Model -> Model
+next_page = |model|
+    max_items = model.screen.height - (model.menu_row + 1) |> Num.to_u64
+    if Model.is_not_last_page(model) then
+        page_first_item = model.page_first_item + max_items
+        menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+        cursor = { row: model.menu_row, col: model.cursor.col }
+        { model & menu, page_first_item, cursor }
+    else
+        model
+
+## Move to the previous page if possible
+prev_page : Model -> Model
+prev_page = |model|
+    max_items = model.screen.height - (model.menu_row + 1) |> Num.to_u64
+    if Model.is_not_first_page(model) then
+        page_first_item = if (Num.to_i64(model.page_first_item) - Num.to_i64(max_items)) > 0 then model.page_first_item - max_items else 0
+        menu = List.sublist(model.full_menu, { start: page_first_item, len: max_items })
+        cursor = { row: model.menu_row, col: model.cursor.col }
+        { model & menu, page_first_item, cursor }
+    else
+        model
+
+## Move the cursor up or down
+move_cursor : Model, [Up, Down] -> Model
+move_cursor = |model, direction|
+    if List.len(model.menu) > 0 then
+        when direction is
+            Up ->
+                if model.cursor.row <= Num.to_u16(model.menu_row) then
+                    { model & cursor: { row: Num.to_u16(List.len(model.menu)) + model.menu_row - 1, col: model.cursor.col } }
+                else
+                    { model & cursor: { row: model.cursor.row - 1, col: model.cursor.col } }
+
+            Down ->
+                if model.cursor.row >= Num.to_u16((List.len(model.menu) - 1)) + Num.to_u16(model.menu_row) then
+                    { model & cursor: { row: Num.to_u16(model.menu_row), col: model.cursor.col } }
+                else
+                    { model & cursor: { row: model.cursor.row + 1, col: model.cursor.col } }
+    else
+        model

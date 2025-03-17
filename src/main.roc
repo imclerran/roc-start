@@ -24,7 +24,6 @@ import cli.Tty
 import ansi.ANSI
 import tui.Model exposing [Model]
 import tui.View
-import tui.Controller
 import tui.InputHandlers exposing [handle_input]
 import themes.Theme exposing [Theme]
 import ArgParser
@@ -738,7 +737,7 @@ do_tui_command! = |{ log_level, theme }|
 ui_loop! : Model, Theme => Result Model _
 ui_loop! = |prev_model, theme|
     terminal_size = get_terminal_size!({})?
-    model = Controller.paginate({ prev_model & screen: terminal_size })
+    model = Model.paginate({ prev_model & screen: terminal_size })
     ANSI.draw_screen(model, View.render(model, theme)) |> Stdout.write!?
     input = Stdin.bytes!({}) |> Result.map_ok(ANSI.parse_raw_stdin)?
     when handle_input(model, input) is
