@@ -29,7 +29,7 @@ to_user_exited_state = |model| { model & state: UserExited, sender: model.state 
 ## Transition to the MainMenu state
 to_main_menu_state : Model -> Model
 to_main_menu_state = |model|
-    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings", "Exit"]
+    menu = Model.main_menu
     { row, choices: new_choices } =
         when model.state is
             InputAppName({ choices, name_buffer }) ->

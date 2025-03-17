@@ -1,6 +1,7 @@
 module [
     Model,
     init,
+    main_menu,
     get_actions,
     action_is_available,
     is_not_first_page,
@@ -59,9 +60,8 @@ get_actions : Model -> List UserAction
 get_actions = |model|
     when model.state is
         PlatformSelect(_) ->
-            [Exit, SingleSelect]
-            |> |actions| if Model.get_highlighted_item(model) == "No change" then actions else List.append(actions, VersionSelect)
-            |> |actions| List.join([actions, [CursorUp, CursorDown]])
+            [Exit, SingleSelect, CursorUp, CursorDown]
+            |> with_platform_version(model)
             |> with_search_or_clear_filter(model)
             |> List.append(GoBack)
             |> with_prev_page(model)
@@ -79,9 +79,9 @@ get_actions = |model|
             |> with_prev_page(model)
             |> with_next_page(model)
 
-        InputAppName({ name_buffer }) ->
+        InputAppName(_) ->
             [Exit, TextSubmit, TextInput(None)]
-            |> |actions| List.append(actions, (if List.is_empty(name_buffer) then GoBack else TextBackspace))
+            |> with_go_back_or_backspace(model)
 
         VersionSelect(_) ->
             [Exit, SingleSelect, CursorUp, CursorDown, GoBack]
@@ -106,21 +106,23 @@ get_actions = |model|
         Confirmation(_) ->
             [Exit, Finish]
             |> with_set_flags(model)
-            |> |actions| List.append(actions, GoBack)
+            |> List.append(GoBack)
 
         ChooseFlags(_) ->
             [Exit, MultiSelect, MultiConfirm, CursorUp, CursorDown]
             |> with_prev_page(model)
             |> with_next_page(model)
 
-        Search({ search_buffer }) ->
+        Search(_) ->
             [Exit, SearchGo, Cancel, TextInput(None)]
-            |> |actions| List.append(actions, (if List.is_empty(search_buffer) then GoBack else TextBackspace))
+            |> with_go_back_or_backspace(model)
 
         Splash(_) -> [Exit, GoBack]
         _ -> [Exit]
 
 with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))
+with_go_back_or_backspace = |actions, model| List.append(actions, (if Model.get_buffer_len(model) > 0 then TextBackspace else GoBack))
+with_platform_version = |actions, model| if Model.get_highlighted_item(model) == "No change" then actions else List.append(actions, VersionSelect)
 with_prev_page = |actions, model| if Model.is_not_first_page(model) then List.append(actions, PrevPage) else actions
 with_next_page = |actions, model| if Model.is_not_last_page(model) then List.append(actions, NextPage) else actions
 with_set_flags = |actions, model|
@@ -136,6 +138,8 @@ action_is_available = |model, action|
         TextInput(_) -> List.contains(actions, TextInput(None))
         _ -> List.contains(actions, action)
 
+main_menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings", "Exit"]
+
 ## Initialize the model
 init : Dict Str (List RepositoryRelease), Dict Str (List RepositoryRelease), { state ?? State, theme_names ?? List Str } -> Model
 init = |platforms, packages, { state ?? MainMenu({ choices: NothingToDo }), theme_names ?? ["default"] }|
@@ -143,14 +147,13 @@ init = |platforms, packages, { state ?? MainMenu({ choices: NothingToDo }), them
     platform_name_map = RM.build_repo_name_map(Dict.keys(platforms))
     package_menu = build_repo_menu(package_name_map)
     platform_menu = build_repo_menu(platform_name_map)
-    menu = ["Start app", "Start package", "Upgrade app", "Upgrade package", "Update roc-start", "Settings", "Exit"]
     {
         screen: { width: 0, height: 0 },
         cursor: { row: 2, col: 2 },
         menu_row: 2,
         page_first_item: 0,
-        menu: menu,
-        full_menu: menu,
+        menu: main_menu,
+        full_menu: main_menu,
         theme_names,
         platforms,
         packages,
