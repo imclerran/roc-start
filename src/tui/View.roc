@@ -4,7 +4,7 @@ module [
 
 import AsciiArt
 import BoxStyle exposing [BoxStyle, border]
-import Controller exposing [UserAction]
+import UserAction exposing [UserAction]
 import Model exposing [Model]
 import ansi.ANSI
 import Choices
@@ -93,7 +93,7 @@ control_prompts_short_dict =
 ## Build string with all available controls
 controls_prompt_str : Model -> Str
 controls_prompt_str = |model|
-    actions = Controller.get_actions(model)
+    actions = Model.get_actions(model)
     long_str = build_control_prompt_str(actions, control_prompts_dict)
     prompt_len = Num.to_u16(Str.count_utf8_bytes(long_str))
     if prompt_len <= model.screen.width - 6 and prompt_len > 0 then

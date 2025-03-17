@@ -2,11 +2,12 @@ module [handle_input]
 
 import ansi.ANSI exposing [Input]
 import Model exposing [Model]
-import Controller exposing [UserAction]
+import UserAction exposing [UserAction]
+import Controller
 
 handle_input : Model, ANSI.Input -> [Step Model, Done Model]
 handle_input = |model, input|
-    input_handlers = Controller.get_actions(model) |> List.map(action_to_input_handler)
+    input_handlers = Model.get_actions(model) |> List.map(action_to_input_handler)
     action = List.walk_until(
         input_handlers,
         None,
@@ -39,7 +40,7 @@ action_to_input_handler = |action|
         TextSubmit -> handle_text_submit
         SetFlags -> handle_set_flags
         Secret -> handle_secret
-        _ -> catch_unhandled
+        _ -> unhandled
 
 handle_cancel : Model, Input -> Result UserAction [Unhandled]
 handle_cancel = |_model, input|
@@ -167,6 +168,6 @@ handle_secret = |_model, input|
         Symbol(GraveAccent) -> Ok(Secret)
         _ -> Err(Unhandled)
 
-catch_unhandled : Model, Input -> Result UserAction [Unhandled]
-catch_unhandled = |_model, _input|
-    Ok(None)
+unhandled : Model, Input -> Result UserAction [Unhandled]
+unhandled = |_model, _input|
+    Err(Unhandled)
