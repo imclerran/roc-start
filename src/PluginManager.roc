@@ -22,7 +22,7 @@ PlatformRelease : { repo : Str, alias : Str, tag : Str, url : Str, semver : Semv
 
 plugin_url : Str, Str -> Str
 plugin_url = |repo, tag|
-    "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/scripts/${repo}/${tag}.sh"
+    "https://raw.githubusercontent.com/imclerran/roc-repo/refs/heads/main/plugins/${repo}/${tag}.sh"
 
 cache_plugins! : PlatformDict, Str, (Str => {}) => Result {} [FileWriteError, NetworkError]
 cache_plugins! = |platforms, cache_dir, logger!|
