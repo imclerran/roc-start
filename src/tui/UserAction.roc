@@ -23,5 +23,6 @@ UserAction : [
     TextSubmit,
     SetFlags,
     Secret,
+    Continue,
     None,
 ]

@@ -305,5 +305,5 @@ choose_flags_handler = |model, action|
 splash_handler : Model, UserAction -> [Step Model, Done Model]
 splash_handler = |model, action|
     when action is
-        GoBack -> Step(ST.to_main_menu_state(model))
+        Continue -> Step(ST.to_main_menu_state(model))
         _ -> Step(model)
