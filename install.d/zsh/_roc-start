@@ -32,7 +32,7 @@ _roc_start() {
         '--out=[Output file name]:output file:_files' \
         '-p+[Specify platform]:platform' \
         '--platform=[Specify platform]:platform' \
-        '--no-script[Force the use of fallback generation]' \
+        '--no-plugin[Force the use of fallback generation]' \
         '*:packages:'
       ;;
     package)
@@ -56,8 +56,8 @@ _roc_start() {
         '--packages[Update the package repositories]' \
         '-f[Update the platform repositories]' \
         '--platforms[Update the platform repositories]' \
-        '-s[Update the platform scripts]' \
-        '--scripts[Update the platform scripts]' \
+        '-s[Update the platform plugins]' \
+        '--plugins[Update the platform plugins]' \
         '-t[Update the available color themes]' \
         '--themes[Update the available color themes]'
       ;;

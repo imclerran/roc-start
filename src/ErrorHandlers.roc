@@ -8,7 +8,7 @@ module [
     handle_upgrade_platform_release_error,
     handle_upgrade_file_read_error,
     handle_upgrade_split_file_error,
-    handle_cache_scripts_error,
+    handle_cache_plugins_error,
     handle_update_local_repos_error,
 ]
 
@@ -244,15 +244,15 @@ handle_get_repositories_error = |{ log_level, theme, colorize }|
                     ParsingError -> "Error getting repositories: error parsing remote data - please file an issue at https://github.com/imclerran/roc-start."
             Err(Exit(1, [err_message] |> colorize([theme.error])))
 
-handle_cache_scripts_error = |{ log_level, theme, colorize }|
+handle_cache_plugins_error = |{ log_level, theme, colorize }|
     |err|
         if log_level == Silent then
             Err(Exit(1, ""))
         else
             err_message =
                 when err is
-                    FileWriteError -> "Error caching scripts: file write error."
-                    NetworkError -> "Error caching scripts: network error - check your connection."
+                    FileWriteError -> "Error caching plugins: file write error."
+                    NetworkError -> "Error caching plugins: network error - check your connection."
             Err(Exit(1, [err_message] |> colorize([theme.error])))
 
 handle_update_local_repos_error = |{ log_level, theme, colorize }|
