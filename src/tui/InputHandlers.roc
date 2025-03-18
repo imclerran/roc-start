@@ -40,6 +40,7 @@ action_to_input_handler = |action|
         TextSubmit -> handle_text_submit
         SetFlags -> handle_set_flags
         Secret -> handle_secret
+        Continue -> handle_continue
         _ -> unhandled
 
 handle_cancel : Model, Input -> Result UserAction [Unhandled]
@@ -166,6 +167,12 @@ handle_secret : Model, Input -> Result UserAction [Unhandled]
 handle_secret = |_model, input|
     when input is
         Symbol(GraveAccent) -> Ok(Secret)
+        _ -> Err(Unhandled)
+
+handle_continue : Model, Input -> Result UserAction [Unhandled]
+handle_continue = |_model, input|
+    when input is
+        Action(Enter) -> Ok(Continue)
         _ -> Err(Unhandled)
 
 unhandled : Model, Input -> Result UserAction [Unhandled]

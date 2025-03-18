@@ -50,6 +50,7 @@ control_prompts_dict =
     |> Dict.insert(Cancel, "ESC : CANCEL")
     |> Dict.insert(Finish, "ENTER : FINISH")
     |> Dict.insert(SetFlags, "F : FLAGS")
+    |> Dict.insert(Continue, "ENTER : CONTINUE")
     |> Dict.insert(PrevPage, "< PREV")
     |> Dict.insert(NextPage, "> NEXT")
 
@@ -68,6 +69,7 @@ control_prompts_trunc_dict =
     |> Dict.insert(Cancel, "ESC : CNCL")
     |> Dict.insert(Finish, "ENTER : GO")
     |> Dict.insert(SetFlags, "F : FLGS")
+    |> Dict.insert(Continue, "ENTER : CNT")
     |> Dict.insert(PrevPage, "<")
     |> Dict.insert(NextPage, ">")
 
@@ -87,6 +89,7 @@ control_prompts_short_dict =
     |> Dict.insert(Cancel, "ESC")
     |> Dict.insert(Finish, "ENTER")
     |> Dict.insert(SetFlags, "F")
+    |> Dict.insert(Continue, "ENTER")
     |> Dict.insert(PrevPage, "<")
     |> Dict.insert(NextPage, ">")
 

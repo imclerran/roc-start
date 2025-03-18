@@ -32,7 +32,6 @@ import ansi.ANSI
 import repos.Manager as RM exposing [RepositoryRelease]
 import rtils.Compare
 
-
 Model : {
     screen : ANSI.ScreenSize,
     cursor : ANSI.CursorPosition,
@@ -117,7 +116,7 @@ get_actions = |model|
             [Exit, SearchGo, Cancel, TextInput(None)]
             |> with_go_back_or_backspace(model)
 
-        Splash(_) -> [Exit, GoBack]
+        Splash(_) -> [Exit, Continue]
         _ -> [Exit]
 
 with_search_or_clear_filter = |actions, model| List.append(actions, (if Model.menu_is_filtered(model) then ClearFilter else Search))

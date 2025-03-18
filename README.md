@@ -4,6 +4,8 @@
 [![GitHub last commit][last_commit_badge]][last_commit_link]
 [![CI status][ci_status_badge]][ci_status_link]
 
+![CLI usage example](assets/roc.png)
+
 Roc-start is a CLI tool for generating application headers for a new roc application.
 
 Starting a new roc app which requires multiple packages can be a bit cumbersome, due to the requirement for long urls which cannot be easily memorized. This typically requires opening previous projects which have some of the same dependencies, and copy/pasting from there, or visiting multiple github pages, finding the release page, and copying the url of the required assets.
