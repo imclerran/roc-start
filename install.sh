@@ -46,6 +46,14 @@ roc build $SRC_DIR/main.roc --output roc-start $LINKER $OPTIMIZE > /dev/null 2>&
 if [ -f "./roc-start" ]; then
     chmod +x ./roc-start
     mv ./roc-start $LOCAL_BIN
+
+    # Check for the existence of $HOME/.cache/roc-start/scripts/ and rename it to plugins
+    SCRIPTS_DIR="$HOME/.cache/roc-start/scripts"
+    PLUGINS_DIR="$HOME/.cache/roc-start/plugins"
+    if [ -d "$SCRIPTS_DIR" ]; then
+        mv "$SCRIPTS_DIR" "$PLUGINS_DIR"
+    fi
+
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
 
     # Prompt the user to install shell completions
