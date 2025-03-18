@@ -34,13 +34,13 @@ import repos.Updater {
     cmd_args: Cmd.args,
 } as RU
 import repos.Manager as RM exposing [RepositoryDict, RepositoryRelease]
-import ScriptManager {
+import PluginManager {
         http_send!: Http.send!,
         file_write_utf8!: File.write_utf8!,
         create_all_dirs!: Dir.create_all!,
         list_dir!: Dir.list!,
         path_to_str: Path.display,
-    } exposing [cache_scripts!]
+    } exposing [cache_plugins!]
 import themes.Manager {
     env_var!: Env.var!,
     is_file!: File.is_file!,
@@ -151,9 +151,9 @@ do_config_command! = |args, logging|
         )?
         ["Configuration saved. ", "✔\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
 
-do_update_command! : { do_platforms : Bool, do_packages : Bool, do_scripts : Bool, do_themes : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
-do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logging|
-    do_all = List.all([do_platforms, do_packages, do_scripts, do_themes], |b| !b)
+do_update_command! : { do_platforms : Bool, do_packages : Bool, do_plugins : Bool, do_themes : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
+do_update_command! = |{ do_platforms, do_packages, do_plugins, do_themes }, logging|
+    do_all = List.all([do_platforms, do_packages, do_plugins, do_themes], |b| !b)
     pf_res =
         if do_platforms or do_all then
             do_platform_update!(logging)
@@ -167,12 +167,12 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logg
             Ok(Dict.empty({}))
 
     sc_res =
-        if do_scripts or do_all then
+        if do_plugins or do_all then
             maybe_pfs =
                 when pf_res is
                     Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
                     _ -> None
-            do_scripts_update!(maybe_pfs, logging)
+            do_plugins_update!(maybe_pfs, logging)
         else
             Ok({})
 
@@ -189,7 +189,7 @@ do_update_command! = |{ do_platforms, do_packages, do_scripts, do_themes }, logg
         (_, _, Err(e), _) -> Err(e)
         (_, _, _, Err(e)) -> Err(e)
 
-do_app_command! : { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
+do_app_command! : { filename : Str, force : Bool, no_plugin : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
     log_level = logging.log_level
     theme = logging.theme
@@ -207,12 +207,12 @@ do_app_command! = |arg_data, logging|
                 |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
             _ =
                 repo_dir = get_repo_dir!({}) ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-                scripts_exists =
-                    when File.is_dir!("${repo_dir}/scripts") is
+                plugins_exists =
+                    when File.is_dir!("${repo_dir}/plugins") is
                         Ok(bool) -> bool
                         Err(_) -> Bool.false
-                if !(scripts_exists) then
-                    do_scripts_update!(Some(platforms), logging)
+                if !(plugins_exists) then
+                    do_plugins_update!(Some(platforms), logging)
                 else
                     Ok({})
             ["Creating ", "${arg_data.filename}", "...\n"]
@@ -238,22 +238,22 @@ do_app_command! = |arg_data, logging|
             else
                 {}
             package_releases = resolve_package_releases!(packages, repo_name_map, arg_data.packages, logging)
-            cmd_args = build_script_args(arg_data.filename, platform_release, package_releases)
+            cmd_args = build_plugin_args(arg_data.filename, platform_release, package_releases)
             num_packages = List.len(package_releases)
             num_skipped = List.len(arg_data.packages) - num_packages
             cache_dir =
                 get_repo_dir!({})
                 ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
-                |> Str.concat("/scripts")
-            scripts = ScriptManager.get_available_scripts!(cache_dir, platform_repo)
-            script_path_res =
-                ScriptManager.choose_script(platform_release.tag, scripts)
+                |> Str.concat("/plugins")
+            plugins = PluginManager.get_available_plugins!(cache_dir, platform_repo)
+            plugin_path_res =
+                PluginManager.choose_plugin(platform_release.tag, plugins)
                 |> Result.map_ok(|s| "${cache_dir}/${platform_repo}/${s}")
-            when script_path_res is
-                Ok(script_path) if !arg_data.no_script ->
+            when plugin_path_res is
+                Ok(plugin_path) if !arg_data.no_plugin ->
                     chmod_res =
                         Cmd.new("chmod")
-                        |> Cmd.args(["+x", script_path])
+                        |> Cmd.args(["+x", plugin_path])
                         |> Cmd.output!
                         |> |chmod_output|
                             chmod_stderr = chmod_output.stderr |> Str.from_utf8_lossy
@@ -263,14 +263,14 @@ do_app_command! = |arg_data, logging|
                                 Err(e) -> Err(e)
                     when chmod_res is
                         Err(err) ->
-                            ["| Failed to make platform script executable: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                            ["| Failed to make platform plugin executable: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                             build_default_app!(arg_data.filename, platform_release, package_releases)
                             |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                             print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                         Ok(_) ->
                             res =
-                                Cmd.new(script_path)
+                                Cmd.new(plugin_path)
                                 |> Cmd.args(cmd_args)
                                 |> Cmd.output!
                             when res.status is
@@ -278,13 +278,13 @@ do_app_command! = |arg_data, logging|
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                                 Ok(_) ->
-                                    ["| Failed to run platform script: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    ["| Failed to run platform plugin: non-zero exit code - using fallback instead. \n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                                     build_default_app!(arg_data.filename, platform_release, package_releases)
                                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
                                 Err(err) ->
-                                    ["| Failed to run platform script: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
+                                    ["| Failed to run platform plugin: ${Inspect.to_str(err)} - Using fallback instead.\n"] |> colorize([theme.warn]) |> Verbose |> log!(log_level)
                                     build_default_app!(arg_data.filename, platform_release, package_releases)
                                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
@@ -294,8 +294,8 @@ do_app_command! = |arg_data, logging|
                     |> Result.map_err(|e| Exit(1, ["Error writing to ${arg_data.filename}: ${Inspect.to_str(e)}"] |> colorize([theme.error])))?
                     print_app_finish_message!(arg_data.filename, num_packages, num_skipped, logging) |> Ok
 
-build_script_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
-build_script_args = |filename, platform, packages|
+build_plugin_args : Str, RepositoryRelease, List RepositoryRelease -> List Str
+build_plugin_args = |filename, platform, packages|
     List.join(
         [
             [filename, platform.alias, platform.url],
@@ -478,9 +478,9 @@ do_platform_update! = |{ log_level, theme }|
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok(platforms)
 
-do_scripts_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
-do_scripts_update! = |maybe_pfs, { log_level, theme }|
-    "Updating scripts " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
+do_plugins_update! : [Some RepositoryDict, None], { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
+do_plugins_update! = |maybe_pfs, { log_level, theme }|
+    "Updating plugins " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     platforms =
         when maybe_pfs is
             Some(pfs) -> pfs
@@ -492,10 +492,10 @@ do_scripts_update! = |maybe_pfs, { log_level, theme }|
         get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
         |> Str.drop_suffix("/")
-        |> Str.concat("/scripts")
+        |> Str.concat("/plugins")
     logger! = |str| str |> ANSI.color({ fg: theme.secondary }) |> Quiet |> log!(log_level)
-    cache_scripts!(platforms, cache_dir, logger!)
-    |> Result.on_err(E.handle_cache_scripts_error({ log_level, theme, log!, colorize }))?
+    cache_plugins!(platforms, cache_dir, logger!)
+    |> Result.on_err(E.handle_cache_plugins_error({ log_level, theme, log!, colorize }))?
     "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
 
@@ -712,8 +712,8 @@ do_tui_command! = |{ log_level, theme }|
         get_repo_dir!({}) 
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
         |> Str.drop_suffix("/")
-    scripts_exists = dir_exits!("${repo_dir}/scripts")
-    _ = if !(scripts_exists) then do_scripts_update!(Some(platforms), { log_level, theme }) else Ok({})
+    plugins_exists = dir_exits!("${repo_dir}/plugins")
+    _ = if !(plugins_exists) then do_plugins_update!(Some(platforms), { log_level, theme }) else Ok({})
     theme_names = TM.load_themes!({}) |> List.map(|t| t.name)
     initial_model = Model.init(platforms, packages, { theme_names })
     Tty.enable_raw_mode!({})

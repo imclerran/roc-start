@@ -463,7 +463,7 @@ to_version_select_state = |model|
 ## Transition to the UpdateSelect state
 to_update_select_state : Model -> Model
 to_update_select_state = |model|
-    menu = ["Platforms", "Packages", "Scripts", "Themes"]
+    menu = ["Platforms", "Packages", "Plugins", "Themes"]
     when model.state is
         MainMenu({ choices }) ->
             new_choices = Choices.to_update(choices)
@@ -529,7 +529,7 @@ to_choose_flags_state = |model|
         Confirmation({ choices }) ->
             menu =
                 when choices is
-                    App(_) -> ["Force", "No Script"]
+                    App(_) -> ["Force", "No Plugin"]
                     Package(_) -> ["Force"]
                     _ -> []
             when choices is

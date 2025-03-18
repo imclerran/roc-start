@@ -12,13 +12,13 @@ _roc_start() {
     
     case "${COMP_WORDS[1]}" in
         update)
-            COMPREPLY=( $(compgen -W "-k --packages -f --platforms -s --scripts -t --themes ${global_opts[*]}" -- "$cur") )
+            COMPREPLY=( $(compgen -W "-k --packages -f --platforms -s --plugins -t --themes ${global_opts[*]}" -- "$cur") )
             ;;
         upgrade)
             COMPREPLY=( $(compgen -W "-i --in -p --platform ${global_opts[*]}" -- "$cur") )
             ;;
         app)
-            COMPREPLY=( $(compgen -W "-f --force -o --out -p --platform --no-script ${global_opts[*]}" -- "$cur") )
+            COMPREPLY=( $(compgen -W "-f --force -o --out -p --platform --no-plugin ${global_opts[*]}" -- "$cur") )
             ;;
         package)
             COMPREPLY=( $(compgen -W "-f --force ${global_opts[*]}" -- "$cur") )

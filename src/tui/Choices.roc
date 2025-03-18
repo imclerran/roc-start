@@ -4,8 +4,8 @@ module [
     get_filename,
     set_force,
     get_force,
-    set_no_script,
-    get_no_script,
+    set_no_plugin,
+    get_no_plugin,
     set_flags,
     get_flags,
     set_packages,
@@ -31,11 +31,11 @@ import rtils.StrUtils
 import heck.Heck
 
 Choices : [
-    App { filename : Str, force : Bool, no_script : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
+    App { filename : Str, force : Bool, no_plugin : Bool, packages : List { name : Str, version : Str }, platform : { name : Str, version : Str } },
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
     Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
-    Update { do_packages : Bool, do_platforms : Bool, do_scripts : Bool, do_themes : Bool },
+    Update { do_packages : Bool, do_platforms : Bool, do_plugins : Bool, do_themes : Bool },
     NothingToDo,
 ]
 
@@ -46,17 +46,17 @@ to_app = |choices|
             App(config)
 
         Package({ force, packages }) ->
-            App({ filename: "main.roc", force, packages, platform: { name: "", version: "" }, no_script: Bool.false })
+            App({ filename: "main.roc", force, packages, platform: { name: "", version: "" }, no_plugin: Bool.false })
 
         Upgrade({ filename, packages, platform: maybe_pf }) ->
             platform =
                 when maybe_pf is
                     Ok(pf) -> pf
                     Err(_) -> { name: "", version: "" }
-            App({ filename, force: Bool.false, packages, platform, no_script: Bool.false })
+            App({ filename, force: Bool.false, packages, platform, no_plugin: Bool.false })
 
         _ ->
-            App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" }, no_script: Bool.false })
+            App({ filename: "main.roc", force: Bool.false, packages: [], platform: { name: "", version: "" }, no_plugin: Bool.false })
 
 to_package : Choices -> Choices
 to_package = |choices|
@@ -95,7 +95,7 @@ to_update = |choices|
             Update(config)
 
         _ ->
-            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_scripts: Bool.false, do_themes: Bool.false })
+            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_plugins: Bool.false, do_themes: Bool.false })
 
 to_config : Choices -> Choices
 to_config = |choices|
@@ -135,16 +135,16 @@ get_force = |choices|
         Package(config) -> config.force
         _ -> Bool.false
 
-set_no_script : Choices, Bool -> Choices
-set_no_script = |choices, no_script|
+set_no_plugin : Choices, Bool -> Choices
+set_no_plugin = |choices, no_plugin|
     when choices is
-        App(config) -> App({ config & no_script })
+        App(config) -> App({ config & no_plugin })
         _ -> choices
 
-get_no_script : Choices -> Bool
-get_no_script = |choices|
+get_no_plugin : Choices -> Bool
+get_no_plugin = |choices|
     when choices is
-        App(config) -> config.no_script
+        App(config) -> config.no_plugin
         _ -> Bool.false
 
 set_flags : Choices, List Str -> Choices
@@ -155,7 +155,7 @@ set_flags = |choices, flags|
             App(
                 { config &
                     force: List.contains(kebab_flags, "force"),
-                    no_script: List.contains(kebab_flags, "no-script"),
+                    no_plugin: List.contains(kebab_flags, "no-plugin"),
                 },
             )
 
@@ -174,7 +174,7 @@ get_flags = |choices|
         App(config) ->
             []
             |> |ul| if config.force then List.append(ul, "force") else ul
-            |> |ul| if config.no_script then List.append(ul, "no-script") else ul
+            |> |ul| if config.no_plugin then List.append(ul, "no-plugin") else ul
 
         Package(config) ->
             if config.force then ["force"] else []
@@ -230,7 +230,7 @@ set_updates = |choices, updates|
                 {
                     do_platforms: List.contains(updates, "Platforms"),
                     do_packages: List.contains(updates, "Packages"),
-                    do_scripts: List.contains(updates, "Scripts"),
+                    do_plugins: List.contains(updates, "Plugins"),
                     do_themes: List.contains(updates, "Themes"),
                 },
             )
@@ -240,11 +240,11 @@ set_updates = |choices, updates|
 get_updates : Choices -> List Str
 get_updates = |choices|
     when choices is
-        Update({ do_platforms, do_packages, do_scripts, do_themes }) ->
+        Update({ do_platforms, do_packages, do_plugins, do_themes }) ->
             []
             |> |ul| if do_platforms then List.append(ul, "Platforms") else ul
             |> |ul| if do_packages then List.append(ul, "Packages") else ul
-            |> |ul| if do_scripts then List.append(ul, "Scripts") else ul
+            |> |ul| if do_plugins then List.append(ul, "Plugins") else ul
             |> |ul| if do_themes then List.append(ul, "Themes") else ul
 
         _ -> []

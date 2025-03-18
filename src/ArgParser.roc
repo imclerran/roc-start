@@ -40,7 +40,7 @@ cli_parser =
     |> Cli.finish(
         {
             name: "roc-start",
-            version: "v0.6.5",
+            version: "v0.7.0",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
             description: "A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.",
             text_style: Color,
@@ -61,7 +61,7 @@ verbosity_to_log_level = |verbosity|
 app_subcommand =
     { Cli.weave <-
         force: Opt.flag({ short: "f", long: "force", help: "Force overwrite of existing file." }),
-        no_script: Opt.flag({ long: "no-script", help: "Force roc-start to use fallback generation insteaad of platform specific script." }),
+        no_plugin: Opt.flag({ long: "no-plugin", help: "Force roc-start to use fallback generation insteaad of platform specific plugin." }),
         filename: Opt.maybe_str({ short: "o", long: "out", help: "The name of the output file (Defaults to `main.roc`). Extension is not required." })
         |> Cli.map(default_filename)
         |> Cli.map(with_extension),
@@ -149,13 +149,13 @@ update_subcommand =
     { Cli.weave <-
         do_packages: Opt.flag({ short: "k", long: "packages", help: "Update the package repositories." }),
         do_platforms: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
-        do_scripts: Opt.flag({ short: "s", long: "scripts", help: "Update the platform scripts." }),
+        do_plugins: Opt.flag({ short: "s", long: "plugins", help: "Update the platform plugins." }),
         do_themes: Opt.flag({ short: "t", long: "themes", help: "Update the available color themes." }),
     }
     |> SubCmd.finish(
         {
             name: "update",
-            description: "Update the platform and package repositories and scripts. Update all, or specify which to update.",
+            description: "Update the platform and package repositories and plugins. Update all, or specify which to update.",
             mapper: Update,
         },
     )

@@ -476,7 +476,7 @@ render_package_confirmation = |model, theme|
 render_update_confirmation : Model, Theme -> List ANSI.DrawFn
 render_update_confirmation = |model, theme|
     choices = Model.get_choices(model)
-    updates = choices |> Choices.get_updates |> |lu| if List.is_empty(lu) then ["Platforms", "Packages", "Scripts", "Themes"] else lu
+    updates = choices |> Choices.get_updates |> |lu| if List.is_empty(lu) then ["Platforms", "Packages", "Plugins", "Themes"] else lu
     List.join(
         [
             [
