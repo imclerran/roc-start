@@ -414,7 +414,6 @@ to_package_select_state = |model|
 
         _ -> model
 
-
 ## Transition to the VersionSelect state
 to_version_select_state : Model -> Model
 to_version_select_state = |model|
@@ -463,7 +462,7 @@ to_version_select_state = |model|
 ## Transition to the UpdateSelect state
 to_update_select_state : Model -> Model
 to_update_select_state = |model|
-    menu = ["Platforms", "Packages", "Plugins", "Themes"]
+    menu = ["Platforms", "Packages", "Plugins", "Themes", "Installation"]
     when model.state is
         MainMenu({ choices }) ->
             new_choices = Choices.to_update(choices)
@@ -571,7 +570,6 @@ to_search_state = |model|
 
 # =============================================================================
 # Helpers functions
-
 
 packages_to_menu_items : List { name : Str, version : Str } -> List Str
 packages_to_menu_items = |packages|

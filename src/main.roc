@@ -8,7 +8,7 @@ app [main!] {
     json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
     themes: "themes/main.roc",
     repos: "repos/main.roc",
-    tui: "tui/main.roc", 
+    tui: "tui/main.roc",
 }
 
 import cli.Arg exposing [to_os_raw]
@@ -55,6 +55,12 @@ import Dotfile {
     write_utf8!: File.write_utf8!,
     load_themes!: TM.load_themes!,
 } as Df
+import Installer {
+        cmd_new: Cmd.new,
+        cmd_args: Cmd.args,
+        cmd_output!: Cmd.output!,
+        delete_dirs!: Dir.delete_all!,
+    } exposing [install!]
 import Logger {
         write!: Stdout.write!,
     } exposing [LogLevel, log!, colorize]
@@ -110,7 +116,7 @@ handle_unhandled_errors = |log_level, theme|
         when e is
             _ if log_level == Silent -> Exit(1, "")
             Handled -> Exit(1, "")
-            Exit(_, _) -> e
+            Exit(n, s) -> Exit(n, [s] |> colorize([theme.error]))
             _ -> Exit(1, [Inspect.to_str(e)] |> colorize([theme.error]))
 
 app_args_with_defaults = |app_args, config|
@@ -151,43 +157,42 @@ do_config_command! = |args, logging|
         )?
         ["Configuration saved. ", "✔\n"] |> colorize([theme.primary, theme.okay]) |> Quiet |> log!(log_level) |> Ok
 
-do_update_command! : { do_platforms : Bool, do_packages : Bool, do_plugins : Bool, do_themes : Bool }, { log_level : LogLevel, theme : Theme } => Result {} _
-do_update_command! = |{ do_platforms, do_packages, do_plugins, do_themes }, logging|
-    do_all = List.all([do_platforms, do_packages, do_plugins, do_themes], |b| !b)
-    pf_res =
+do_update_command! : { do_platforms : Bool, do_packages : Bool, do_plugins : Bool, do_themes : Bool, do_install : Bool }, { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
+do_update_command! = |{ do_platforms, do_packages, do_plugins, do_themes, do_install }, logging|
+    do_all = List.all([do_platforms, do_packages, do_plugins, do_themes, do_install], |b| !b)
+    pfs = (
         if do_platforms or do_all then
             do_platform_update!(logging)
         else
             Ok(Dict.empty({}))
+    )?
 
-    pk_res =
+    (
         if do_packages or do_all then
-            do_package_update!(logging)
+            do_package_update!(logging) |> Result.map_ok(|_| {})
         else
-            Ok(Dict.empty({}))
+            Ok({})
+    )?
 
-    sc_res =
+    (
         if do_plugins or do_all then
-            maybe_pfs =
-                when pf_res is
-                    Ok(dict) if !Dict.is_empty(dict) -> Some(dict)
-                    _ -> None
+            maybe_pfs = if !Dict.is_empty(pfs) then Some(pfs) else None
             do_plugins_update!(maybe_pfs, logging)
         else
             Ok({})
+    )?
 
-    th_res =
+    (
         if do_themes or do_all then
             do_themes_update!(logging)
         else
             Ok({})
+    )?
 
-    when (pf_res, pk_res, sc_res, th_res) is
-        (Ok(_), Ok(_), Ok(_), Ok(_)) -> Ok({})
-        (Err(e), _, _, _) -> Err(e)
-        (_, Err(e), _, _) -> Err(e)
-        (_, _, Err(e), _) -> Err(e)
-        (_, _, _, Err(e)) -> Err(e)
+    if do_install then
+        do_installation!(logging)
+    else
+        Ok({})
 
 do_app_command! : { filename : Str, force : Bool, no_plugin : Bool, packages : List { name : Str, version : Str }*, platform : { name : Str, version : Str }* }*, { log_level : LogLevel, theme : Theme } => Result {} _
 do_app_command! = |arg_data, logging|
@@ -501,14 +506,25 @@ do_plugins_update! = |maybe_pfs, { log_level, theme }|
 
 do_themes_update! : { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
 do_themes_update! = |{ log_level, theme }|
-    home = 
-        Env.var!("HOME") 
+    home =
+        Env.var!("HOME")
         ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
         |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartthemes"
     "Updating themes " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
     TM.update_themes!(file_path)?
     ["[=====] ", "✔\n"] |> colorize([theme.secondary, theme.okay]) |> Quiet |> log!(log_level)
+    Ok({})
+
+do_installation! : { log_level : LogLevel, theme : Theme } => Result {} [Exit (Num *) Str]
+do_installation! = |{ log_level, theme }|
+    home =
+        Env.var!("HOME")
+        ? |_| Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
+        |> Str.drop_suffix("/")
+    "Installing roc-start (this make take a minute)... " |> ANSI.color({ fg: theme.primary }) |> Quiet |> log!(log_level)
+    install!("${home}/.cache/roc-start")?
+    "✔\n" |> ANSI.color({ fg: theme.okay }) |> Quiet |> log!(log_level)
     Ok({})
 
 do_upgrade_command! = |args, { log_level, theme }|
@@ -708,8 +724,8 @@ do_tui_command! = |{ log_level, theme }|
     { platforms, packages } =
         get_repositories!({ log_level, theme })
         |> Result.on_err(E.handle_get_repositories_error({ log_level, theme, colorize }))?
-    repo_dir = 
-        get_repo_dir!({}) 
+    repo_dir =
+        get_repo_dir!({})
         ? |_| if log_level == Silent then Exit(1, "") else Exit(1, ["Error: HOME enviornmental variable not set."] |> colorize([theme.error]))
         |> Str.drop_suffix("/")
     plugins_exists = dir_exits!("${repo_dir}/plugins")

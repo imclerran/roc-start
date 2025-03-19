@@ -40,7 +40,7 @@ cli_parser =
     |> Cli.finish(
         {
             name: "roc-start",
-            version: "v0.7.2",
+            version: "v0.7.3",
             authors: ["Ian McLerran <imclerran@protonmail.com>"],
             description: "A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.",
             text_style: Color,
@@ -151,6 +151,7 @@ update_subcommand =
         do_platforms: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
         do_plugins: Opt.flag({ short: "s", long: "plugins", help: "Update the platform plugins." }),
         do_themes: Opt.flag({ short: "t", long: "themes", help: "Update the available color themes." }),
+        do_install: Opt.flag({ short: "i", long: "install", help: "Install the latest version of roc-start." }),
     }
     |> SubCmd.finish(
         {

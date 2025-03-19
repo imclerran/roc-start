@@ -48,8 +48,8 @@ config_to_str = |config|
 
 load_dotfile! : {} => Result Config [HomeVarNotSet, NoDotFileFound, InvalidDotFile, FileReadError]
 load_dotfile! = |{}|
-    home = 
-        env_var!("HOME") 
+    home =
+        env_var!("HOME")
         ? |_| HomeVarNotSet
         |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
@@ -144,8 +144,8 @@ create_default_dotfile! = |{}|
 
 save_config! : Config => Result {} [HomeVarNotSet, FileWriteError]
 save_config! = |config|
-    home = 
-        env_var!("HOME") 
+    home =
+        env_var!("HOME")
         ? |_| HomeVarNotSet
         |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
@@ -156,8 +156,8 @@ default_config = { verbosity: Verbose, theme: Theme.default, platform: { name: "
 
 save_to_dotfile! : { key : Str, value : Str } => Result {} [HomeVarNotSet, FileWriteError, FileReadError]
 save_to_dotfile! = |{ key, value }|
-    home = 
-        env_var!("HOME") 
+    home =
+        env_var!("HOME")
         ? |_| HomeVarNotSet
         |> Str.drop_suffix("/")
     file_path = "${home}/.rocstartconfig"
