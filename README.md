@@ -86,12 +86,11 @@ To make your package or platform available in roc-start, simply make a pull requ
 A simple CLI tool for starting or upgrading roc projects. Specify your platform and packages by name, and roc-start will create a new .roc file or update an existing one with the either the versions you specify, or the latest releases. If no arguments are specified, the TUI app will be launched instead.
 
 Usage:
-  roc-start -v/--verbosity STR --theme STR [options]
+  roc-start -v/--verbosity STR [options]
   roc-start <COMMAND>
 
 Commands:
-  tui      Use the TUI app to browse and search for platforms and packages.
-  update   Update the platform and package repositories and scripts. Update all, or specify which to update.
+  update   Update the platform and package repositories and plugins. Update all, or specify which to update.
   app      Create a new roc app with the specified name, platform, and packages.
   package  Create a new roc package main file with all specified packages dependencies.
   upgrade  Upgrade the platform and/or packages in an app or package
@@ -99,7 +98,6 @@ Commands:
 
 Options:
   -v STR, --verbosity STR  Set the verbosity level to one of: verbose, quiet, or silent.
-  --theme STR              Set the color theme to use one of: roc-mono, roc-c16, roc, warn-only, no-color, coffee-cat-dark, coffee-cat-light.
   -h, --help               Show this help page.
   -V, --version            Show the version.
 ```
@@ -116,6 +114,7 @@ Arguments:
 
 Options:
   -f, --force             Force overwrite of existing file.
+  --no-plugin             Force roc-start to use fallback generation insteaad of platform specific plugin.
   -o STR, --out STR       The name of the output file (Defaults to `main.roc`). Extension is not required.
   -p STR, --platform STR  The platform to use (Defaults to `basic-cli=latest` unless otherwise configured). Set the version with `--platform <platform>:<version>`.
   -h, --help              Show this help page.
@@ -137,6 +136,23 @@ Options:
   -p STR, --platform STR  Specify the platform and version to upgrade to. If ommitted, the platform will not be upgraded. If the specified platform is different than the platform in the upgraded file, the platform will be replaced with the specified one.
   -h, --help              Show this help page.
   -V, --version           Show the version.
+```
+
+### roc-start update --help
+```
+Update the platform and package repositories and plugins. Update all (excluding installation), or specify which to update.
+
+Usage:
+  roc-start update [options]
+
+Options:
+  -k, --packages   Update the package repositories.
+  -f, --platforms  Update the platform repositories.
+  -s, --plugins    Update the platform plugins.
+  -t, --themes     Update the available color themes.
+  -i, --install    Install the latest version of roc-start.
+  -h, --help       Show this help page.
+  -V, --version    Show the version.
 ```
 
 <!-- [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FGcfjHKzb -->
