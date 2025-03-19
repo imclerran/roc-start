@@ -151,6 +151,7 @@ update_subcommand =
         do_platforms: Opt.flag({ short: "f", long: "platforms", help: "Update the platform repositories." }),
         do_plugins: Opt.flag({ short: "s", long: "plugins", help: "Update the platform plugins." }),
         do_themes: Opt.flag({ short: "t", long: "themes", help: "Update the available color themes." }),
+        do_install: Opt.flag({ short: "i", long: "install", help: "Install the latest version of roc-start." }),
     }
     |> SubCmd.finish(
         {

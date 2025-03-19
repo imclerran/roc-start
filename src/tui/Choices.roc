@@ -35,7 +35,7 @@ Choices : [
     Package { force : Bool, packages : List { name : Str, version : Str } },
     Upgrade { filename : Str, packages : List { name : Str, version : Str }, platform : [Err [NoPLatformSpecified], Ok { name : Str, version : Str }] },
     Config { theme : Result Str [NoValue], platform : Result Str [NoValue], verbosity : Result Str [NoValue] },
-    Update { do_packages : Bool, do_platforms : Bool, do_plugins : Bool, do_themes : Bool },
+    Update { do_packages : Bool, do_platforms : Bool, do_plugins : Bool, do_themes : Bool, do_install : Bool },
     NothingToDo,
 ]
 
@@ -95,7 +95,15 @@ to_update = |choices|
             Update(config)
 
         _ ->
-            Update({ do_packages: Bool.false, do_platforms: Bool.false, do_plugins: Bool.false, do_themes: Bool.false })
+            Update(
+                {
+                    do_packages: Bool.false,
+                    do_platforms: Bool.false,
+                    do_plugins: Bool.false,
+                    do_themes: Bool.false,
+                    do_install: Bool.false,
+                },
+            )
 
 to_config : Choices -> Choices
 to_config = |choices|
@@ -232,6 +240,7 @@ set_updates = |choices, updates|
                     do_packages: List.contains(updates, "Packages"),
                     do_plugins: List.contains(updates, "Plugins"),
                     do_themes: List.contains(updates, "Themes"),
+                    do_install: List.contains(updates, "Installation"),
                 },
             )
 
@@ -240,12 +249,13 @@ set_updates = |choices, updates|
 get_updates : Choices -> List Str
 get_updates = |choices|
     when choices is
-        Update({ do_platforms, do_packages, do_plugins, do_themes }) ->
+        Update({ do_platforms, do_packages, do_plugins, do_themes, do_install }) ->
             []
             |> |ul| if do_platforms then List.append(ul, "Platforms") else ul
             |> |ul| if do_packages then List.append(ul, "Packages") else ul
             |> |ul| if do_plugins then List.append(ul, "Plugins") else ul
             |> |ul| if do_themes then List.append(ul, "Themes") else ul
+            |> |ul| if do_install then List.append(ul, "Installation") else ul
 
         _ -> []
 
