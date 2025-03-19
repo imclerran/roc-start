@@ -1,6 +1,6 @@
 module [
-    str_to_slug, 
-    str_to_lower, 
+    str_to_slug,
+    str_to_lower,
     str_to_upper,
     repo_to_menu_item,
     menu_item_to_repo,
