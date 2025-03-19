@@ -51,7 +51,7 @@ echo -en "Building ${MAGENTA}roc-start${RESET}..."
 echo -e "${OPTIMIZE:+ (please be patient, this may take a minute or two)}"
 [ -z "$OPTIMIZE" ] && echo -e "${YELLOW}WARNING:${RESET} using dev build is not recommended for general use"
 
-roc build $SRC_DIR/main.roc --output roc-start $LINKER $OPTIMIZE > /dev/null 2>&1
+/usr/bin/env roc build $SRC_DIR/main.roc --output roc-start $LINKER $OPTIMIZE > /dev/null 2>&1
 # If build succeeded, copy the executable to $LOCAL_BIN and notify user
 if [ -f "./roc-start" ]; then
     chmod +x ./roc-start
@@ -78,7 +78,7 @@ if [ -f "./roc-start" ]; then
         fi
     fi
 else
-    echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed."
+    echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed." >&2
     exit 1
 fi
 
