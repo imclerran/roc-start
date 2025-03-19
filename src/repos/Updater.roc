@@ -61,7 +61,7 @@ save_repo_releases! = |releases, save_path|
 
 get_releases_cmd = |repo, alias|
     cmd_new("gh")
-    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|(endswith(\".tar.br\") or endswith(\".tar.gz\"))) | select(.name | (contains(\"docs\") or contains(\"Source code\")) | not) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
+    |> cmd_args(["api", "repos/${repo}/releases?per_page=100", "--paginate", "--jq", ".[] | . as \$release | .assets[]? | select(.name|(endswith(\".tar.br\") or endswith(\".tar.gz\"))) | select(.name | split(\".\")[0] | length == 43) | [\"${repo}\", \"${alias}\", \$release.tag_name, .browser_download_url] | @csv"])
 
 get_gh_cmd_stdout = |output|
     stdout = output.stdout |> Str.from_utf8_lossy
