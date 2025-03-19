@@ -156,7 +156,7 @@ update_subcommand =
     |> SubCmd.finish(
         {
             name: "update",
-            description: "Update the platform and package repositories and plugins. Update all, or specify which to update.",
+            description: "Update the platform and package repositories and plugins. Update all (excluding installation), or specify which to update.",
             mapper: Update,
         },
     )
