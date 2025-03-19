@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the directory of the current script
 if [ -n "$ZSH_VERSION" ]; then
@@ -30,11 +30,21 @@ RESET="\033[0m"
 [ ! -d "$LOCAL_BIN" ] && mkdir -p "$LOCAL_BIN"
 
 OPTIMIZE="--optimize"
-if [ "$1" = "-f" ] || [ "$1" = "--fast" ] || [ "$1" = "--dev" ] || [ "$1" = "--no-optimize" ] || [ "$OS_TYPE" = "Linux" ]; then
-    OPTIMIZE=""
-fi
+AUTO_YES=false
 
-SRC_DIR="src"
+# Parse command line arguments
+for arg in "$@"; do
+    if [ "$arg" = "-f" ] || [ "$arg" = "--fast" ] || [ "$arg" = "--dev" ] || [ "$arg" = "--no-optimize" ]; then
+        OPTIMIZE=""
+    elif [ "$arg" = "-y" ] || [ "$arg" = "--yes" ]; then
+        AUTO_YES=true
+    fi
+done
+
+# Also disable optimization on Linux
+[ "$OS_TYPE" = "Linux" ] && OPTIMIZE=""
+
+SRC_DIR="$SCRIPT_DIR/src"
 
 # Notify user that roc-start build process is starting
 echo -en "Building ${MAGENTA}roc-start${RESET}..."
@@ -56,10 +66,16 @@ if [ -f "./roc-start" ]; then
 
     echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
 
-    # Prompt the user to install shell completions
-    read -p "Do you want to install shell auto completions? (Y/n): " install_completions
-    if [[ "$install_completions" =~ ^[Yy]$ || -z "$install_completions" ]]; then
+    # Handle shell completions based on AUTO_YES flag
+    if [ "$AUTO_YES" = true ]; then
         source "$SCRIPT_DIR/install.d/setup_completion.sh"
+        echo "Shell auto completions installed automatically"
+    else
+        # Prompt the user to install shell completions
+        read -p "Do you want to install shell auto completions? (Y/n): " install_completions
+        if [[ "$install_completions" =~ ^[Yy]$ || -z "$install_completions" ]]; then
+            source "$SCRIPT_DIR/install.d/setup_completion.sh"
+        fi
     fi
 else
     echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed."
