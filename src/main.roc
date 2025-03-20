@@ -770,4 +770,3 @@ get_terminal_size! = |{}|
     |> Result.map_ok(ANSI.parse_cursor)
     |> Result.map_ok(|{ row, col }| { width: col, height: row })
     |> Result.map_err(|e| Exit(1, "Error while getting terminal size: ${Inspect.to_str(e)}"))
-
