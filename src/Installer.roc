@@ -7,7 +7,7 @@ module
     } -> [install!]
 
 install! = |cache_dir|
-    roc_present_cmd({})
+    roc_version_cmd({})
     |> cmd_output!
     |> .status
     |> Result.map_err(|_| Exit(1, "Roc binary could not be found."))
@@ -48,7 +48,7 @@ install! = |cache_dir|
     delete_repo!(cache_dir)
     |> Result.map_err(|e| Exit(1, "Could not delete repository at ${cache_dir}/repo: ${Inspect.to_str(e)}"))
 
-roc_present_cmd = |{}|
+roc_version_cmd = |{}|
     cmd_new("/usr/bin/env")
     |> cmd_args(["roc", "version"])
 
@@ -67,7 +67,7 @@ install_cmd = |cache_dir|
 delete_repo! = |cache_dir|
     delete_dirs!("${cache_dir}/repo")
 
-## Strip ANSI control sequences from a list of bytes. (Ensures proper JSON serialization)
+## Strip ANSI control sequences from a list of bytes.
 strip_ansi_control : List U8 -> List U8
 strip_ansi_control = |bytes|
     when List.find_first_index(bytes, |b| b == 27) is
