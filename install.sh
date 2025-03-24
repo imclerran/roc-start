@@ -1,11 +1,7 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 # Get the directory of the current script
-if [ -n "$ZSH_VERSION" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${(%):-%N}")" && pwd)"
-else
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-fi
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Check if the script is running on macOS or Linux
 OS_TYPE=$(uname)
@@ -47,9 +43,9 @@ done
 SRC_DIR="$SCRIPT_DIR/src"
 
 # Notify user that roc-start build process is starting
-echo -en "Building ${MAGENTA}roc-start${RESET}..."
-echo -e "${OPTIMIZE:+ (please be patient, this may take a minute or two)}"
-[ -z "$OPTIMIZE" ] && echo -e "${YELLOW}WARNING:${RESET} using dev build is not recommended for general use"
+printf "Building ${MAGENTA}roc-start${RESET}..."
+printf "${OPTIMIZE:+ (please be patient, this may take a minute or two)}\n"
+[ -z "$OPTIMIZE" ] && printf "${YELLOW}WARNING:${RESET} using dev build is not recommended for general use\n"
 
 /usr/bin/env roc build $SRC_DIR/main.roc --output roc-start $LINKER $OPTIMIZE > /dev/null 2>&1
 # If build succeeded, copy the executable to $LOCAL_BIN and notify user
@@ -64,31 +60,33 @@ if [ -f "./roc-start" ]; then
         mv "$SCRIPTS_DIR" "$PLUGINS_DIR"
     fi
 
-    echo -e "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN"
+    printf "Installed ${MAGENTA}roc-start${RESET} to $LOCAL_BIN\n"
 
     # Handle shell completions based on AUTO_YES flag
     if [ "$AUTO_YES" = true ]; then
-        source "$SCRIPT_DIR/install.d/setup_completion.sh"
-        echo "Shell auto completions installed automatically"
+        . "$SCRIPT_DIR/install.d/setup_completion.sh"
+        printf "Shell auto completions installed automatically\n"
     else
         # Prompt the user to install shell completions
-        read -p "Do you want to install shell auto completions? (Y/n): " install_completions
-        if [[ "$install_completions" =~ ^[Yy]$ || -z "$install_completions" ]]; then
-            source "$SCRIPT_DIR/install.d/setup_completion.sh"
-        fi
+        printf "Do you want to install shell auto completions? (Y/n): "
+        read install_completions
+        case "$install_completions" in
+            [Yy]|"") . "$SCRIPT_DIR/install.d/setup_completion.sh" ;;
+        esac
     fi
 else
-    echo -e "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed." >&2
+    printf "${RED}ERROR: ${MAGENTA}roc-start${RESET} build failed.\n" >&2
     exit 1
 fi
 
 # Check if the GitHub CLI (gh) is installed
 if ! command -v gh > /dev/null 2>&1; then
-    echo -e "${YELLOW}- NOTE: ${MAGENTA}roc-start${RESET} requires ${CYAN}gh${RESET} to be installed. Please install the GitHub CLI: https://cli.github.com"
+    printf "${YELLOW}- NOTE: ${MAGENTA}roc-start${RESET} requires ${CYAN}gh${RESET} to be installed. Please install the GitHub CLI: https://cli.github.com\n"
     exit 1
 fi
 
 # Check if $LOCAL_BIN or ~/.local/bin is in the PATH
-if [[ ":$PATH:" != *":$LOCAL_BIN:"* && ":$PATH:" != *":~/.local/bin:"* ]]; then
-    echo -e "${YELLOW}- NOTE:${RESET} $LOCAL_BIN is not in your PATH. Please make sure to add it to your shell's configuration file (e.g. ~/.zshrc, ~/.bashrc, etc.)"
-fi
+case ":$PATH:" in
+    *":$LOCAL_BIN:"*|*":$HOME/.local/bin:"*) ;;
+    *) printf "${YELLOW}- NOTE:${RESET} $LOCAL_BIN is not in your PATH. Please make sure to add it to your shell's configuration file (e.g. ~/.zshrc, ~/.bashrc, etc.)\n" ;;
+esac
