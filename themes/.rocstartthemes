@@ -36,21 +36,39 @@
     "error": ""
   },
   {
+    "name": "catppuccin-latte",
+    "primary": "#8839ef",
+    "secondary": "#209fb5",
+    "tertiary": "#4c4f69",
+    "okay": "#40a02b",
+    "warn": "#df8e1d",
+    "error": "#d20f39"
+  },
+  {
+    "name": "catppuccin-frappe",
+    "primary": "#ca9ee6",
+    "secondary": "#85c1dc",
+    "tertiary": "#c6d0f5",
+    "okay": "#a6d189",
+    "warn": "#e5c890",
+    "error": "#e78284"
+  },
+  {
+    "name": "catppuccin-macchiato",
+    "primary": "#c6a0f6",
+    "secondary": "#7dc4e4",
+    "tertiary": "#cad3f5",
+    "okay": "#a6da95",
+    "warn": "#eed49f",
+    "error": "#ed8796"
+  },
+  {
     "name": "cattpuccin-mocha",
     "primary": "#cba6f7",
     "secondary": "#74c7ec",
     "tertiary": "#cdd6f4",
     "okay": "#a6e3a1",
-    "warn": "#fab387",
+    "warn": "#f9e2af",
     "error": "#f38ba8"
-  },
-  {
-    "name": "catppuccin-latte",
-    "primary": "#8839ef",
-    "secondary": "#04a5e5",
-    "tertiary": "#4c4f69",
-    "okay": "#40a02b",
-    "warn": "#fe640b",
-    "error": "#d20f39"
   }
 ]
