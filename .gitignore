@@ -1,14 +1,19 @@
+# ingore all
 *
+
+# unignore files
 !*.*
 !*.roc
-!*.rvn
-!repos/
 !src/
-!src/roc-ansi/
-!repository
-!repository/app-stubs
-!repository/app-stubs/*
+!repos/
+!tui/
+!themes/
 !assets
 !.github/workflows/
-!ci/
-.DS_Store
+!install.d/bash/
+!/install.d/zsh/
+!install.d/zsh/_*
+
+# reignore files
+*.DS_Store
+progress.roc

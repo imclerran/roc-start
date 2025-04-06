@@ -1,0 +1,79 @@
+#compdef roc-start
+
+_roc_start() {
+  local context="$words[2]"  # Capture the subcommand
+
+  # Global options available for all commands
+  local -a global_opts=(
+    '-v+[Set verbosity level]:verbosity:(verbose quiet silent)'
+    '--verbosity=[Set verbosity level]:verbosity:(verbose quiet silent)'
+    '-h[Show help]'
+    '--help[Show help]'
+    '-V[Show version]'
+    '--version[Show version]'
+  )
+
+  case "$context" in
+    upgrade)
+      _arguments \
+        "${global_opts[@]}" \
+        '-i+[Input file to upgrade]:input file:_files' \
+        '--in=[Input file to upgrade]:input file:_files' \
+        '-p+[Specify platform]:platform' \
+        '--platform=[Specify platform]:platform' \
+        '*:packages:'
+      ;;
+    app)
+      _arguments \
+        "${global_opts[@]}" \
+        '-f[Force overwrite of existing file]' \
+        '--force[Force overwrite of existing file]' \
+        '-o+[Output file name]:output file:_files' \
+        '--out=[Output file name]:output file:_files' \
+        '-p+[Specify platform]:platform' \
+        '--platform=[Specify platform]:platform' \
+        '--no-plugin[Force the use of fallback generation]' \
+        '*:packages:'
+      ;;
+    package)
+      _arguments \
+        "${global_opts[@]}" \
+        '-f[Force overwrite of existing file]' \
+        '--force[Force overwrite of existing file]' \
+        '*:packages:'
+      ;;
+    config)
+      _arguments \
+        "${global_opts[@]}" \
+        '--set-theme=[Set default CLI color theme]:theme' \
+        '--set-verbosity=[Set default verbosity level]:verbosity:(verbose quiet silent)' \
+        '--set-default-platform=[Set default platform]:platform'
+      ;;
+    update)
+      _arguments \
+        "${global_opts[@]}" \
+        '-k[Update the package repositories]' \
+        '--packages[Update the package repositories]' \
+        '-f[Update the platform repositories]' \
+        '--platforms[Update the platform repositories]' \
+        '-s[Update the platform plugins]' \
+        '--plugins[Update the platform plugins]' \
+        '-t[Update the available color themes]' \
+        '--themes[Update the available color themes]'
+      ;;
+    *)
+      # Default subcommand suggestions with global options
+      _arguments \
+        "${global_opts[@]}" \
+        "1: :(
+          upgrade
+          app
+          package
+          config
+          update
+        )"
+      ;;
+  esac
+}
+
+_roc_start "$@"
