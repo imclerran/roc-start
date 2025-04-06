@@ -52,31 +52,6 @@
         "type": "github"
       }
     },
-    "nixgl": {
-      "inputs": {
-        "flake-utils": [
-          "roc",
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "roc",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1713543440,
-        "narHash": "sha256-lnzZQYG0+EXl/6NkGpyIz+FEOc/DSEG57AP1VsdeNrM=",
-        "owner": "guibou",
-        "repo": "nixGL",
-        "rev": "310f8e49a149e4c9ea52f1adf70cdc768ec53f8a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "guibou",
-        "repo": "nixGL",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1722403750,
@@ -97,16 +72,15 @@
       "inputs": {
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
-        "nixgl": "nixgl",
         "nixpkgs": "nixpkgs",
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1736643594,
-        "narHash": "sha256-iMUA+FTdRNsizy7eRW97t/F8UPyHypNZA4QX1slLv7Q=",
+        "lastModified": 1743859145,
+        "narHash": "sha256-4w2JNBNukoN78CHl3WRFB1Jy4V8ODMVxaFN1xbd2mw0=",
         "owner": "roc-lang",
         "repo": "roc",
-        "rev": "1a8f56e1037cc5074cc5831ced17b76707426db2",
+        "rev": "5ba1c8e24b555b4c2c625e7d718bfcb223f00281",
         "type": "github"
       },
       "original": {

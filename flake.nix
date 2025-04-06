@@ -23,7 +23,7 @@
           default = roc-start;
           roc-start = roc.lib.buildRocPackage {
             inherit pkgs roc-cli;
-            linker = "legacy";
+            linker = "surgical";
             name = "roc-start";
             src = ./.;
             entryPoint = "src/main.roc";
