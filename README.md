@@ -6,7 +6,7 @@
 
 ![CLI usage example](assets/roc.png)
 
-Roc-start is a CLI tool for generating dependency headers for a new roc application or package, or upgrading the dependencies in an existing roc file.
+Roc-start is a CLI tool for generating dependency headers for a new roc application or package, or upgrading the dependencies in an existing roc file. Think of it as the other half of the Roc package manager.
 
 Starting a new roc app which requires multiple packages can be a bit cumbersome, due to the requirement for long urls which cannot be easily memorized. This typically requires opening previous projects which have some of the same dependencies, and copy/pasting from there, or visiting multiple github pages, finding the release page, and copying the url of the required assets.
 
