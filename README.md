@@ -26,6 +26,7 @@ __As of 0.6.0:__
 - Stub application code is generated dynamically based on the specified platform version 
 - Progress bar displayed while updating local package, platform and script cache
 - TUI interface supports doing all actions available through the CLI
+
 __Post 0.6.0:__
 - 0.6.3: User defined color themes in `$HOME/.rocstartthemes`
 - 0.6.5: Support for Vim motions for menu navigation
