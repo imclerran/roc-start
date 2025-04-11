@@ -2,7 +2,7 @@
   description = "roc-start";
 
   inputs = {
-    roc.url = "github:roc-lang/roc";
+    roc.url = "github:nxy7/roc";
     nixpkgs.follows = "roc/nixpkgs";
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -23,11 +23,12 @@
           default = roc-start;
           roc-start = roc.lib.buildRocPackage {
             inherit pkgs roc-cli;
-            linker = "surgical";
+            linker = "legacy";
             name = "roc-start";
+            optimize = true;
             src = ./.;
             entryPoint = "src/main.roc";
-            outputHash = "sha256-R0LtKuWpsNQxB1OS3sRMkvYuDy0tTPScdMrhIBUGpRc=";
+            outputHash = "sha256-DKuwy3Y1d8tI7FYhsOphR/+SSOsbtpSHSBduxqGUe5s=";
           };
 
           formatter = pkgs.nixpkgs-fmt;
