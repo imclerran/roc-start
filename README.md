@@ -53,6 +53,22 @@ Roc-start is now installed to `$HOME/.local/bin/`. The first time you run `roc-s
 >
 > For these reasons, the install script does not use the optimize flag when installing on Linux. The CLI app still works great, and you should be able to use it without issue. However, the TUI depends heavily on these optimizations, and it is likely you may encounter poor performance and even crashes in the TUI when built without optimization.
 
+### Nix
+
+Roc-start is also distributed via Nix flake. This means that Nix users can run it using
+```
+  nix run github:imclerran/roc-start
+```
+or add roc-start package exported from this flake to system configuration.
+```
+  inputs = {
+    roc-start.url = "github:imclerran/roc-start";
+  };
+
+  .... later in configuration
+  devShell = pkgs.mkShell { packages = [ inputs.roc-start.packages.${system}.default ]; };
+```
+
 ## Two workflows
 
 1) Use the CLI with your prefered arguments:
