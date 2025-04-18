@@ -2,7 +2,7 @@
   description = "roc-start";
 
   inputs = {
-    roc.url = "github:nxy7/roc";
+    roc.url = "github:roc-lang/roc";
     nixpkgs.follows = "roc/nixpkgs";
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -28,7 +28,7 @@
             optimize = true;
             src = ./.;
             entryPoint = "src/main.roc";
-            outputHash = "sha256-DKuwy3Y1d8tI7FYhsOphR/+SSOsbtpSHSBduxqGUe5s=";
+            outputHash = "sha256-bEGe4MRjyfTHl5cL6ckHNmlaf5Yh86SQ6T5C4gsPGT4=";
           };
 
           formatter = pkgs.nixpkgs-fmt;
