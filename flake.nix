@@ -23,11 +23,12 @@
           default = roc-start;
           roc-start = roc.lib.buildRocPackage {
             inherit pkgs roc-cli;
-            linker = "surgical";
+            linker = "legacy";
             name = "roc-start";
+            optimize = true;
             src = ./.;
             entryPoint = "src/main.roc";
-            outputHash = "sha256-R0LtKuWpsNQxB1OS3sRMkvYuDy0tTPScdMrhIBUGpRc=";
+            outputHash = "sha256-bEGe4MRjyfTHl5cL6ckHNmlaf5Yh86SQ6T5C4gsPGT4=";
           };
 
           formatter = pkgs.nixpkgs-fmt;
