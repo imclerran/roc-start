@@ -1,4 +1,4 @@
-a# `roc-start` CLI tool 🚀
+# `roc-start` CLI tool 🚀
 
 [![Roc-Lang][roc_badge]][roc_link]
 [![GitHub last commit][last_commit_badge]][last_commit_link]
