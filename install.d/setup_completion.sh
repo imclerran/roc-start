@@ -2,11 +2,23 @@
 
 # Get the directory of the current script
 if [ -n "$ZSH_VERSION" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${(%):-%N}")" && pwd)"
+  SCRIPT_DIR="$(cd "$(dirname "${(%):-%N}")" && pwd)"
+elif [ -n "$BASH_VERSION" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
-    # POSIX-compliant way without using BASH_SOURCE
-    # Use command line arg $0 instead
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  # POSIX-compliant way without using BASH_SOURCE
+  # Use command line arg $0 instead
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  base_name=${SCRIPT_DIR##*/}
+  case "$base_name" in
+    roc-start)
+      SCRIPT_DIR="$SCRIPT_DIR/install.d";;
+    install.d) # already pointing at the correct directory; leave unchanged
+      ;;
+    *)
+      echo "Error: Could not locate 'roc-start/install.d'" >&2
+      exit 1
+  esac
 fi
 
 # Function to update .bashrc
