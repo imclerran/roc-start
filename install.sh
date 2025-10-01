@@ -26,19 +26,23 @@ RESET="\033[0m"
 [ ! -d "$LOCAL_BIN" ] && mkdir -p "$LOCAL_BIN"
 
 OPTIMIZE="--optimize"
+# disable optimization by default on Linux
+[ "$OS_TYPE" = "Linux" ] && OPTIMIZE=""
 AUTO_YES=false
 
 # Parse command line arguments
 for arg in "$@"; do
     if [ "$arg" = "-f" ] || [ "$arg" = "--fast" ] || [ "$arg" = "--dev" ] || [ "$arg" = "--no-optimize" ]; then
         OPTIMIZE=""
+    elif [ "$arg" = "--optimize" ]; then
+        OPTIMIZE="--optimize"
     elif [ "$arg" = "-y" ] || [ "$arg" = "--yes" ]; then
         AUTO_YES=true
     fi
 done
 
 # Also disable optimization on Linux
-[ "$OS_TYPE" = "Linux" ] && OPTIMIZE=""
+#[ "$OS_TYPE" = "Linux" ] && OPTIMIZE=""
 
 SRC_DIR="$SCRIPT_DIR/src"
 
